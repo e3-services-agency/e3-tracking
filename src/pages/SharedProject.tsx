@@ -22,9 +22,8 @@
  * panel's `onChanged`.
  *
  * T-4-14 (client view UX): every event and use case is a collapsed row that mounts its body (and
- * its comment panels) only when expanded; `#event-<name>` anchors expand and scroll to an event; an
- * expanded event's title row sticks under the page header (sticky inside its own wrapper, so the
- * next event takes over); a sticky left navigation (a dropdown below 1024px) with a filter and a
+ * its comment panels) only when expanded; `#event-<name>` anchors expand and scroll to an event;
+ * each list uses an aligned semantic table with inline details; a sticky left navigation (a dropdown below 1024px) with a filter and a
  * scroll spy; empty sections are not rendered. Width follows the T-4-12 constant. The pure
  * decisions live in `src/features/shared/viewHelpers.ts`.
  */
@@ -42,7 +41,6 @@ import { SourceBadge } from '@/src/components/ui/badges';
 import { IdentityCodegenTabs } from '@/src/features/shared/IdentityCodegenTabs';
 import { SetByCell } from '@/src/features/identity/SetByCell';
 import { catalogMarketLabel } from '@/src/domain/catalogs';
-import { ChevronDown, ChevronRight } from 'lucide-react';
 import { API_BASE } from '@/src/config/env';
 import { PAGE_MAX_WIDTH_CLASS } from '@/src/components/layout/PageShell';
 import { EventCardView, CertificationBadge, type EventCardData } from '@/src/features/events/components/EventCardView';
@@ -56,6 +54,8 @@ import { findingEntity } from '@/src/features/shared/findingEntity';
 import { VARIANTS_ANCHOR_PREFIX } from '@/src/features/shared/references';
 import { propertiesToMarkdown, findingsSummaryToMarkdown } from '@/src/domain/document/markdown';
 import { propertyGroupId, propertyKindGroupId, PROPERTY_CATEGORY_LABELS, formatDisplayName } from '@/src/domain/propertyCategory';
+import { SharedEntityTable, SharedEntityRow } from '@/src/features/shared/SharedEntityTable';
+import { EntityIcon } from '@/src/components/ui/EntityIcon';
 import { SharedNav } from '@/src/features/shared/SharedNav';
 import { useActiveSection } from '@/src/features/shared/useActiveSection';
 import type {
@@ -73,7 +73,6 @@ import {
   filterNav,
   eventAnchors,
   eventForHash,
-  oneLineDescription,
   EVENT_CLASS_GROUPS,
   SECTION_IDS,
   eventGroupId,
@@ -196,12 +195,12 @@ function GroupHeader({ label, actions }: { label: React.ReactNode; actions?: Rea
 
 function SimpleTable({ head, rows }: { head: string[]; rows: React.ReactNode[][] }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-xs">
+    <div role="region" aria-label="Details table" tabIndex={0} className="overflow-x-auto">
+      <table className="w-full table-fixed text-left text-xs">
         <thead className="bg-gray-50 border-b">
           <tr>
             {head.map((h) => (
-              <HintTh key={h} className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">
+              <HintTh scope="col" key={h} className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">
                 {h}
               </HintTh>
             ))}
@@ -211,7 +210,7 @@ function SimpleTable({ head, rows }: { head: string[]; rows: React.ReactNode[][]
           {rows.map((row, i) => (
             <tr key={i}>
               {row.map((cell, j) => (
-                <td key={j} className="px-3 py-2 text-gray-700">
+                <td key={j} className="px-3 py-2 align-top whitespace-pre-wrap [overflow-wrap:anywhere] text-gray-700">
                   {cell}
                 </td>
               ))}
@@ -225,7 +224,7 @@ function SimpleTable({ head, rows }: { head: string[]; rows: React.ReactNode[][]
 
 type PropertyItem = TrackingDocumentCustomerProperty | TrackingDocumentEventProperty;
 
-/** One property as a collapsed row (name, type, one-line description); expanded it shows its
+/** One property as an aligned row (full name, type and description); expanded it shows its
  * named definitions (D-58) nested under it and, for an event property, the events that use it. */
 function PropertyRow({
   property,
@@ -242,25 +241,16 @@ function PropertyRow({
 }) {
   const usedIn = 'used_in_events' in property ? property.used_in_events : [];
   return (
-    <div id={anchor} style={marginTop('event')} className="bg-white rounded-lg border shadow-sm">
-      <div className="flex items-center gap-2 px-4 py-2">
-        <button type="button" onClick={onToggle} aria-expanded={expanded} className="flex flex-1 min-w-0 items-center gap-2 text-left">
-          {expanded ? <ChevronDown size={16} className="shrink-0" /> : <ChevronRight size={16} className="shrink-0" />}
-          <span className="font-semibold text-gray-900 truncate">{property.name}</span>
-          <CategoryBadge category={property.category} className="shrink-0" />
-          <span className="shrink-0 text-xs text-gray-500">({property.data_type})</span>
-          {!expanded && property.description && (
-            <span className="hidden sm:block min-w-0 truncate text-sm text-gray-500">{oneLineDescription(property.description)}</span>
-          )}
-        </button>
-        <CopyNameButton name={property.name} />
-      </div>
+    <SharedEntityRow anchor={anchor} name={property.name} kind="property" expanded={expanded} onToggle={onToggle}
+      scrollMarginTop={stickyScrollMarginPx('event')}
+      cells={[property.description ?? '—', <CategoryBadge key="category" category={property.category} />, property.data_type,
+        <div key="actions" className="flex items-center gap-1"><CopyNameButton name={property.name} /><CopyLinkButton anchor={anchor} label={property.name} /></div>]}>
       {expanded && (
-        <div className="border-t px-4 py-3 space-y-2">
-          {property.description && <p className="text-sm text-gray-700">{property.description}</p>}
-          {property.data_formats.length > 0 && <p className="text-xs text-gray-500">Formats: {property.data_formats.map(formatDisplayName).join(', ')}</p>}
+        <div className="space-y-2">
+          {property.description && <p className="text-sm text-gray-700 whitespace-pre-wrap [overflow-wrap:anywhere]">{property.description}</p>}
+          {property.data_formats.length > 0 && <p className="text-xs text-gray-500 [overflow-wrap:anywhere]">Formats: {property.data_formats.map(formatDisplayName).join(', ')}</p>}
           {usedIn.length > 0 && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 [overflow-wrap:anywhere]">
               Used in:{' '}
               {usedIn.map((name, i) => (
                 <React.Fragment key={name}>
@@ -273,7 +263,7 @@ function PropertyRow({
           <SimpleTable
             head={['Definition', 'Description', 'Allowed values', 'Formats', 'Example']}
             rows={property.definitions.map((d) => [
-              <span key="n" className="inline-flex items-center gap-1.5">
+              <span key="n" className="inline-flex flex-wrap items-center gap-1.5">
                 {d.name}
                 <CopyNameButton name={d.name} />
               </span>,
@@ -285,7 +275,7 @@ function PropertyRow({
           />
         </div>
       )}
-    </div>
+    </SharedEntityRow>
   );
 }
 
@@ -405,6 +395,8 @@ export function SharedProject({ token }: { token: string }) {
   const [openUseCases, setOpenUseCases] = useState<Set<string>>(new Set());
   const [openProjectFindings, setOpenProjectFindings] = useState<Set<string>>(new Set());
   const [openProperties, setOpenProperties] = useState<Set<string>>(new Set());
+  const [openCatalogs, setOpenCatalogs] = useState<Set<string>>(new Set());
+  const [openMappings, setOpenMappings] = useState<Set<string>>(new Set());
   const [navQuery, setNavQuery] = useState('');
   const [openThreads, setOpenThreads] = useState<Set<string>>(new Set());
   // A nav click wins over the scroll spy until the reader scrolls again (the last sections can never reach the spy band).
@@ -529,17 +521,19 @@ export function SharedProject({ token }: { token: string }) {
       // T-4-22: a hash on a property row opens that row (its group is always rendered).
       const propertyId = propertyIdForHash(id, refIndex);
       if (propertyId) setOpenProperties((prev) => (prev.has(propertyId) ? prev : new Set(prev).add(propertyId)));
+      if (decoded.startsWith('catalog-')) setOpenCatalogs((prev) => new Set(prev).add(decoded));
+      if (groups?.mappingLeaves.some((leaf) => leaf.id === decoded)) setOpenMappings((prev) => new Set(prev).add(decoded));
       const ucItem = groups?.useCaseGroups.flatMap((g) => g.items).find((i) => i.id === id);
       if (ucItem) setOpenUseCases((prev) => new Set(prev).add(doc.use_cases[ucItem.index].id));
       if (variantsOf && event) {
         const eventEl = () => document.getElementById(variantsOf);
         const scrollToVariants = () => {
           const ev = eventEl();
-          const h = document.getElementById(decoded) ?? Array.from(ev?.querySelectorAll('h2') ?? []).find((el) => (el.textContent ?? '').startsWith('Variants'));
+          const details = document.getElementById(`${variantsOf}-details`);
+          const h = document.getElementById(decoded) ?? Array.from(details?.querySelectorAll('h2') ?? []).find((el) => (el.textContent ?? '').startsWith('Variants'));
           const el = h ?? ev;
           if (!el) return;
-          const titleRow = ev?.firstElementChild as HTMLElement | null;
-          window.scrollTo({ top: scrollTopBelowSticky(el.getBoundingClientRect().top, window.scrollY, titleRow?.offsetHeight ?? 0) });
+          window.scrollTo({ top: scrollTopBelowSticky(el.getBoundingClientRect().top, window.scrollY, 0) });
         };
         requestAnimationFrame(() => requestAnimationFrame(scrollToVariants));
         return;
@@ -603,11 +597,17 @@ export function SharedProject({ token }: { token: string }) {
   // One global pair (toolbar) covers every collapsible row; the section headers keep a local pair.
   const allPropertyIds = [...doc.properties, ...(doc.event_properties ?? [])].map((p) => p.property_id);
   const expandAll = () => {
+    setOpenCatalogs(new Set(doc.catalogs.map((c) => c.id ? refIndex.catalogAnchorById.get(c.id) ?? c.name : c.name)));
+    setOpenMappings(new Set(groups.mappingLeaves.map((m) => m.id)));
+    setOpenProjectFindings(new Set(groups.findingGroups.flatMap((g) => g.leaves.filter((l) => l.id.endsWith('-project')).map((l) => l.id))));
     setEvents(allEventIds, true);
     setUseCases(allUseCaseIds, true);
     setOpenProperties((prev) => setExpanded(prev, allPropertyIds, true));
   };
   const collapseAll = () => {
+    setOpenCatalogs(new Set());
+    setOpenMappings(new Set());
+    setOpenProjectFindings(new Set());
     setEvents(allEventIds, false);
     setUseCases(allUseCaseIds, false);
     setOpenProperties((prev) => setExpanded(prev, allPropertyIds, false));
@@ -640,7 +640,7 @@ export function SharedProject({ token }: { token: string }) {
             {header.client.name && <p className="text-xs text-gray-500 truncate leading-tight">{header.client.name}</p>}
           </div>
           <div className="ml-auto hidden md:flex items-center gap-4 text-xs">
-            {(present.events || present.useCases) && <ExpandToggles label="rows" onExpand={expandAll} onCollapse={collapseAll} />}
+            {(present.events || present.properties || present.useCases || present.catalogs || present.mapping) && <ExpandToggles label="rows" onExpand={expandAll} onCollapse={collapseAll} />}
             <a className={linkClass} href={downloadUrl(token, 'tracking-document.json')}>
               JSON
             </a>
@@ -651,7 +651,7 @@ export function SharedProject({ token }: { token: string }) {
         </div>
       </header>
 
-      <div className={`${PAGE_MAX_WIDTH_CLASS} px-8 py-6 lg:flex lg:gap-8 lg:items-start`}>
+      <div className={`${PAGE_MAX_WIDTH_CLASS} px-4 sm:px-8 py-6 lg:flex lg:gap-8 lg:items-start`}>
         <SharedNav
           items={filteredNav}
           allItems={nav}
@@ -663,7 +663,7 @@ export function SharedProject({ token }: { token: string }) {
 
         <main className="flex-1 min-w-0 space-y-6">
           <div className="md:hidden flex flex-wrap gap-3 text-xs">
-            {(present.events || present.useCases) && <ExpandToggles label="rows" onExpand={expandAll} onCollapse={collapseAll} />}
+            {(present.events || present.properties || present.useCases || present.catalogs || present.mapping) && <ExpandToggles label="rows" onExpand={expandAll} onCollapse={collapseAll} />}
             <a className={linkClass} href={downloadUrl(token, 'tracking-document.json')}>
               Download JSON
             </a>
@@ -685,7 +685,7 @@ export function SharedProject({ token }: { token: string }) {
               </h2>
               {namingLine}
               {(doc.sources ?? []).length > 0 && (
-                <p className="text-xs text-gray-500" data-testid="shared-sources">
+                <p className="text-xs text-gray-500 [overflow-wrap:anywhere]" data-testid="shared-sources">
                   Collected from:{' '}
                   {(doc.sources ?? []).map((s) => `${s.name} (${sourceViaLabel(s.system, s.method)}, ${s.event_count} event${s.event_count === 1 ? '' : 's'})`).join('; ')}
                 </p>
@@ -708,38 +708,23 @@ export function SharedProject({ token }: { token: string }) {
                         onCollapse={() => setEvents(inGroup.map((e) => e.id), false)}
                       />
                     </div>
+                    <SharedEntityTable label={label} columns={[
+                      { label: 'Name', width: '24%' }, { label: 'Description', width: '28%' }, { label: 'Sources', width: '19%' },
+                      { label: 'Certification', width: '13%' }, { label: 'Comments', width: '8%' }, { label: 'Actions', width: '8%' },
+                    ]}>
                     {inGroup.map((event) => {
                       const expanded = openEvents.has(event.id);
                       const anchor = anchorById.get(event.id) as string;
                       return (
-                        <div key={event.id} id={anchor} style={marginTop('event')} className="bg-white rounded-lg border shadow-sm">
-                          <div
-                            className={`flex items-center gap-2 px-4 py-3 bg-white rounded-t-lg ${
-                              expanded ? `sticky ${HEADER_TOP_CLASS} z-20 border-b` : 'rounded-b-lg'
-                            }`}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => toggle(setOpenEvents, event.id)}
-                              aria-expanded={expanded}
-                              className="flex flex-1 min-w-0 items-center gap-2 text-left"
-                            >
-                              {expanded ? <ChevronDown size={16} className="shrink-0" /> : <ChevronRight size={16} className="shrink-0" />}
-                              <span className="font-semibold text-gray-900 truncate">{event.name}</span>
-                              <ClassBadge eventClass={event.class} className="shrink-0" />
-                              {(event.sources ?? []).map((s) => (
-                                <SourceBadge key={s.id} system={s.system} method={s.method} color={s.color} className="shrink-0" />
-                              ))}
-                              <span className="shrink-0">
-                                <CertificationBadge certification={event.certification} compact />
-                              </span>
-                              {!expanded && event.description && (
-                                <span className="hidden sm:block min-w-0 truncate text-sm text-gray-500">
-                                  {oneLineDescription(event.description)}
-                                </span>
-                              )}
-                            </button>
-                            <CommentCountButton
+                        <SharedEntityRow key={event.id} anchor={anchor} name={event.name} kind="event"
+                          expanded={expanded} onToggle={() => toggle(setOpenEvents, event.id)} scrollMarginTop={stickyScrollMarginPx('event')}
+                          badges={<ClassBadge eventClass={event.class} />} cells={[
+                            event.description ?? '—',
+                            <div key="sources" className="flex flex-wrap gap-1.5">{(event.sources ?? []).length ? event.sources!.map((s) => (
+                              <SourceBadge key={s.id} system={s.system} method={s.method} color={s.color} className="max-w-full !whitespace-normal [overflow-wrap:anywhere]" />
+                            )) : '—'}</div>,
+                            <CertificationBadge key="certification" certification={event.certification} compact />,
+                            <CommentCountButton key="comments"
                               count={commentsFor('event', event.id).length}
                               open={openThreads.has(`event:${event.id}`)}
                               label={`event ${event.name}`}
@@ -749,12 +734,11 @@ export function SharedProject({ token }: { token: string }) {
                                   setOpenThreads((prev) => new Set(prev).add(`event:${event.id}`));
                                 } else toggleThread(`event:${event.id}`);
                               }}
-                            />
-                            <CopyNameButton name={event.name} />
-                            <CopyLinkButton anchor={anchor} label={event.name} />
-                          </div>
+                            />,
+                            <div key="actions" className="flex flex-wrap items-center gap-1"><CopyNameButton name={event.name} /><CopyLinkButton anchor={anchor} label={event.name} /></div>,
+                          ]}>
                           {expanded && (
-                            <div className="p-4">
+                            <div>
                               {openThreads.has(`event:${event.id}`) && (
                                 <div className="mb-4">
                                   <CommentsPanel
@@ -776,9 +760,10 @@ export function SharedProject({ token }: { token: string }) {
                               />
                             </div>
                           )}
-                        </div>
+                        </SharedEntityRow>
                       );
                     })}
+                    </SharedEntityTable>
                   </div>
                 );
               })}
@@ -789,8 +774,11 @@ export function SharedProject({ token }: { token: string }) {
             const groups = sharedPropertyGroups<PropertyItem>(doc as unknown as { properties: PropertyItem[]; event_properties?: PropertyItem[] });
             const totalProperties = doc.properties.length + (doc.event_properties?.length ?? 0);
             const setProperties = (ids: string[], expanded: boolean) => setOpenProperties((prev) => setExpanded(prev, ids, expanded));
-            const renderRows = (items: PropertyItem[]) =>
-              items.map((p) => (
+            const renderRows = (items: PropertyItem[]) => (
+              <SharedEntityTable label="Properties" columns={[
+                { label: 'Name', width: '28%' }, { label: 'Description', width: '40%' }, { label: 'Category', width: '15%' }, { label: 'Type', width: '9%' }, { label: 'Actions', width: '8%' },
+              ]}>
+              {items.map((p) => (
                 <PropertyRow
                   key={p.property_id}
                   property={p}
@@ -799,7 +787,9 @@ export function SharedProject({ token }: { token: string }) {
                   expanded={openProperties.has(p.property_id)}
                   onToggle={() => toggle(setOpenProperties, p.property_id)}
                 />
-              ));
+              ))}
+              </SharedEntityTable>
+            );
             return (
               <section id={SECTION_IDS.properties} style={marginTop('section')} className="space-y-3">
                 <h2
@@ -863,26 +853,19 @@ export function SharedProject({ token }: { token: string }) {
                         />
                       }
                     />
+                <SharedEntityTable label={g.label} columns={[
+                  { label: 'Name', width: '30%' }, { label: 'Description', width: '36%' }, { label: 'Status', width: '12%' }, { label: 'Comments', width: '10%' }, { label: 'Actions', width: '12%' },
+                ]}>
                 {g.items.map(({ index, id: ucAnchor }) => {
                   const uc = doc.use_cases[index];
                   const expanded = openUseCases.has(uc.id);
                   return (
-                    <div key={uc.id} id={ucAnchor} style={marginTop('event')} className="border rounded-md">
-                      <div className="flex items-center gap-2 px-3 py-2">
-                        <button
-                          type="button"
-                          onClick={() => toggle(setOpenUseCases, uc.id)}
-                          aria-expanded={expanded}
-                          className="flex flex-1 min-w-0 items-center gap-2 text-left"
-                        >
-                          {expanded ? <ChevronDown size={16} className="shrink-0" /> : <ChevronRight size={16} className="shrink-0" />}
-                          <span className="text-sm font-semibold text-gray-800 truncate">
-                            {uc.code ? `${uc.code} — ` : ''}
-                            {uc.name}
-                          </span>
-                        </button>
-                        <CopyNameButton name={uc.name} />
-                        <CommentCountButton
+                    <SharedEntityRow key={uc.id} anchor={ucAnchor} name={`${uc.code ? `${uc.code} — ` : ''}${uc.name}`} kind="use_case"
+                      expanded={expanded} onToggle={() => toggle(setOpenUseCases, uc.id)} scrollMarginTop={stickyScrollMarginPx('event')}
+                      cells={[
+                        uc.narrative ? <MarkdownView key="description" source={uc.narrative} /> : '—',
+                        enumLabelOr('status', uc.status) || '—',
+                        <CommentCountButton key="comments"
                           count={commentsFor('use_case', uc.id).length}
                           open={openThreads.has(`use_case:${uc.id}`)}
                           label={`use case ${uc.name}`}
@@ -892,19 +875,20 @@ export function SharedProject({ token }: { token: string }) {
                               setOpenThreads((prev) => new Set(prev).add(`use_case:${uc.id}`));
                             } else toggleThread(`use_case:${uc.id}`);
                           }}
-                        />
+                        />,
+                        <div key="actions" className="flex flex-wrap items-center gap-2"><CopyNameButton name={uc.name} /><CopyLinkButton anchor={ucAnchor} label={uc.name} />
                         {uc.documentation_url && (
                           <a href={uc.documentation_url} target="_blank" rel="noreferrer" className={`text-xs ${linkClass}`}>
                             Documentation
                           </a>
                         )}
-                      </div>
+                        </div>,
+                      ]}>
                       {expanded && (
                         <div className="px-3 pb-3">
-                          {uc.narrative && <div className="text-sm text-gray-700"><MarkdownView source={uc.narrative} /></div>}
                           {uc.requirements.length > 0 && (
                             <div className="overflow-x-auto mt-2">
-                              <table className="w-full text-left text-xs">
+                              <table className="w-full table-fixed text-left text-xs">
                                 <thead className="bg-gray-50 border-b">
                                   <tr>
                                     <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">Target</HintTh>
@@ -917,11 +901,11 @@ export function SharedProject({ token }: { token: string }) {
                                   {uc.requirements.map((r) => (
                                     <React.Fragment key={r.id}>
                                       <tr>
-                                        <td className="px-3 py-2">{renderRequirementTarget(r, refIndex, navigateTo)}</td>
+                                        <td className="px-3 py-2 [overflow-wrap:anywhere]">{renderRequirementTarget(r, refIndex, navigateTo)}</td>
                                         <td className="px-3 py-2">{enumLabelOr('level', r.level) || '—'}</td>
                                         <td className="px-3 py-2">{enumLabelOr('status', r.status) || '—'}</td>
                                         <td className="px-3 py-2 text-right">
-                                          <CommentCountButton
+                                          <CommentCountButton key="comments"
                                             count={commentsFor('requirement', r.id).length}
                                             open={openThreads.has(`requirement:${r.id}`)}
                                             label="this requirement"
@@ -960,9 +944,10 @@ export function SharedProject({ token }: { token: string }) {
                           )}
                         </div>
                       )}
-                    </div>
+                    </SharedEntityRow>
                   );
                 })}
+                </SharedEntityTable>
                   </div>
                 ))}
               </div>
@@ -977,15 +962,10 @@ export function SharedProject({ token }: { token: string }) {
                   {(['hard', 'soft'] as const).map((type) => (
                     <div key={type} className="mt-1">
                       <p className="text-xs font-medium text-gray-500">{type === 'hard' ? 'Hard IDs' : 'Soft IDs'}</p>
-                      <ul className="text-sm text-gray-700 list-disc ml-5">
-                        {doc.identifiers!.filter((i) => i.type === type).map((i) => (
-                          <li key={i.name}>
-                            <code>{i.name}</code>
-                            {i.is_cookie ? ' (cookie)' : ''}
-                            {i.description ? ` - ${i.description}` : ''}
-                          </li>
-                        ))}
-                      </ul>
+                      <SimpleTable head={['Name', 'Description', 'Cookie']} rows={doc.identifiers!.filter((i) => i.type === type).map((i) => [
+                        <span key="name" className="inline-flex items-start gap-1.5"><SHARED_SECTION_ICONS.identity size={14} className="shrink-0" aria-hidden="true" />{i.name}<CopyNameButton name={i.name} /></span>,
+                        i.description ?? '—', i.is_cookie ? 'yes' : '—',
+                      ])} />
                     </div>
                   ))}
                 </div>
@@ -993,7 +973,7 @@ export function SharedProject({ token }: { token: string }) {
               {doc.identification_flow && (
                 <div className="mb-3" data-testid="shared-identification-flow">
                   <h3 className="text-sm font-semibold text-gray-900">Identification flow</h3>
-                  <p className="text-sm text-gray-700 mt-1">{doc.identification_flow}</p>
+                  <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap [overflow-wrap:anywhere]">{doc.identification_flow}</p>
                 </div>
               )}
               {doc.identity_codegen && (
@@ -1009,7 +989,7 @@ export function SharedProject({ token }: { token: string }) {
               <SimpleTable
                 head={['Name', 'Identifier', 'Type', 'SDK call', 'Transformations', 'Trigger', 'Set by', 'Carried by']}
                 rows={doc.identity_rules.map((r) => [
-                  r.name,
+                  <span key="name" className="inline-flex items-start gap-1.5"><SHARED_SECTION_ICONS.identity size={14} className="shrink-0" aria-hidden="true" />{r.name}<CopyNameButton name={r.name} /></span>,
                   r.identifier_name,
                   r.identity_type,
                   r.sdk_call ?? '—',
@@ -1031,8 +1011,8 @@ export function SharedProject({ token }: { token: string }) {
                     <SimpleTable
                       head={['Name', 'Standard key', 'Status']}
                       rows={g.items.map(({ category: c, id }) => [
-                        <span key={id} id={id} style={marginTop('event')} className="inline-flex items-center gap-1.5">
-                          {c.name}
+                        <span key={id} id={id} style={marginTop('event')} className="inline-flex flex-wrap items-center gap-1.5">
+                          <EntityIcon kind="consent" />{c.name}
                           <CopyNameButton name={c.name} />
                         </span>,
                         c.standard_key ?? '—',
@@ -1046,8 +1026,11 @@ export function SharedProject({ token }: { token: string }) {
           )}
 
           {present.catalogs && (
-            <SectionCard id={SECTION_IDS.catalogs} title={`Catalogs (${doc.catalogs.length})`}>
-              <div className="space-y-4">
+            <SectionCard id={SECTION_IDS.catalogs} title={`Catalogs (${doc.catalogs.length})`}
+              actions={<ExpandToggles label="catalogs" onExpand={() => setOpenCatalogs(new Set(doc.catalogs.map((c) => c.id ? refIndex.catalogAnchorById.get(c.id) ?? c.name : c.name)))} onCollapse={() => setOpenCatalogs(new Set())} />}>
+              <SharedEntityTable label="Catalogs" columns={[
+                { label: 'Name', width: '24%' }, { label: 'Description', width: '35%' }, { label: 'Market', width: '14%' }, { label: 'Status', width: '12%' }, { label: 'Fields', width: '7%' }, { label: 'Actions', width: '8%' },
+              ]}>
                 {doc.catalogs.map((c) => {
                   const meta = [
                     c.kind ? `${c.kind} catalog` : '',
@@ -1065,21 +1048,21 @@ export function SharedProject({ token }: { token: string }) {
                     .join(' · ');
                   const fields = c.fields ?? [];
                   const mapped = c.mapped_properties ?? [];
+                  const anchor = c.id ? refIndex.catalogAnchorById.get(c.id) ?? c.name : c.name;
+                  const expanded = openCatalogs.has(anchor);
                   return (
-                    <div key={c.id ?? c.name} id={c.id ? refIndex.catalogAnchorById.get(c.id) : undefined} style={marginTop('event')} className="rounded-lg border p-4">
-                      <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-900">
-                        {c.name}
-                        <CopyNameButton name={c.name} />
-                      </h3>
-                      {meta && <p className="text-xs text-gray-500">{meta}</p>}
-                      {c.description && <p className="mt-1 text-sm text-gray-700">{c.description}</p>}
+                    <SharedEntityRow key={c.id ?? c.name} anchor={anchor} name={c.name} kind="catalog" expanded={expanded}
+                      onToggle={() => toggle(setOpenCatalogs, anchor)} scrollMarginTop={stickyScrollMarginPx('event')}
+                      cells={[c.description ?? '—', catalogMarketLabel(c.market, c.language) || '—', enumLabelOr('status', c.status) || '—', fields.length,
+                        <div key="actions" className="flex flex-wrap gap-1"><CopyNameButton name={c.name} /><CopyLinkButton anchor={anchor} label={c.name} /></div>]}>
+                      {meta && <p className="text-xs text-gray-500 [overflow-wrap:anywhere]">{meta}</p>}
                       {fields.length === 0 ? (
                         <p className="mt-2 text-xs text-gray-500">No fields defined.</p>
                       ) : (
                         <div className="mt-2">
                           <SimpleTable
                             head={['Field', 'Type', 'Lookup key', 'Searchable', 'Description']}
-                            rows={fields.map((f) => [<span key={f.name} className="inline-flex items-center gap-1.5">{f.name}<CopyNameButton name={f.name} /></span>, f.data_type ?? '—', f.is_lookup_key ? 'yes' : '—', f.is_searchable ? 'yes' : '—', f.description ?? '—'])}
+                            rows={fields.map((f) => [<span key={f.name} className="inline-flex flex-wrap items-center gap-1.5">{f.name}<CopyNameButton name={f.name} /></span>, f.data_type ?? '—', f.is_lookup_key ? 'yes' : '—', f.is_searchable ? 'yes' : '—', f.description ?? '—'])}
                           />
                         </div>
                       )}
@@ -1096,20 +1079,30 @@ export function SharedProject({ token }: { token: string }) {
                           />
                         </div>
                       )}
-                    </div>
+                    </SharedEntityRow>
                   );
                 })}
-              </div>
+              </SharedEntityTable>
             </SectionCard>
           )}
 
           {present.mapping && (
-            <SectionCard id={SECTION_IDS.mapping} title={`Standard event mappings (${doc.standard_event_mappings.length})`}>
-              {groups.mappingLeaves.map(({ index, id }) => (
-                <div key={id} id={id} style={marginTop('event')}>
-                  <StandardMappingBlock mapping={doc.standard_event_mappings[index]} eventName={doc.standard_event_mappings[index].event_name} />
-                </div>
-              ))}
+            <SectionCard id={SECTION_IDS.mapping} title={`Standard event mappings (${doc.standard_event_mappings.length})`}
+              actions={<ExpandToggles label="mappings" onExpand={() => setOpenMappings(new Set(groups.mappingLeaves.map((m) => m.id)))} onCollapse={() => setOpenMappings(new Set())} />}>
+              <SharedEntityTable label="Standard event mappings" columns={[
+                { label: 'Standard event', width: '25%' }, { label: 'Project event', width: '28%' }, { label: 'Variant', width: '27%' }, { label: 'Fields mapped', width: '12%' }, { label: 'Actions', width: '8%' },
+              ]}>
+                {groups.mappingLeaves.map(({ index, id }) => {
+                  const mapping = doc.standard_event_mappings[index];
+                  return <SharedEntityRow key={id} anchor={id} name={mapping.standard_event} kind="event"
+                    expanded={openMappings.has(id)} onToggle={() => toggle(setOpenMappings, id)} scrollMarginTop={stickyScrollMarginPx('event')}
+                    cells={[renderRef({ kind: 'event', name: mapping.event_name }, mapping.event_name), mapping.variant_name ?? '—',
+                      `${Object.values(mapping.field_map).filter(Boolean).length} / ${Object.keys(mapping.field_map).length}`,
+                      <div key="actions" className="flex flex-wrap gap-1"><CopyNameButton name={mapping.standard_event} /><CopyLinkButton anchor={id} label={mapping.standard_event} /></div>]}>
+                    <StandardMappingBlock mapping={mapping} eventName={mapping.event_name} />
+                  </SharedEntityRow>;
+                })}
+              </SharedEntityTable>
             </SectionCard>
           )}
 
@@ -1130,89 +1123,33 @@ export function SharedProject({ token }: { token: string }) {
                         </>
                       }
                     />
-                    <ul className="divide-y rounded-md border text-sm">
+                    <SharedEntityTable label={`${g.comparison} findings`} columns={[{ label: 'Entity', width: '65%' }, { label: 'Open findings', width: '20%' }, { label: 'Actions', width: '15%' }]}>
                       {g.leaves.map((l) => {
                         if (l.id.endsWith('-project')) {
                           const open = openProjectFindings.has(l.id);
                           const rows = (doc.unattached_findings ?? []).filter((f) => f.comparison === g.comparison);
-                          return (
-                            <li key={l.id} id={l.id} style={marginTop('event')} className="px-3 py-2">
-                              <button
-                                type="button"
-                                aria-expanded={open}
-                                onClick={() =>
-                                  setOpenProjectFindings((prev) => {
-                                    const next = new Set(prev);
-                                    if (!next.delete(l.id)) next.add(l.id);
-                                    return next;
-                                  })
-                                }
-                                className="flex w-full items-center justify-between gap-2 text-left"
-                              >
-                                <span className="inline-flex items-center gap-1 text-gray-700">
-                                  {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                                  {l.label}
-                                </span>
-                                <span className="text-xs text-gray-500">{l.count} open</span>
-                              </button>
-                              {open && (
-                                <ul data-testid="project-findings" className="mt-2 divide-y rounded-md border text-sm">
-                                  {rows.map((f) => {
-                                    const ent = findingEntity(f, refIndex, { catalogs: SECTION_IDS.catalogs, consents: SECTION_IDS.consents });
-                                    return (
-                                      <li key={f.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2">
-                                        <span className="font-medium"><FindingTerm kind={f.kind} /></span>
-                                        <span className="text-xs uppercase text-gray-500">{f.severity}</span>
-                                        {ent.type && (
-                                          <span className="text-xs text-gray-600">
-                                            {ent.type}
-                                            {ent.label ? ': ' : ''}
-                                            {ent.href ? (
-                                              <a
-                                                href={ent.href}
-                                                className={linkClass}
-                                                onClick={(e) => {
-                                                  e.preventDefault();
-                                                  navigateTo((ent.href as string).slice(1));
-                                                }}
-                                              >
-                                                {ent.label ?? ' open section'}
-                                              </a>
-                                            ) : (
-                                              ent.label
-                                            )}
-                                          </span>
-                                        )}
-                                        {f.message && <span className="basis-full text-gray-700">{f.message}</span>}
-                                      </li>
-                                    );
-                                  })}
-                                </ul>
-                              )}
-                            </li>
-                          );
+                          return <SharedEntityRow key={l.id} anchor={l.id} name={l.label}
+                            expanded={open} onToggle={() => toggle(setOpenProjectFindings, l.id)} scrollMarginTop={stickyScrollMarginPx('event')}
+                            cells={[l.count, <CopyLinkButton key="link" anchor={l.id} label={l.label} />]}>
+                            <div data-testid="project-findings">
+                              <SimpleTable head={['Kind', 'Severity', 'Entity', 'Description']} rows={rows.map((f) => {
+                                const ent = findingEntity(f, refIndex, { catalogs: SECTION_IDS.catalogs, consents: SECTION_IDS.consents });
+                                return [<FindingTerm key="kind" kind={f.kind} />, f.severity,
+                                  ent.href ? <a key="entity" href={ent.href} className={linkClass} onClick={(e) => { e.preventDefault(); navigateTo(ent.href!.slice(1)); }}>{ent.type}: {ent.label ?? 'open section'}</a> : [ent.type, ent.label].filter(Boolean).join(': ') || '—',
+                                  f.message ?? '—'];
+                              })} />
+                            </div>
+                          </SharedEntityRow>;
                         }
-                        return (
-                        <li key={l.id} id={l.id} style={marginTop('event')} className="flex items-center justify-between gap-2 px-3 py-2">
-                          {l.cardAnchor ? (
-                            <a
-                              href={`#${l.cardAnchor}`}
-                              className={linkClass}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                navigateTo(l.cardAnchor as string);
-                              }}
-                            >
-                              {l.label}
-                            </a>
-                          ) : (
-                            <span className="text-gray-700">{l.label}</span>
-                          )}
-                          <span className="text-xs text-gray-500">{l.count} open</span>
-                        </li>
-                        );
+                        return <tr key={l.id} id={l.id} style={marginTop('event')}>
+                          <th scope="row" className="px-3 py-3 text-left font-medium [overflow-wrap:anywhere]">
+                            {l.cardAnchor ? <a href={`#${l.cardAnchor}`} className={linkClass} onClick={(e) => { e.preventDefault(); navigateTo(l.cardAnchor!); }}><EntityIcon kind="event" className="mr-1 inline" />{l.label}</a> : l.label}
+                          </th>
+                          <td className="px-3 py-3 text-gray-600">{l.count}</td>
+                          <td className="px-3 py-3"><CopyLinkButton anchor={l.id} label={l.label} /></td>
+                        </tr>;
                       })}
-                    </ul>
+                    </SharedEntityTable>
                   </div>
                 ))}
               </div>

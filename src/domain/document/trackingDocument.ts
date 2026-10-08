@@ -366,6 +366,7 @@ export interface TrackingDocumentIdentifier {
 }
 
 export interface TrackingDocumentIdentityRule {
+  id: string;
   identifier_name: string;
   identity_type: string;
   name: string;

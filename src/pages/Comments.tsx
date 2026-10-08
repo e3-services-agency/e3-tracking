@@ -40,7 +40,7 @@ import { CommentReactions, type ReactionSummaryView } from '@/src/features/comme
 import type { CommentReactionKind } from '@/src/domain/enums';
 import { showEmptyState, showLoadingPlaceholder } from '@/src/domain/loadingState';
 
-const REMOVED_PLACEHOLDER_LABELS = new Set(['(removed event)', '(removed property)', '(removed use case)']);
+const REMOVED_PLACEHOLDER_LABELS = new Set(['(removed event)', '(removed property)', '(removed use case)', '(removed identity rule)', '(removed catalog)', '(removed property definition)']);
 
 /** `event`/`property`/`use_case` rows whose target no longer exists render as plain text, never a
  *  link. `requirement` is excluded here: whether it links is decided by `use_case_id` instead (its
@@ -56,6 +56,7 @@ interface CommentRow {
   entity_label: string;
   /** Set only for `entity_type: 'requirement'` (its owning use case); null otherwise. */
   use_case_id: string | null;
+  property_id?: string | null;
   author_name: string;
   via_share: boolean;
   internal_only: boolean;
@@ -116,6 +117,12 @@ export function Comments() {
           setSelectedItemIdToEdit(row.entity_id);
           setRequestedTab('properties');
           return;
+        case 'identity_rule':
+          setSelectedItemIdToEdit(row.entity_id); setRequestedTab('identityRules'); return;
+        case 'catalog':
+          setSelectedItemIdToEdit(row.entity_id); setRequestedTab('catalogs'); return;
+        case 'property_definition':
+          if (row.property_id) { setSelectedItemIdToEdit(row.property_id); setRequestedTab('properties'); } return;
         case 'use_case':
           setSelectedItemIdToEdit(row.entity_id);
           setRequestedTab('useCases');

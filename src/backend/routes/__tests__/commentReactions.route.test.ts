@@ -174,6 +174,32 @@ describe('shared routes', () => {
     expect(list).not.toContain('Secret');
   });
 
+  it('an independently private reply never returns its body or gains a reaction through its public root', async () => {
+    const root = mk({ via_share: true });
+    const hidden = mk({ parent_id: root.id, body: 'PRIVATE-REPLY-BODY' });
+    CommentDAL.setCommentInternalOnly(projectId, hidden.id, true);
+    toggleReaction(projectId, hidden.id, 'like', 'Private staff');
+    ProjectDAL.updateShareSettings(projectId, { share_comments: 'via_share_only' });
+    try {
+      const denied = await json('POST', shared(`/comments/${hidden.id}/reactions`), { kind: 'seen', author_name: 'Guest' });
+      const missing = await json('POST', shared('/comments/does-not-exist/reactions'), { kind: 'seen', author_name: 'Guest' });
+      expect(denied.status).toBe(404);
+      expect(missing.status).toBe(404);
+      expect(await denied.text()).toBe(await missing.text());
+      expect(listReactionSummaries(projectId, [hidden.id]).get(hidden.id)).toEqual([{ kind: 'like', count: 1, authors: ['Private staff'] }]);
+      const staff = await json('POST', `${baseUrl}/api/projects/${projectId}/comments/${hidden.id}/reactions`, { kind: 'seen' });
+      expect(staff.status).toBe(200);
+      expect((await staff.json()).comment.body).toBe('PRIVATE-REPLY-BODY');
+      // Staff-authored public replies remain permitted when the root was shared.
+      const visible = mk({ parent_id: root.id, body: 'Public staff reply' });
+      const allowed = await json('POST', shared(`/comments/${visible.id}/reactions`), { kind: 'like', author_name: 'Guest' });
+      expect(allowed.status).toBe(200);
+      expect((await allowed.json()).comment.body).toBe('Public staff reply');
+      CommentDAL.setCommentInternalOnly(projectId, root.id, true);
+      expect((await json('POST', shared(`/comments/${visible.id}/reactions`), { kind: 'seen', author_name: 'Guest' })).status).toBe(404);
+    } finally { ProjectDAL.updateShareSettings(projectId, { share_comments: 'all' }); }
+  });
+
   it('a read-only link cannot react', async () => {
     const c = mk();
     ProjectDAL.updateShareAccess(projectId, 'read');

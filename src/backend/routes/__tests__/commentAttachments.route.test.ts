@@ -308,6 +308,34 @@ describe('share files path normalisation (review fix)', () => {
 });
 
 describe('reply attachments follow their root', () => {
+  it('a private reply under a public root has the same shared file 404 as a missing image, while staff retains access', async () => {
+    const token = await createShare('comment');
+    await patchShare({ share_comments: 'via_share_only' });
+    const root = await sharedComment(token);
+    const reply = await postComment({ parent_id: root.id });
+    const att = await (await upload(`${baseUrl}/api/projects/${projectId}/comments/${reply.id}/attachments`, await png())).json();
+    const sharedFile = `${baseUrl}/api/shared/${token}/files/${att.file_path}`;
+    // Staff replies to a visible shared root stay visible even under via_share_only.
+    expect((await fetch(sharedFile)).status).toBe(200);
+    CommentDAL.setCommentInternalOnly(projectId, reply.id, true);
+    const visibleComments = await (await fetch(`${baseUrl}/api/shared/${token}/comments`)).json();
+    expect(visibleComments.some((comment: { id: string }) => comment.id === root.id)).toBe(true);
+    expect(visibleComments.some((comment: { id: string }) => comment.id === reply.id)).toBe(false);
+    const hiddenFile = await fetch(sharedFile);
+    const missingFile = await fetch(`${baseUrl}/api/shared/${token}/files/${projectId}/comments/${reply.id}/missing.png`);
+    expect(hiddenFile.status).toBe(404);
+    expect(missingFile.status).toBe(404);
+    expect(await hiddenFile.json()).toEqual(await missingFile.json());
+    expect((await fetch(`${baseUrl}/api/projects/${projectId}/files/${att.file_path}`)).status).toBe(200);
+    // Public target + private root must still deny the image, independently of the child's flag.
+    CommentDAL.setCommentInternalOnly(projectId, reply.id, false);
+    CommentDAL.setCommentInternalOnly(projectId, root.id, true);
+    expect((await fetch(sharedFile)).status).toBe(404);
+    CommentDAL.setCommentInternalOnly(projectId, root.id, false);
+    expect((await fetch(sharedFile)).status).toBe(200);
+    await patchShare({ share_comments: 'all' });
+  });
+
   it('a reply image is hidden with an internal_only root and visible with a public one', async () => {
     const token = await createShare('comment');
     for (const internalOnly of [true, false]) {

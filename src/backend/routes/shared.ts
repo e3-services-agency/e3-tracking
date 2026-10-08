@@ -171,8 +171,14 @@ router.get('/:token/files/*', requireShare, async (req: Request, res: Response) 
   }
 });
 
-/** T-5-02 helper: a comment (root or reply) is visible to the link only when its ROOT is. */
+/** A shared comment target and its root must both be public. Replies may have their own private
+ * flag (for example after a staff visibility change or backup restore), independently of the root. */
 function isCommentVisibleToLink(projectId: string, commentId: string): boolean {
+  try {
+    if (CommentDAL.getCommentOrThrow(projectId, commentId).internal_only) return false;
+  } catch {
+    return false;
+  }
   const project = ProjectDAL.getProjectOrThrow(projectId);
   return CommentDAL.getShareVisibleRoot(projectId, commentId, project.share_comments) !== null;
 }
@@ -309,12 +315,9 @@ router.post('/:token/comments', express.json({ limit: '20kb' }), requireShare, (
     const entityId = stringOrUndefined(body, 'entity_id');
     const commentBody = stringOrUndefined(body, 'body');
     const parentId = stringOrUndefined(body, 'parent_id');
-    if (parentId !== undefined) {
-      const project = ProjectDAL.getProjectOrThrow(req.projectId!);
-      if (!CommentDAL.getShareVisibleRoot(req.projectId!, parentId, project.share_comments)) {
-        shareNotFound(res);
-        return;
-      }
+    if (parentId !== undefined && !isCommentVisibleToLink(req.projectId!, parentId)) {
+      shareNotFound(res);
+      return;
     }
 
     const comment = CommentDAL.createComment(req.projectId!, {
@@ -445,8 +448,7 @@ router.post('/:token/comments/:id/reactions', express.json({ limit: '2kb' }), re
     }
     checkCommentRateLimit(req.params.token);
     const project = ProjectDAL.getProjectOrThrow(req.projectId!);
-    const root = CommentDAL.getShareVisibleRoot(req.projectId!, req.params.id, project.share_comments);
-    if (!root) {
+    if (!isCommentVisibleToLink(req.projectId!, req.params.id)) {
       shareNotFound(res);
       return;
     }

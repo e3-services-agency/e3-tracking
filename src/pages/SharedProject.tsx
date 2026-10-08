@@ -45,6 +45,8 @@ import { API_BASE } from '@/src/config/env';
 import { PAGE_MAX_WIDTH_CLASS } from '@/src/components/layout/PageShell';
 import { EventCardView, CertificationBadge, type EventCardData } from '@/src/features/events/components/EventCardView';
 import { CommentsPanel, type CommentPanelRow } from '@/src/features/comments/CommentsPanel';
+import { useCommentLink } from '@/src/features/comments/useCommentLink';
+import { parseCommentLink, resolveCommentTarget } from '@/src/features/comments/commentLinks';
 import { CommentCountButton } from '@/src/features/comments/CommentCountButton';
 import { CopyLinkButton } from '@/src/features/shared/CopyLinkButton';
 import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
@@ -233,8 +235,12 @@ function PropertyRow({
   expanded,
   onToggle,
   renderRef,
+  commentButton,
+  comments,
 }: {
   property: PropertyItem;
+  commentButton?: React.ReactNode;
+  comments?: React.ReactNode;
   anchor: string;
   expanded: boolean;
   onToggle: () => void;
@@ -245,9 +251,10 @@ function PropertyRow({
     <SharedEntityRow anchor={anchor} name={property.name} kind="property" expanded={expanded} onToggle={onToggle}
       scrollMarginTop={stickyScrollMarginPx('event')}
       cells={[property.description ?? '—', <CategoryBadge key="category" category={property.category} />, property.data_type,
-        <div key="actions" className="flex items-center gap-1"><CopyNameButton name={property.name} /><CopyLinkButton anchor={anchor} label={property.name} /></div>]}>
+        <div key="actions" className="flex flex-wrap items-center gap-1">{commentButton}<CopyNameButton name={property.name} /><CopyLinkButton anchor={anchor} label={property.name} /></div>]}>
       {expanded && (
         <div className="space-y-2">
+          {comments}
           {property.description && <p className="text-sm text-gray-700 whitespace-pre-wrap [overflow-wrap:anywhere]">{property.description}</p>}
           {property.data_formats.length > 0 && <p className="text-xs text-gray-500 [overflow-wrap:anywhere]">Formats: {property.data_formats.map(formatDisplayName).join(', ')}</p>}
           {usedIn.length > 0 && (
@@ -400,6 +407,7 @@ export function SharedProject({ token }: { token: string }) {
   const [openMappings, setOpenMappings] = useState<Set<string>>(new Set());
   const [navQuery, setNavQuery] = useState('');
   const [openThreads, setOpenThreads] = useState<Set<string>>(new Set());
+  const commentLink = useCommentLink();
   // A nav click wins over the scroll spy until the reader scrolls again (the last sections can never reach the spy band).
   const [clickedId, setClickedId] = useState<string | null>(null);
 
@@ -502,10 +510,32 @@ export function SharedProject({ token }: { token: string }) {
     };
   }, [clickedId]);
 
+  // Validate against both the visible discussion and the public entity inventory. A private or
+  // removed target never causes entity expansion or a lookup through the internal API.
+  const linkedComment = useMemo(() => {
+    if (!doc || commentLink.kind !== 'target') return null;
+    const target = commentLink.target;
+    const resolved = resolveCommentTarget(comments.filter((comment) => !comment.internal_only), target);
+    if (!resolved) return null;
+    if (target.entityType === 'event') return doc.events.some((event) => event.id === target.entityId) ? { ...resolved, target, useCaseId: null } : null;
+    if (target.entityType === 'property') return [...doc.properties, ...(doc.event_properties ?? [])].some((property) => property.property_id === target.entityId) ? { ...resolved, target, useCaseId: null } : null;
+    const owner = doc.use_cases.find((useCase) => target.entityType === 'use_case' ? useCase.id === target.entityId : useCase.requirements.some((requirement) => requirement.id === target.entityId));
+    return owner ? { ...resolved, target, useCaseId: owner.id } : null;
+  }, [doc, comments, commentLink]);
+  useEffect(() => {
+    if (!linkedComment) return;
+    const { target, useCaseId } = linkedComment;
+    const expand = (previous: Set<string>, id: string) => previous.has(id) ? previous : new Set(previous).add(id);
+    if (target.entityType === 'event') setOpenEvents((previous) => expand(previous, target.entityId));
+    if (target.entityType === 'property') setOpenProperties((previous) => expand(previous, target.entityId));
+    if (useCaseId) setOpenUseCases((previous) => expand(previous, useCaseId));
+    setOpenThreads((previous) => expand(previous, `${target.entityType}:${target.entityId}`));
+  }, [linkedComment]);
+
   /** Expands the event a hash points at (if any) and scrolls to the hash target once rendered. */
   const goToHash = useCallback(
     (hash: string) => {
-      if (!doc) return;
+      if (!doc || parseCommentLink(hash).kind !== 'none') return;
       const id = hash.startsWith('#') ? hash.slice(1) : hash;
       if (!id) return;
       let decoded = id;
@@ -564,6 +594,7 @@ export function SharedProject({ token }: { token: string }) {
   const navigateTo = useCallback(
     (id: string) => {
       window.history.replaceState(null, '', `#${id}`);
+      window.dispatchEvent(new Event('e3-comment-location-changed'));
       setClickedId(id);
       goToHash(id);
     },
@@ -667,6 +698,8 @@ export function SharedProject({ token }: { token: string }) {
         />
 
         <main className="flex-1 min-w-0 space-y-6">
+          {commentLink.kind === 'invalid' && <p role="status" className="rounded border border-amber-200 bg-amber-50 p-3 text-sm">This comment link is not valid.</p>}
+          {commentLink.kind === 'target' && !linkedComment && !loading && <p role="status" className="rounded border border-amber-200 bg-amber-50 p-3 text-sm">This comment is unavailable in this view.</p>}
           <div className="md:hidden flex flex-wrap gap-3 text-xs">
             {(present.events || present.properties || present.useCases || present.catalogs || present.mapping) && <ExpandToggles label="rows" onExpand={expandAll} onCollapse={collapseAll} />}
             <a className={linkClass} href={downloadUrl(token, 'tracking-document.json')}>
@@ -791,6 +824,11 @@ export function SharedProject({ token }: { token: string }) {
                   renderRef={renderRef}
                   expanded={openProperties.has(p.property_id)}
                   onToggle={() => toggle(setOpenProperties, p.property_id)}
+                  commentButton={<CommentCountButton count={commentsFor('property', p.property_id).length} open={openThreads.has(`property:${p.property_id}`)} label={p.name} onClick={() => {
+                    setOpenProperties((previous) => new Set(previous).add(p.property_id));
+                    toggleThread(`property:${p.property_id}`);
+                  }} />}
+                  comments={openThreads.has(`property:${p.property_id}`) ? <CommentsPanel entityType="property" entityId={p.property_id} api={api} rows={commentsFor('property', p.property_id)} onChanged={reloadComments} /> : undefined}
                 />
               ))}
               </SharedEntityTable>

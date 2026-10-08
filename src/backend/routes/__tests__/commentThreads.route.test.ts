@@ -157,6 +157,28 @@ describe('share routes', () => {
     expect(body.via_share).toBe(true);
   });
 
+  it('an independently private reply cannot be used as the parent of a new shared comment', async () => {
+    const root = CommentDAL.createComment(projectId, { ...base(), author_name: 'A', body: 'public root', via_share: true });
+    const child = CommentDAL.createComment(projectId, { ...base(), author_name: 'A', body: 'private child', parent_id: root.id });
+    CommentDAL.setCommentInternalOnly(projectId, child.id, true);
+    const before = CommentDAL.listComments(projectId).length;
+    const post = (parentId: string) => json('POST', sharedUrl('/comments'), { parent_id: parentId, author_name: 'Client', body: 'new reply' });
+    const hidden = await post(child.id);
+    const missing = await post('does-not-exist');
+    expect(hidden.status).toBe(404);
+    expect(missing.status).toBe(404);
+    expect(await hidden.text()).toBe(await missing.text());
+    expect(CommentDAL.listComments(projectId)).toHaveLength(before);
+    // A visible reply still normalizes into its permitted root as it did before.
+    CommentDAL.setCommentInternalOnly(projectId, child.id, false);
+    const visible = await post(child.id);
+    expect(visible.status).toBe(201);
+    expect((await visible.json()).parent_id).toBe(root.id);
+    CommentDAL.setCommentInternalOnly(projectId, root.id, true);
+    expect((await post(child.id)).status).toBe(404);
+    expect(CommentDAL.listComments(projectId)).toHaveLength(before + 1);
+  });
+
   it('via_share_only keeps replies of share-posted roots only', async () => {
     ProjectDAL.updateShareSettings(projectId, { share_comments: 'via_share_only' });
     const internalRoot = CommentDAL.createComment(projectId, { ...base(), author_name: 'A', body: 'vso internal root' });

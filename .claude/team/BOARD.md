@@ -3699,3 +3699,6 @@ Supervisor ruling: fix the three MEDIUM + the two first LOW (AbortSignal.timeout
 
 ### 2026-10-08 | implementer | HANDOFF | T-5-08 fix fdfc5cd
 Upload AbortSignal.timeout scaled by size (max 10 min), 408 retryable; token retry ×3, skip only on ENOTFOUND/EAI_AGAIN else failure; resumable upload above 4 MB; status keeps last_backup_at/last_upload_ok when nothing written; --run-now pipefail + status line. 2006 tests / 199 files, gates green. Supervisor: merging.
+
+### 2026-10-08 | supervisor | MERGE + RUNBOOK | T-5-08 merged — DONE; phase 5 step 2 code complete
+Merge a7ed51d. Merged tree: tsc, lint, build clean, 2008 tests / 200 files. Runbook: .claude/team/reports/GO-LIVE-RUNBOOK.md (steps 0-9, user executes). Nothing running. Remaining with the user: run the runbook; rebuild the local container; T-4-06 samples.

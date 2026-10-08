@@ -1,6 +1,6 @@
 # Collaboration follow-up acceptance — 2026-10-08
 
-Approved scope: D-78..80 and PLAN-COLLABORATION-2026-10-08.md. This report accumulates actual stage evidence; it does not claim the pending schema upgrade is released.
+Approved scope: D-78..80 and PLAN-COLLABORATION-2026-10-08.md. All T21..T24 stages are complete and production is released on52f986a-dirty/schema0040. Earlier pending paragraphs are historical checkpoints; the final release record is COLLABORATION-RELEASE-2026-10-08.md.
 
 ## T-5-21 accepted
 
@@ -27,3 +27,18 @@ Source0db69d92b740fb96060a8e39d632c0cfe3155d7e (22files) integrated into agent-s
 ## T-5-23 final acceptance evidence
 Owner47tests/5files plus4UIcorrectiontests, lint/build/diff PASS. Independent40tests/6files and4UIcorrectiontests/2files PASS/no skips. IndependentAPI/restore117checksPASS: immutable evidence and currentstate/recurrence/distinctnumbers/run deletion, private/foreign/missing targetfiles/read-only restrictions, publiccountfiltering, genuine report/finding replies/images/typedreferences/rawUUID restoration, no fabricated restore reports; both prior production0038backups0warnings. Actual0040readonlyaudit integrityok/FK0/countersPASS.
 Root actualdesktop internal/shared UI: realcomparison createsnumberedreport, uniquecounts/canonicallabels, reportroot+staffreply+guestreply count3 distinct from findingroot count1, copiedMarkdown/deeplinkthreadfocus, retainedRecordedopen versusCurrentresolved(acknowledged), appearancehistory. Separateread-only report/finding sheets displayimages with noeditor/reply/status and disabledreactions; errorlogs empty. QA independentdesktopimageinspectionPASS. Viewport API did not apply390 (actual1280), so newT23narrowproof is NOTclaimed; reusedpanel earlierT21/T22 actual390 passed. Temporary viewport reset. Production unchanged; acceptedcommit/integration and T24fullrelease remainpending.
+
+## T-5-24 integrated correction gate
+Accepted correction79a1eb8 is integrated into agent-setup via52f986a. The full integrated run initially exposed14 failures (2152 passing): stale migration/run-deletion expectations, endpoint mocks, finding-number snapshot and missing QA-report header hints. Eight scoped files corrected the contracts without skipping tests or weakening assertions. Owner and independent reviewer each passed59/59 across seven files; lint/build/diff passed. Root actual keyboard focus displays Recorded results and Actions help. Final complete-suite rerun is pending; production remains0038.
+
+Latest portable pre-upgrade backups2026-10-08T18-25-49-873Z uploaded both projects with zero failures. Root restored both downloaded objects through integrated0040 service: zero warnings, sandbox11comments/2attachments and Airshoppen1comment preserved, no historical QA reports fabricated. A new quiescent complete0038 snapshot is still required immediately before deployment.
+
+Immediately before release, read-only VM baseline: app39c015dbf520 healthy, backupbe2560936908, Caddy7e2ca33b1548 and oauth2-proxy71ebcf191013. SHA256 of private.env with IMAGE line excluded is3f9d6821d201e6aa1a4d95ba2ef833557966487a49c71bb9e18bfc243c1e8c59 (no credential content recorded). Root/data free13GB/20GB. Require post-upgrade equality and unchanged edge identities.
+
+Final integrated full suite PASS:2166/2166 tests,223/223 files,519.79seconds; no skipped tests in summary. Final lint/build and production gates follow.
+
+Final integrated lint/build/diff PASS; frontend index-cBQYvaiw.js/index-BT0JI166.css. Required02 dry-run passed; actual build/push started from52f986a integrated source.
+
+
+## T-5-24 release complete
+All final gates passed:2166tests/223files, lint/build/diff, fresh complete0038 snapshot and candidate/current image cache, deployed exact0040 integrity/FK/sequences/counts/config/edge checks, actual live UI/privacy, both downloaded final off-site restores0warnings, MCP29tools and monitoring configuration. Authoritative final record: COLLABORATION-RELEASE-2026-10-08.md. Temporary QA cleanup is recorded on BOARD.md.

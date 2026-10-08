@@ -4142,3 +4142,36 @@ Independent117API/restorechecks and desktopimageinspectionPASS; rootactualintern
 
 ### 2026-10-08 20:22 | codex-supervisor -> ALL | INFO | T-5-24
 AcceptedT23source3657bee (29scopedfiles) merged intoagent-setup after separate review/QA; root-onlyoperational commits required non-fast-forward integration. T23DONE; T24integratedfullsuite/lint/build, freshsnapshot/deploy/offsite/MCP/handover begins underexistingapproval. Main/staging/machine.mcp preserved; production0038 stillhealthy.
+
+### 2026-10-08 20:31 | collaboration-architect -> codex-supervisor | PASS | T-5-24
+Read-only finalopsassessment finds noadditionalblocker. Fullsuitepass, cachedcandidate+retained0038digest, NEWquiescent0038snapshot/currentpin, exact0040readonlyaudit/originalcounts and finaloffsite suppressedreportrestore/publicprivacy/MCP remainreleasegates. Freshbackup2026-10-08T18-25-49-873Z uploaded2/zero failures and downloaded privately; staged38/40helpers/audit remotehashesmatch reviewedpins and BashsyntaxPASS. Productionremainslive0038, no downtimeyet.
+
+### 2026-10-08 20:34 | codex-supervisor -> qa-reports-implementer | FAIL | T-5-24
+Integratedfullsuite2152passed/14failed across223files,528.10s. Failuregroups: missingreportthhints; olderProperties/SharedPresentation/CommentLinks fetchmocks consumednewcomments/reports calls; expectedmigrationlist0039/40; legacyrun-deleteCASCADEexpectation supersededbySETNULL; publicfinding_sequence snapshot. Ownerassignedmeaningful scopedcorrection, affected7filetests thenreview/fullsuite rerun; no deployment/downtime. Fresh2026-10-08T18-25-49-873Z offsite sandbox/Airshoppen bothrestored throughaccepted0040 rootservice0warnings/0reports, preserved11+1comments and2sandboxattachments.
+
+### 2026-10-08 20:39 | collaboration-reviewer -> codex-supervisor | INFO | T-5-24
+Eight-file integration correction source review PASS. No tests disabled or assertions weakened: direct SQL run deletion now preserves finding identity/fingerprint/number and clears run reference; ordered migration list includes0039/0040; endpoint-aware mocks return comments/reports correctly. Snapshot contains exactly117 finding_sequence additions and no other change. Report header hints are meaningful. Owner59tests/7files and lint/diff PASS; final build and independent affected-file rerun pending. Production remains0038 online.
+
+### 2026-10-08 20:40 | qa-reports-implementer -> codex-supervisor | HANDOFF | T-5-24
+Eight scoped integration files ready: report HintTh plus five public-safe field hints, endpoint-aware Properties/SharedPresentation/CommentLinks mocks, ordered migration expectations, direct SQL run deletion preservation and snapshot finding numbers. Owner59tests/7files PASS,35.65s, lint/build/diff PASS. Final assetindex-cBQYvaiw.js. Source frozen/uncommitted; independent seven-file rerun and root header-help browser check now close correction acceptance before integration/fullsuite.
+
+### 2026-10-08 20:44 | collaboration-reviewer -> codex-supervisor | PASS | T-5-24
+Independent integration corrections: 59/59 tests across seven files, no skips, 34.70 seconds. Eight-file source review PASS; no assertions weakened or privacy changes. Root actual browser keyboard focus exposes Recorded results and Actions help correctly. Scoped commit accepted; integrated full-suite rerun follows before deployment.
+
+### 2026-10-08 20:46 | codex-supervisor -> ALL | INFO | T-5-24
+Accepted correction 79a1eb8 integrated into agent-setup. Final full-suite rerun is running serially against the integrated source. The initial default-sandbox Git metadata write was denied; authorized escalation completed integration before the final run. Production remains online at schema0038; no downtime or deployment yet.
+
+### 2026-10-08 20:55 | codex-supervisor -> ALL | PASS | T-5-24
+Final integrated full suite PASS: 2166 tests across223 files, no failures,519.79 seconds. Correction79a1eb8 integrated via52f986a. Final lint/build running serially next; fresh complete0038 snapshot and approved0040 deployment follow only after their success.
+
+### 2026-10-08 20:56 | codex-supervisor -> ALL | PASS | T-5-24
+Final integrated lint/build/diff PASS; frontend index-cBQYvaiw.js and index-BT0JI166.css. Required02 build/push dry-run PASS; actual reviewed source52f986a image build/push now running. Machine.mcp dirty content is preserved and excluded by explicit Docker COPY; main and staging remain untouched.
+
+### 2026-10-08 21:00 | codex-supervisor -> ALL | PASS | T-5-24
+Image52f986a-dirty built/pushed, manifest sha256:0152966e6db99a8b99f2fe3f2b7c11f7e77f116e513768557411c51500fb9f39. Candidate and current c13f97de immutable images cached on VM.03 dry-run PASS. Fresh quiescent complete snapshot /var/backups/e3-tracking/pre-ui-0038-20261008T185841Z verified exact0038/integrity/FK and2clients/2projects/12comments, helper hash unchanged. Actual deployment now running with current authentication preserved.
+
+### 2026-10-08 21:08 | codex-supervisor -> ALL | PASS | T-5-24
+Live52f986a-dirty/schema0040 PASS: candidate app/backup manifest0152966e, healthy writable data, exact0040 readonly audit integrityok/FK0/sequence checksok. Preserved2clients/2projects/12comments/244properties/303definitions/38events/34findings/2attachments/7reactions; zero fabricated reports,2sequence counters. Private non-IMAGE configuration hash unchanged; Caddy/oauth2-proxy identities unchanged. Actual internal definition comments/help and empty report history, shared whole-row expansion/certification tooltip/unified Actions PASS; browser error logs empty. Shared JSON structural privacy check has no credential/private-actor keys, unauthenticated internal API redirects to authentication. Final04 dry/actual2uploads0failures2026-10-08T19-02-50-420Z, downloaded both objects and restored0warnings/no fabricated reports.07 dry/actual29tools PASS. Existing HTTPS uptime/SSL validation, enabled alert policy and jan.pan email verified; no alert delivery test sent.
+
+### 2026-10-08 21:11 | collaboration-architect -> codex-supervisor | PASS | T-5-24
+Independent final release/runbook review PASS after correcting one stale current0038 phrase to pre-upgrade0038 baseline. Recovery distinction and measured validation claims match evidence. Root retired identity-verified QA PID48868/port3011 and temporary tabs11..14; production/user tabs retained and staging untouched. T24DONE; final source and handover record complete.

@@ -1,6 +1,15 @@
 # Live GCP upgrade runbook: e3-tracking
 
-## Current release — UI consistency, 2026-10-08
+## Current release — collaboration, 2026-10-08
+
+Live `52f986a-dirty`, schema `0040_qa_reports.sql`; manifest `sha256:0152966e6db99a8b99f2fe3f2b7c11f7e77f116e513768557411c51500fb9f39`. Full2166tests/223files, lint/build and independent review/QA passed. Live integrity/FK/sequences passed;2clients/2projects/12comments retained with244properties/303definitions/38events. Reports begin with the next real comparison. OAuth/configuration and edge services verified unchanged.
+
+Fresh rollback snapshot `/var/backups/e3-tracking/pre-ui-0038-20261008T185841Z` pins previous240efde-dirty/c13f97de. Final off-site backups2026-10-08T19-02-50-420Z both restored0warnings. MCP29tools passed; existing HTTPS monitoring/alert email verified. Full evidence and recovery details: [COLLABORATION-RELEASE-2026-10-08.md](COLLABORATION-RELEASE-2026-10-08.md).
+
+For a future upgrade FROM0040, take a fresh snapshot with the reviewed0040 helper. For THIS release's rollback TO0038, use the0038 helper with the exact fresh snapshot above, preserving failed-upgrade data/config first. Never image-only downgrade or overlay old SQLite/new WAL. Historical procedures below retain their original schema-specific assertions.
+
+
+## Historical release — UI consistency, 2026-10-08
 
 Live240efde-dirty, schema0038; registry manifest `sha256:c13f97dee02182d0d23a2ed42dc18fdee0a9ba6ec70c660d93c1cc0f05cde39e`. Reviewed image input240efde; T18/T19 source commits4b18de7/2f3283a. Full2115tests/215files, build/lint, separate review/browserQA and live internal/shared desktop/390px checks PASS. Current data:2clients,2projects,11comments,244properties,303definitions,38events; integrityok/FK0. Existing OAuth/settings and edge services verified unchanged.
 
@@ -8,7 +17,7 @@ Complete current-schema snapshot `/var/backups/e3-tracking/pre-ui-0038-20261008T
 
 Final off-site backups2026-10-08T14-36-58-362Z uploaded2/failures0; both actual downloads restored with0warnings. MCP07 dry-run/actual PASS29tools. Credentials/backups remain outside Git. See [UI acceptance and live evidence](UI-CONSISTENCY-2026-10-08.md).
 
-## Procedure for another UI-only upgrade on schema0038
+## Historical procedure for a UI-only upgrade on schema0038
 
 1. Require approved source, independent review and local browser QA, then full tests/build/lint. Run02-build-push with --dry-run before --yes; record source commit/tag/immutable manifest and pre-pull the candidate before downtime. Main, staging and machine-specific MCP config are separate.
 2. Run04-backup --run-now with its dry-run first; independently download/restore the objects. Confirm current image/schema, required tools and free space. Upload the current0038 helper through the Windows SDK wrapper documented in DEPLOY.md; verify its hash. Suspend app/backup/MCP writers and run its snapshot mode. Require its exact verified private snapshot path and current counts. Services remain stopped after snapshot.
@@ -92,9 +101,9 @@ Preserve newer comments in failed-upgrade staging for recovery; after rollback t
 
 Production infrastructure, DNS and staff OAuth are configured. Verify existing project/cutover counts rather than repeating import. Run their dry runs and actual actions only when a verified prerequisite is missing; do not recreate the VM/data disk. Staff OAuth remains Internal with redirect `https://tracking.e3-services.com/oauth2/callback`; shared commenter auth uses its separate External client. Monitoring alerts use jan.pan@e3-services.com. Full setup details, first-deploy placeholder handling, costs and machine upgrade instructions are in DEPLOY.md.
 
-## Pending collaboration upgrade: 0038 to 0040
+## Completed collaboration upgrade: 0038 to 0040
 
-T21/T22 are accepted; T23/T24 are still in progress. This section is a planned procedure, not evidence that production has migrated. The exact reserved final migration is `0040_qa_reports.sql`.
+T21..T24 are complete. The reviewed procedure below was executed successfully; production is now52f986a-dirty with exact final migration `0040_qa_reports.sql`. See COLLABORATION-RELEASE-2026-10-08.md for actual evidence.
 
 Require separate review and API/browser QA, integrated full tests/build/lint, populated migration and immutable-report/typed-restore gates. Run each deployment script with --dry-run first. Fresh portable backups2026-10-08T16-39-17-553Z already uploaded and independently restored with zero warnings; repeat if necessary and always capture current counts at maintenance.
 
@@ -104,4 +113,4 @@ Deploy the reviewed tag, preserve every setting except IMAGE, and require exact0
 
 Rollback across this migration uses the fresh0038 snapshot and the unchanged0038 helper, restoring complete data/config before starting the recorded old digest. Never downgrade only the image or overlay a database file.
 
-The independently reviewed future helper [e3-maintenance-collaboration-schema0040.sh](ops/e3-maintenance-collaboration-schema0040.sh), SHA256 `4DF03A5EED6650FB18E0300F0BBEA39CF72D4D1ED95D3671C826018E37326695`, is for a later upgrade FROM0040 and snapshots with prefix `pre-collaboration-0040-*`. It is not the pre-upgrade helper for the current0038 database. Keep both versions and their recorded snapshot/image pins.
+The independently reviewed future helper [e3-maintenance-collaboration-schema0040.sh](ops/e3-maintenance-collaboration-schema0040.sh), SHA256 `4DF03A5EED6650FB18E0300F0BBEA39CF72D4D1ED95D3671C826018E37326695`, is for a later upgrade FROM0040 and snapshots with prefix `pre-collaboration-0040-*`. It is not the pre-upgrade helper for the pre-upgrade0038 baseline. Keep both versions and their recorded snapshot/image pins.

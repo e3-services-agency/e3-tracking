@@ -19,12 +19,14 @@
  * recurrence reopens the finding normally through `upsertFinding` instead of staying muted forever.
  */
 import { getDb } from '../db';
+import { allocateQaSequence } from './qa-report.dal';
 import { newId, nowIso, parseJsonColumn, toJsonColumn } from '../db/util';
 import { NotFoundError } from '../errors';
 import type { FindingKind, FindingSeverity, ComparisonId } from '../../domain/enums';
 
 export interface FindingRow {
   id: string;
+  finding_sequence: number;
   project_id: string;
   comparison: ComparisonId;
   kind: FindingKind;
@@ -226,15 +228,17 @@ export function upsertFinding(projectId: string, input: FindingInput): FindingRo
   }
 
   const id = newId();
+  return db.transaction(() => {
+  const sequence = allocateQaSequence(projectId, 'finding');
   db.prepare(
     `INSERT INTO findings (
       id, project_id, comparison, kind, severity, event_id, variant_id, property_id,
       observation_id, qa_run_id, expected_json, actual_json, message, fingerprint, status,
-      first_seen_at, last_seen_at, resolved_at
+      first_seen_at, last_seen_at, resolved_at, finding_sequence
     ) VALUES (
       @id, @project_id, @comparison, @kind, @severity, @event_id, @variant_id, @property_id,
       @observation_id, @qa_run_id, @expected_json, @actual_json, @message, @fingerprint, 'open',
-      @now, @now, NULL
+      @now, @now, NULL, @sequence
     )`
   ).run({
     id,
@@ -251,9 +255,11 @@ export function upsertFinding(projectId: string, input: FindingInput): FindingRo
     actual_json: toJsonColumn(input.actual_json ?? null),
     message: input.message?.trim() || null,
     fingerprint: input.fingerprint,
+    sequence,
     now,
   });
   return getFindingOrThrow(projectId, id);
+  }).immediate();
 }
 
 /**

@@ -47,6 +47,7 @@ export interface EventCardExpiration {
  * finding's `expected_json.rule_name`, T-2-07; `null` for a finding that did not come from a rule). */
 export interface EventCardFinding {
   id: string;
+  finding_sequence?:number;
   comparison: ComparisonId;
   kind: FindingKind;
   severity: FindingSeverity;

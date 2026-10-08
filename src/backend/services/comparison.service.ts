@@ -1,3 +1,6 @@
+import { getDb } from '../db';
+import * as QaReportDAL from '../dal/qa-report.dal';
+import { NotFoundError,ValidationError } from '../errors';
 /**
  * Multi-comparison orchestrator (T-1-09 built comparison 3 alone; T-2-04, D-21, D-28: generalized
  * to run a list of comparison engines in one recompute). Loads a `DefinitionSnapshot` and every
@@ -467,6 +470,8 @@ export function buildCatalogCheckInput(projectId: string): CatalogCheckInput {
 }
 
 export interface ComparisonSummary {
+  report_id?: string;
+  report_sequence?: number;
   open: Record<string, number>;
   produced: number;
   resolved: number;
@@ -518,7 +523,14 @@ function upsertAndResolve(projectId: string, run: EngineRun): { open: Record<str
  * `comparison` id (see module comment). Returns both the project-wide totals (unchanged shape,
  * `open`/`produced`/`resolved`) and `by_comparison`, keyed by `ComparisonId`.
  */
-export function runComparison(projectId: string): ComparisonSummary {
+export function runComparison(projectId: string, options: {captureReport?: boolean;event?:string;qa_run_id?:string} = {}): ComparisonSummary {
+ return getDb().transaction(() => {
+ ProjectDAL.getProjectOrThrow(projectId);
+ for(const key of ['event','qa_run_id'] as const)if(options[key]!==undefined&&(typeof options[key]!=='string'||!options[key]!.trim()))throw new ValidationError(`${key} must be a nonempty identifier.`,key);
+ if(options.event && !EventDAL.getEventById(projectId,options.event))throw new NotFoundError('Event not found.');
+ if(options.qa_run_id && !QaRunDAL.getQaRunById(projectId,options.qa_run_id))throw new NotFoundError('QA run not found.');
+ const previous=FindingDAL.listFindings(projectId);
+
   // T-2-05: `definition` is the one `EventDAL.listEvents` call for the whole recompute; every other
   // engine's own snapshot (`dataManagerDefinition`, `mappingSnapshot`, `definitionVsMappingInput`) is
   // derived from it purely, or reads a different, small table (customer properties, consent
@@ -587,5 +599,13 @@ export function runComparison(projectId: string): ComparisonSummary {
     resolved += summary.resolved;
   }
 
-  return { open, produced, resolved, by_comparison };
+  const summary={open,produced,resolved,by_comparison};
+  if(options.captureReport===false)return summary;
+  const fingerprints=new Set(runs.flatMap(r=>r.findings.map(f=>f.fingerprint)));
+  const before=new Map(previous.map(f=>[f.id,f]));
+  const items=FindingDAL.listFindings(projectId).flatMap<{finding:FindingDAL.FindingRow;disposition:'produced'|'resolved'}>(f=>fingerprints.has(f.fingerprint)?[{finding:f,disposition:'produced' as const}]:
+   before.has(f.id) && (before.get(f.id)!.status==='open'||before.get(f.id)!.resolved_by==='user') && f.status==='resolved' && f.resolved_by===null?[{finding:f,disposition:'resolved' as const}]:[]);
+  const report=QaReportDAL.captureQaReport(projectId,{type:'whole_project',comparison_ids:runs.map(r=>r.comparison),requested_event_id:options.event??null,requested_qa_run_id:options.qa_run_id??null,participating_runs:QaRunDAL.listNonArchivedQaRuns(projectId).map(r=>({id:r.id,environment:r.environment,kind:r.kind,started_at:r.started_at}))},summary,items);
+  return {...summary,report_id:report.id,report_sequence:report.report_sequence};
+ }).immediate();
 }

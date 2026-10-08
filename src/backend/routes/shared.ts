@@ -45,6 +45,7 @@
  * `POST`/`PATCH`/`DELETE /api/projects/:id/share` (create/rotate, change access, revoke) are
  * internal, authenticated routes in `routes/projects.ts`, not here.
  */
+import { resolveCommentParticipant, publicParticipant, existingCommentParticipantId } from '../services/commentParticipant';
 import express, { Router, type Request, type Response, type NextFunction } from 'express';
 import { requireShare } from '../middleware/share';
 import { getProjectWithClient } from '../dal/project.dal';
@@ -91,6 +92,10 @@ router.get('/:token', requireShare, (req: Request, res: Response) => {
   } catch (err) {
     handleRouteError(err, res);
   }
+});
+
+router.get('/:token/identity', requireShare, (req: Request, res: Response) => {
+  try { res.json(publicParticipant(resolveCommentParticipant(req, res))); } catch (err) { handleRouteError(err, res); }
 });
 
 router.get('/:token/tracking-document.json', requireShare, (req: Request, res: Response) => {
@@ -185,9 +190,10 @@ function toPublicComment(
   comment: CommentRow
 ): Omit<
   CommentRow,
-  'project_id' | 'resolved_by' | 'resolved_at' | 'internal_only' | 'status_changed_by' | 'status_changed_at'
+  'project_id' | 'resolved_by' | 'resolved_at' | 'internal_only' | 'status_changed_by' | 'status_changed_at' | 'participant_id'
 > {
   const {
+    participant_id: _participantId,
     project_id: _projectId,
     resolved_by: _resolvedBy,
     resolved_at: _resolvedAt,
@@ -272,11 +278,13 @@ router.get('/:token/comments', requireShare, (req: Request, res: Response) => {
       comments.filter((c) => !c.parent_id && CommentDAL.isRootShareVisible(c, project.share_comments)).map((c) => c.id)
     );
     comments = comments.filter((c) => keptRoots.has(c.parent_id ?? c.id));
+    const viewerId = existingCommentParticipantId(req) ?? 'unidentified-viewer';
     const attachments = AttachmentDAL.listAttachmentsByComment(req.projectId!, comments.map((c) => c.id));
     res.status(200).json(
       attachReactions(
         req.projectId!,
-        comments.map((c) => ({ ...toPublicComment(c), attachments: (attachments.get(c.id) ?? []).map(AttachmentDAL.toPublicAttachment) }))
+        comments.map((c) => ({ ...toPublicComment(c), attachments: (attachments.get(c.id) ?? []).map(AttachmentDAL.toPublicAttachment) })),
+        undefined, viewerId
       )
     );
   } catch (err) {
@@ -295,11 +303,10 @@ router.post('/:token/comments', express.json({ limit: '20kb' }), requireShare, (
       throw new FieldNotAllowedError(`"${unknownField}" is not accepted on this route.`, unknownField);
     }
     checkCommentRateLimit(req.params.token);
-    requireNameIfSet(ProjectDAL.getProjectOrThrow(req.projectId!).share_require_name, body.author_name);
+    const participant = resolveCommentParticipant(req, res, body.author_name, ProjectDAL.getProjectOrThrow(req.projectId!).share_require_name);
 
     const entityType = stringOrUndefined(body, 'entity_type');
     const entityId = stringOrUndefined(body, 'entity_id');
-    const authorName = stringOrUndefined(body, 'author_name');
     const commentBody = stringOrUndefined(body, 'body');
     const parentId = stringOrUndefined(body, 'parent_id');
     if (parentId !== undefined) {
@@ -313,7 +320,10 @@ router.post('/:token/comments', express.json({ limit: '20kb' }), requireShare, (
     const comment = CommentDAL.createComment(req.projectId!, {
       entity_type: entityType ?? '',
       entity_id: entityId ?? '',
-      author_name: authorName ?? '',
+      author_name: participant.name,
+      participant_id: participant.id,
+      author_kind: participant.kind,
+      avatar_url: participant.avatar_url,
       body: commentBody ?? '',
       via_share: true,
       parent_id: parentId ?? null,
@@ -367,6 +377,7 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const buffer = requireUploadedFile(req);
+      const participant = resolveCommentParticipant(req, res);
       let comment: CommentRow | null = null;
       try {
         comment = CommentDAL.getCommentOrThrow(req.projectId!, req.params.commentId);
@@ -376,6 +387,7 @@ router.post(
       if (
         !comment ||
         !comment.via_share ||
+        (comment.participant_id !== null && comment.participant_id !== participant.id) ||
         !isCommentVisibleToLink(req.projectId!, comment.id) ||
         Date.now() - Date.parse(comment.created_at) > ATTACH_WINDOW_MS
       ) {
@@ -411,31 +423,15 @@ router.patch('/:token/comments/:id/status', express.json({ limit: '2kb' }), requ
       shareNotFound(res);
       return;
     }
-    requireNameIfSet(project.share_require_name, body.author_name);
+    const participant = resolveCommentParticipant(req, res, body.author_name, project.share_require_name);
     const status = stringOrUndefined(body, 'status') ?? '';
-    const by = stringOrUndefined(body, 'author_name')?.trim().slice(0, 80);
-    if (!by) throw new ValidationError('author_name is required.', 'author_name');
+    const by = participant.name;
     const comment = CommentDAL.setCommentStatus(req.projectId!, req.params.id, status, by, { restricted: true });
     res.status(200).json(toPublicComment(comment));
   } catch (err) {
     handleRouteError(err, res);
   }
 });
-
-/** D-70 item 5 (T-5-03): a link that requires a name refuses an anonymous write. */
-/** The pre-T-5-03 anonymous fallback; no visitor may use it as a name (the UI sends a per-link "Visitor xxxx" id instead). */
-function assertNameNotReserved(name: unknown): void {
-  if (typeof name === 'string' && name.trim().toLowerCase() === 'share link') {
-    throw new ValidationError('"Share link" is reserved and cannot be used as a name.', 'author_name');
-  }
-}
-
-function requireNameIfSet(projectRequires: boolean, name: unknown): void {
-  assertNameNotReserved(name);
-  if (projectRequires && !(typeof name === 'string' && name.trim())) {
-    throw new ValidationError('Enter your name first.', 'author_name');
-  }
-}
 
 router.post('/:token/comments/:id/reactions', express.json({ limit: '2kb' }), requireShare, (req: Request, res: Response) => {
   try {
@@ -454,13 +450,12 @@ router.post('/:token/comments/:id/reactions', express.json({ limit: '2kb' }), re
       shareNotFound(res);
       return;
     }
-    const author = stringOrUndefined(body, 'author_name');
-    requireNameIfSet(project.share_require_name, author);
-    const result = toggleReaction(req.projectId!, req.params.id, body.kind, author ?? '', { viaShare: true });
+    const participant = resolveCommentParticipant(req, res, body.author_name, project.share_require_name);
+    const result = toggleReaction(req.projectId!, req.params.id, body.kind, participant.name, { viaShare: true, participantId: participant.id });
     res.status(200).json({
       added: result.added,
       comment: toPublicComment(result.comment),
-      reactions: listReactionSummaries(req.projectId!, [req.params.id]).get(req.params.id) ?? [],
+      reactions: listReactionSummaries(req.projectId!, [req.params.id], undefined, participant.id).get(req.params.id) ?? [],
     });
   } catch (err) {
     handleRouteError(err, res);

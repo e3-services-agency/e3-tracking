@@ -17,6 +17,7 @@ import { CommentReactions } from './CommentReactions';
 import type { CommentReactionKind } from '@/src/domain/enums';
 import { AttachmentPicker } from './CommentAttachments';
 import { CommentBody, threadAttachments as threadAttachmentsOf } from './CommentBody';
+import { CommentAvatar } from './CommentIdentity';
 import { MarkdownEditor } from '@/src/components/ui/MarkdownEditor';
 import { COMMENT_BODY_MAX, resolveAttachmentSrc } from '@/src/domain/markdownEdit';
 
@@ -39,6 +40,8 @@ export function CommentItem({
   ownName = '',
   nameMissing = false,
   nameRequired = false,
+  composerIdentity,
+  identityReady = true,
 }: {
   thread: CommentThreadView;
   mode: 'internal' | 'shared';
@@ -60,6 +63,9 @@ export function CommentItem({
   nameMissing?: boolean;
   /** Shared link requires a name: reactions and status changes are blocked until one is entered. */
   nameRequired?: boolean;
+  /** Shared root/reply attribution UI, kept synchronized by the parent external store. */
+  composerIdentity?: React.ReactNode;
+  identityReady?: boolean;
 }) {
   const [showAll, setShowAll] = useState(false);
   const [replyBody, setReplyBody] = useState('');
@@ -77,7 +83,7 @@ export function CommentItem({
   const threadAttachments = threadAttachmentsOf(thread, thread.replies);
 
   const sendReply = () => {
-    if (!replyBody.trim() || replying) return;
+    if (!replyBody.trim() || replying || !identityReady) return;
     if (nameMissing) {
       setReplyError('Enter your name first.');
       return;
@@ -96,7 +102,7 @@ export function CommentItem({
   const reactionsRow = (row: CommentPanelRow, isRoot: boolean) =>
     onReact ? (
       <CommentReactions
-        reactions={row.reactions}
+        reactions={identityReady ? row.reactions : row.reactions?.map((reaction) => ({ ...reaction, mine: false }))}
         isRoot={isRoot}
         ownName={ownName}
         nameRequired={nameRequired}
@@ -107,7 +113,9 @@ export function CommentItem({
 
   const meta = (row: CommentPanelRow) => (
     <>
+      <CommentAvatar name={row.author_name} avatarUrl={row.avatar_url} kind={row.author_kind} />
       <span className="font-medium text-gray-700">{row.author_name}</span>
+      {row.author_kind && row.author_kind !== 'legacy' && <span className="text-[10px] text-gray-500">{row.author_kind === 'guest' ? 'Guest' : row.author_kind === 'google' ? 'Google account' : 'Signed-in account'}</span>}
       {mode === 'internal' && row.via_share && (
         <Badge tone="blue" className="text-[10px]">via share link</Badge>
       )}
@@ -182,6 +190,7 @@ export function CommentItem({
             sendReply();
           }}
         >
+          {composerIdentity}
           <MarkdownEditor
             value={replyBody}
             onChange={setReplyBody}
@@ -198,7 +207,7 @@ export function CommentItem({
           <div className="flex items-center gap-2">
             <button
               type="submit"
-              disabled={replying || !replyBody.trim()}
+              disabled={replying || !identityReady || !replyBody.trim()}
               className="h-8 rounded-md border border-gray-300 bg-white px-2 text-xs font-medium text-gray-700 disabled:opacity-50"
             >
               Reply

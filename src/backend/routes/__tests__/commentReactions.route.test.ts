@@ -6,6 +6,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { staffParticipantId } from '../../services/commentParticipant';
+import { LOCAL_USER_NAME } from '../../middleware/auth';
 import { closeDb } from '../../db';
 import { createApp } from '../../app';
 import * as ClientDAL from '../../dal/client.dal';
@@ -62,6 +64,26 @@ describe('DAL toggle', () => {
     ]);
   });
 
+  it('removes a migrated internal reaction marked mine instead of creating a duplicate', () => {
+    const c = mk();
+    toggleReaction(projectId, c.id, 'like', 'Jane'); // Migrated data: participant_id is NULL.
+    const staffId = staffParticipantId('jane@example.com');
+    expect(listReactionSummaries(projectId, [c.id], 'Jane', staffId).get(c.id)).toEqual([{ kind: 'like', count: 1, authors: ['Jane'], mine: true }]);
+    expect(toggleReaction(projectId, c.id, 'like', 'Jane', { participantId: staffId, legacyAuthorName: 'Jane', viaShare: false }).added).toBe(false);
+    expect(listReactionSummaries(projectId, [c.id], 'Jane', staffId).get(c.id)).toBeUndefined();
+  });
+
+  it('never lets a same-name shared guest claim a legacy internal reaction', () => {
+    const c = mk();
+    toggleReaction(projectId, c.id, 'like', 'Jane');
+    const guestId = 'guest:independent-browser';
+    expect(listReactionSummaries(projectId, [c.id], 'Jane', guestId).get(c.id)?.[0]).toMatchObject({ count: 1, mine: false });
+    expect(toggleReaction(projectId, c.id, 'like', 'Jane', { participantId: guestId, legacyAuthorName: 'Jane', viaShare: true }).added).toBe(true);
+    expect(listReactionSummaries(projectId, [c.id], undefined, guestId).get(c.id)?.[0]).toMatchObject({ count: 2, mine: true });
+    expect(toggleReaction(projectId, c.id, 'like', 'Renamed guest', { participantId: guestId, viaShare: true }).added).toBe(false);
+    expect(listReactionSummaries(projectId, [c.id], undefined, guestId).get(c.id)?.[0]).toMatchObject({ count: 1, authors: ['Jane'], mine: false });
+  });
+
   it('rejects an unknown kind and a missing author; on_it only on a root', () => {
     const c = mk();
     const reply = mk({ parent_id: c.id });
@@ -92,6 +114,16 @@ describe('DAL toggle', () => {
 });
 
 describe('internal routes', () => {
+  it('uses the trusted actor to remove a legacy reaction that the list marks mine', async () => {
+    const c = mk();
+    toggleReaction(projectId, c.id, 'like', LOCAL_USER_NAME);
+    const url = `${baseUrl}/api/projects/${projectId}/comments`;
+    const list = await (await fetch(url)).json();
+    expect(list.find((row: any) => row.id === c.id).reactions[0]).toMatchObject({ count: 1, mine: true });
+    const result = await (await json('POST', `${url}/${c.id}/reactions`, { kind: 'like' })).json();
+    expect(result.added).toBe(false);
+    expect(result.reactions).toEqual([]);
+  });
   it('POST toggles and the list carries reactions[]', async () => {
     const c = mk();
     const url = `${baseUrl}/api/projects/${projectId}/comments`;
@@ -116,7 +148,7 @@ describe('shared routes', () => {
     const list = await (await fetch(shared(`/comments?entity_id=${eventId}`))).json();
     const row = list.find((x: any) => x.id === c.id);
     expect(row.status).toBe('on_it');
-    expect(row.reactions).toEqual([{ kind: 'on_it', count: 1, authors: ['Client Carl'] }]);
+    expect(row.reactions).toEqual([{ kind: 'on_it', count: 1, authors: ['Client Carl'], mine: false }]);
   });
 
   it('refuses unknown body keys with FIELD_NOT_ALLOWED', async () => {
@@ -161,8 +193,8 @@ describe('shared routes', () => {
     expect((await json('POST', shared(`/comments/${c.id}/reactions`), { kind: 'seen', author_name: 'Carl' })).status).toBe(200);
     ProjectDAL.updateShareSettings(projectId, { share_require_name: false });
     expect((await (await fetch(shared(''))).json()).require_name).toBe(false);
-    // No server-side anonymous fallback: a name (the UI's per-link visitor id at least) is always sent.
-    expect((await json('POST', shared(`/comments/${c.id}/reactions`), { kind: 'like' })).status).toBe(400);
+    // Optional-name links now use a server-issued animal/color identity.
+    expect((await json('POST', shared(`/comments/${c.id}/reactions`), { kind: 'like' })).status).toBe(200);
     expect((await json('POST', shared(`/comments/${c.id}/reactions`), { kind: 'like', author_name: 'Visitor 4f2a' })).status).toBe(200);
     for (const path of [`/comments/${c.id}/reactions`]) {
       expect((await json('POST', shared(path), { kind: 'like', author_name: 'share link' })).status).toBe(400);

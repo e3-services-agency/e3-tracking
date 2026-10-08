@@ -27,18 +27,99 @@ say "    }"
 say "  }"
 say "}"
 
-REQ='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"07-mcp","version":"0"}}}
-{"jsonrpc":"2.0","method":"notifications/initialized"}
-{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
-say "# Smoke test (stdin: initialize, initialized, tools/list; stdout must be JSON-RPC lines only):"
+say "# Smoke test (initialize handshake, then tools/list; 90s overall deadline):"
 show "${GC[@]}"
 if [ "$DRY_RUN" = 1 ]; then exit 0; fi
 
-# Keep stdin open until both responses are in (a closed stdin makes the server exit before answering).
-OUT="$( { printf '%s\n' "$REQ"; sleep 20; } | timeout 90 "${GC[@]}" 2>/dev/null | head -n 2 || true)"
-LAST="$(printf '%s\n' "$OUT" | tail -n 1)"
-if ! COUNT="$(printf '%s' "$LAST" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s);process.stdout.write(String(r.result.tools.length))})' 2>/dev/null)"; then
-  say "FAIL: no valid tools/list response. Run the command above by hand and read stderr (ssh, IAP permission, docker, .env)."
-  exit 1
-fi
-if [ "$COUNT" = 29 ]; then say "OK: tools/list returned 29 tools over the IAP tunnel."; else say "WARN: tools/list returned $COUNT tools (expected 29); the deployed image may be older."; exit 1; fi
+# Launch through this Bash so an exported Windows SDK wrapper remains available.
+# Native Windows Node needs the native path to Git Bash, not /usr/bin/bash.
+MCP_BASH="$BASH"
+if command -v cygpath >/dev/null 2>&1; then MCP_BASH="$(cygpath -w "$BASH")"; fi
+node - "$MCP_BASH" "${GC[@]}" <<'MCP_SMOKE_NODE'
+const { spawn, spawnSync } = require('node:child_process');
+const [bash, ...command] = process.argv.slice(2);
+const child = spawn(bash, ['-c', '"$@"', '07-mcp', ...command], {
+  stdio: ['pipe', 'pipe', 'pipe'],
+  windowsHide: true,
+  detached: process.platform !== 'win32',
+});
+let pending = '';
+let stderr = '';
+let stage = 'initialize';
+let complete = false;
+let finished = false;
+const timer = setTimeout(() => fail(`timed out after 90s waiting for ${stage}`), 90_000);
+
+function stopTransport() {
+  child.stdin.destroy();
+  if (!child.pid || child.exitCode !== null) return;
+  if (process.platform === 'win32') {
+    // Stop only this smoke test's Bash/SDK/SSH descendants, never unrelated processes.
+    spawnSync('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
+      stdio: 'ignore', windowsHide: true, timeout: 5000,
+    });
+  } else {
+    try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already closed */ }
+  }
+}
+function fail(message) {
+  if (finished) return;
+  finished = true;
+  clearTimeout(timer);
+  process.exitCode = 1;
+  console.error(`FAIL: MCP ${message}. Check SSH/IAP access, Docker and .env on the VM.`);
+  if (stderr.trim()) console.error(`Transport stderr (last 8 KiB):\n${stderr.trimEnd()}`);
+  stopTransport();
+}
+function send(message) {
+  child.stdin.write(JSON.stringify(message) + '\n');
+}
+child.stderr.on('data', chunk => { stderr = (stderr + chunk.toString()).slice(-8192); });
+child.on('error', err => fail(`transport could not start: ${err.message}`));
+child.stdin.on('error', err => fail(`stdin failed while waiting for ${stage}: ${err.message}`));
+child.stdout.on('data', chunk => {
+  if (finished) return;
+  pending += chunk.toString();
+  if (pending.length > 1024 * 1024) return fail('response exceeded 1 MiB');
+  let end;
+  while ((end = pending.indexOf('\n')) >= 0 && !finished) {
+    const line = pending.slice(0, end).trim();
+    pending = pending.slice(end + 1);
+    if (!line) continue;
+    let response;
+    try { response = JSON.parse(line); } catch { return fail('received non-JSON stdout'); }
+    if (!response || typeof response !== 'object' || Array.isArray(response)) return fail('received non-object JSON-RPC stdout');
+    if (response.jsonrpc !== '2.0') return fail('received invalid JSON-RPC stdout');
+    // Valid server notifications have no response ID; do not confuse them with responses.
+    if (!Object.hasOwn(response, 'id')) continue;
+    const expected = stage === 'initialize' ? 1 : 2;
+    if (complete || response.id !== expected) return fail('received an unexpected response ID');
+    if (response.error || !response.result) return fail(`${stage} returned an error response`);
+    if (stage === 'initialize') {
+      if (typeof response.result.protocolVersion !== 'string') return fail('initialize response missing protocolVersion');
+      stage = 'tools/list';
+      send({ jsonrpc: '2.0', method: 'notifications/initialized' });
+      send({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
+    } else {
+      if (!Array.isArray(response.result.tools)) return fail('tools/list response missing tools');
+      const count = response.result.tools.length;
+      if (count !== 29) return fail(`tools/list returned ${count} tools (expected 29)`);
+      complete = true;
+      stage = 'transport shutdown';
+      // EOF only after both actual responses; no startup-dependent sleep.
+      child.stdin.end();
+    }
+  }
+});
+child.on('close', (code, signal) => {
+  if (finished) return;
+  if (code !== 0) return fail(`transport exited ${code === null ? `on ${signal}` : `with status ${code}`}`);
+  if (!complete || pending.trim()) return fail(`transport closed before a valid ${stage} completion`);
+  finished = true;
+  clearTimeout(timer);
+  console.log('OK: tools/list returned 29 tools over the IAP tunnel.');
+});
+send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {
+  protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: '07-mcp', version: '0' },
+} });
+MCP_SMOKE_NODE

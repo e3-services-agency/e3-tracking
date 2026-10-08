@@ -16,3 +16,6 @@ Google primary source https://support.google.com/cloud/answer/15549945?hl=en con
 
 SDK follow-up confirms billingEnabled=true after user's configuration. Agents have made no billing changes.
 
+
+## Accepted local integration
+Actual Google browser flow on integrated source passed verified name/photo on root and reply, reaction ownership across reload, guest opt-out and draft preservation. Separate review66/8 and QA57/8 passed. T15 commit9d03407 accepted and merged. Workspace account used; no consumer Gmail account tested live. Final production smoke remains T16. Basic-profile External configuration and staff Internal client remain separate.

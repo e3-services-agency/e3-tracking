@@ -99,9 +99,9 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-5-10 | 5 | Reconcile actual deployment and preserve local deployment diff | codex-supervisor | T-5-09 | DONE | reports/PLAN-SHARED-PORTAL-2026-10-08.md |
 | T-5-12 | 5 | Shared entity tables and wrapping sidebar | portal-implementer | T-5-10 | DONE | reports/PLAN-SHARED-PORTAL-2026-10-08.md |
 | T-5-13 | 5 | Stable commenter identity and every composer attribution | comments-implementer | T-5-10 | DONE | reports/PLAN-SHARED-PORTAL-2026-10-08.md |
-| T-5-14 | 5 | Comment links and Markdown copy | comments-implementer | T-5-13 | IN_PROGRESS | reports/PLAN-SHARED-PORTAL-2026-10-08.md |
-| T-5-15 | 5 | Verified Google shared commenter identity | auth-implementer | T-5-13 | QA | reports/PLAN-SHARED-PORTAL-2026-10-08.md |
-| T-5-16 | 5 | Integration review, browser QA, docs and deployment | codex-supervisor | T-5-12, T-5-14, T-5-15, T-5-17 | TODO | reports/PLAN-SHARED-PORTAL-2026-10-08.md |
+| T-5-14 | 5 | Comment links and Markdown copy | comments-implementer | T-5-13 | DONE | reports/PLAN-SHARED-PORTAL-2026-10-08.md |
+| T-5-15 | 5 | Verified Google shared commenter identity | auth-implementer | T-5-13 | DONE | reports/PLAN-SHARED-PORTAL-2026-10-08.md |
+| T-5-16 | 5 | Integration review, browser QA, docs and deployment | codex-supervisor | T-5-12, T-5-14, T-5-15, T-5-17 | IN_PROGRESS | reports/PLAN-SHARED-PORTAL-2026-10-08.md |
 | T-5-17 | 5 | Windows deployment-test portability and preserved baseline acceptance | deployment-implementer | T-5-10 | DONE | reports/PLAN-SHARED-PORTAL-2026-10-08.md |
 
 Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktrees after T-1-02 merges. Everything else is sequential per the dependency column.

@@ -19,3 +19,12 @@ This reconciliation closes the stale "user executes" handover; remaining integra
 
 ## Integration follow-up
 Current Airshoppen backup object2026-10-08T09-01-51-047Z.json downloaded to OS temporary directory (1068545 bytes) for T16 final integrated restore rehearsal. Contents are outside Git and not printed. External public-auth client is established; current status is in GOOGLE-SHARED-AUTH-2026-10-08.md. Preserved deployment baseline accepted as2b03efd after independent review and QA, then merged into agent-setup. Machine .mcp.json remains local.
+
+## MCP baseline check
+Read-only MCP SDK smoke through SDK/IAP SSH succeeded: initialization,29 tools and list_projects2clientgroups/2projects. Connection closed, no write tools used. Known baseline18b7883; repeat against final deployed image. Notifications were not exercised.
+
+## Concrete rollback prerequisite
+Independent migrated fixture reproduces new identity-column exposure when18b7883 old SELECT* row mapping and old public projection run on a0037 database. Image-only rollback is unsafe. Before upgrade retain and verify a consistent secured snapshot of the complete data volume (SQLite/WAL/uploads) with all app/backup writers stopped. If reverting to18b, stop writers, preserve the failed-upgrade volume for recovery of newer comments, then restore the pre-migration data/config snapshot before starting the old image. Do not overlay an old SQLite file onto a newer WAL. A frontend-only rollback retaining participant-aware backend is another compatible option. Operational session credentials were not exposed in the reproduction.
+
+## Final pre-upgrade evidence
+Fresh pre-upgrade run-now uploaded both project backups with0 failures, timestamp2026-10-08T11-45-06-886Z. Airshoppen object independently described/downloaded and final restore rehearsal passes with0 warnings,23 events/194 properties/1 comment. Bundled sandbox restore also0 warnings,15 events/50 properties/4 comments. Old immutable Artifact Registry manifest is sha256:62bbaedfda4340c3f0070bd14935b517a3842c4c122fb2f333ead10ae9ec7bbc;481fb... is the Docker image ID. Live mount/data7.6MB, boot14GB free. Complete consistent snapshot still waits pre-pulled reviewed image and maintenance quiescence.

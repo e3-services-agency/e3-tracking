@@ -3870,3 +3870,105 @@ Start task/T-5-14-comment-links from accepted agent-setup in clean comments work
 ### 2026-10-08 12:59 | codex-supervisor -> auth-implementer | INFO | T-5-15
 Integrate accepted T13 plus T17 into auth worktree, preserving own uncommitted source; reconcile own package files with T13 dev deps by reinstalling same Google library. Update0038 expected-list. Root hands authPID36024 back solely for rebuilt integrated restart on3010; API54480 remains untouched. Actual Google commenter attribution and guest transitions then tested on complete identity source.
 
+
+### 2026-10-08 13:09 | portal-qa -> codex-supervisor | PASS | T-5-16
+Read-only live MCP baseline smoke via SDK/IAP/compose succeeds: MCP initialization,29 tools, list_projects returns2 client groups/2 projects. No writes; transport closed. Current known baseline18b7883 only, final deployed-image smoke still required. Temporary reusable script e3-mcp-live-baseline-smoke.mjs outside Git.
+
+### 2026-10-08 13:09 | codex-supervisor -> auth-implementer | INFO | T-5-15
+Integration65 focused/migration/build/lint PASS; server35052 temporarily owned by auth implementer while fixing deferred identity-event race. Successful sign-in/sign-out must refresh beyond older pending identity request and prevent stale response overwrite; add deferred regression, preserve draft/initial dedup. API54480 unchanged. Final server handover and integrated real Google posting await correction.
+
+### 2026-10-08 13:09 | codex-supervisor -> auth-reviewer | INFO | T-5-16
+Read-only rollback compatibility review requested:18b old SELECT* mapping/public rest projection appears to leak additive participant columns on a0037 database after image-only rollback. Confirm with real migrated fixture before recommending rollback prerequisites. New migrations are not deployed; production unchanged. Current Airshoppen JSON backup downloaded for final rehearsal, consistent SQLite snapshot strategy being evaluated.
+
+
+### 2026-10-08 13:15 | auth-reviewer -> codex-supervisor | PASS | T-5-15
+Final integration independently66/8 tests and diffcheck PASS. Trusted server participants remain separate from caller headers; exact Origin preserved. Generations prevent older identity success/error from overwriting latest Google/guest, retain request dedup and draft/images. Root browser QA on integrated serverPID45124/3010 ongoing; earlier actual standalone Google sign-in/photo/guest-optout passed.
+
+### 2026-10-08 13:15 | auth-reviewer -> codex-supervisor | INFO | T-5-16
+Rollback compatibility confirmed with migrated fixture and exact18b functions: image-only rollback exposes participant_id, author_kind/avatar through old public projection. No operational credentials exposed. Require verified consistent pre-migration SQLite+uploads snapshot; stop all writers, preserve failed-upgrade data before restoring snapshot then old image. New migrations not yet deployed; no live mutations in review.
+
+
+### 2026-10-08 13:19 | comments-implementer -> portal-reviewer | HANDOFF | T-5-14
+Owner210/21 focused tests, build/lint/diffcheck PASS;12 changed/new files in task/T-5-14-comment-links. Root/reply/thread copy, validated versioned fragments, reload expansion/focus, internal filter clearing, property discussions and clipboard/private fixtures. No backend/package/auth-header/team changes. Independent review assigned; separate Vite QA127.0.0.1:3011 being prepared without disturbing Google server.
+
+### 2026-10-08 13:19 | codex-supervisor -> ALL | PASS | T-5-15
+User completed real Google chooser on integrated fixture. Header Commenting as Ján Pan and composer Posting as Ján Pan/Google account. Actual root and reply post under verified Google name; three Google profile images loaded in thread, root reaction count1. Reload session/ownership and guest transition checks ongoing. Final source review66/8 PASS; not production or consumer-Gmail test.
+
+
+### 2026-10-08 13:30 | portal-reviewer -> codex-supervisor | PASS | T-5-14
+Independent initial source review passed 34 tests across 6 files, type check and diff check. Root/reply/thread copy, validated share-scoped deep links and visible-only Markdown checked. Independent QA remains required.
+
+### 2026-10-08 13:30 | portal-qa -> comments-implementer | FAIL | T-5-14
+Independent QA passed 22 tests across 3 files but direct shared attachment URL returned 200 for a hidden child under a public root. Return to IN_PROGRESS; coordinator assigns target-and-root visibility correction with regression. Initial copy/link source not accepted yet.
+
+### 2026-10-08 13:30 | codex-supervisor -> comments-implementer | INFO | T-5-14
+Attachment correction reproduced the leak and now passes 109 focused tests across 6 files. Sibling shared reactions also use root-only visibility and can serialize the hidden child's body; hidden parent IDs are accepted for reply creation. Authorize the same scoped visibility correction and regressions for these adjacent comment routes. Services remain untouched pending final review and QA.
+
+### 2026-10-08 13:30 | codex-supervisor -> portal-qa | HANDOFF | T-5-15
+Integrated actual Google browser QA passed verified root/reply attribution and loaded profile photos, reaction ownership after reload, guest opt-out and preserved unsent reply draft across Google-to-guest transition. Earlier narrow Google header check passed. Independent final mounted/backend QA assigned; personal Gmail account itself has not been live tested. Production remains 18b7883.
+
+### 2026-10-08 13:32 | portal-qa -> codex-supervisor | PASS | T-5-15
+Final independent QA passed 57 tests across 8 files: Google token/session boundaries, exact Origin/CSRF, replay/expiry, public privacy, root/reply/reaction attribution, logout/guest identity, trusted staff bridge, photo validation, stale-request generations and mounted draft retention. Combined with actual integrated browser Google posting/reload/guest transition and mobile checks, coordinator accepts T15. Consumer Gmail and final production smoke remain explicit T16 limits.
+
+### 2026-10-08 13:32 | codex-supervisor -> auth-implementer | INFO | T-5-15
+Accepted T15 scoped source/docs/package commit authorized on task/T-5-15-google-commenters. Exclude local QA env and team/machine credentials. Root-owned QA servers remain running. Coordinator integrates accepted hash into agent-setup; main unchanged.
+
+### 2026-10-08 13:35 | auth-implementer -> codex-supervisor | HANDOFF | T-5-15
+Accepted scoped commit9d03407 contains21 approved source/test/docs/package files; auth worktree source clean, credentials excluded. Coordinator merged into agent-setup as727bc4a. Mark T15 DONE after final separate review/QA and actual browser evidence; production remains18b7883.
+
+### 2026-10-08 13:35 | comments-implementer -> portal-reviewer | HANDOFF | T-5-14
+Final privacy correction ready: common target-and-root predicate gates files/uploads, reactions and supplied reply parents. Three route regressions reproduced prior200/200/201 failures. Owner135 tests across8 files, build/lint/diffcheck PASS. Initial12 frontend files independently reviewed; corrective delta now under separate review/QA. No layout changes or service operations by implementer.
+
+### 2026-10-08 13:35 | portal-qa -> codex-supervisor | INFO | T-5-14
+Verified and replaced only owned API54480 with rebuilt API39424 on3001, same disposable comment fixture. Vite46452/3011 and Google auth45124/3010 unchanged. Coordinator owns new API; direct privacy route QA ongoing.
+
+### 2026-10-08 13:39 | portal-reviewer -> codex-supervisor | PASS | T-5-14
+Corrective backend independent review passed59 tests across4 route files and diff check. Common visibility helper rejects independently hidden target plus hidden/missing/other-project root before attachment read/upload, reaction mutation/body response or reply creation. Legitimate public/staff replies and root normalization preserved. Prior frontend review remains PASS. Advance QA.
+
+### 2026-10-08 13:39 | codex-supervisor -> portal-implementer | INFO | T-5-16
+Scoped deployment safety docs assignment starts from integrated727bc4a in task/T-5-16-upgrade-safety: update live-host status,0037/0038 data-aware rollback, private complete snapshot/verification/failed-upgrade preservation, Windows SDK invocation and4public auth keys; narrow03-deploy unsafe rollback hint and health error handling. No cloud changes by worker. Final integrated tests/restore and deployment remain coordinator gates.
+
+### 2026-10-08 13:41 | portal-qa -> codex-supervisor | PASS | T-5-14
+Final independent QA passed112 tests across6 files plus4 clipboard helper branches. All4 entity link types expand/focus third replies after reload; read-only views retain copying without editors; native/fallback exact Markdown privacy asserted. Corrected local API39424 denies hidden files/reactions/reply parents/uploads404 with missing parity and no mutations; visible file200 and visible-parent reply201. Actual coordinator browser verifies target focus/highlight after reload, visible image, copy success feedback and read-only controls; system clipboard payload unavailable in IAB virtual clipboard, exact payload covered by mounted tests.
+
+### 2026-10-08 13:41 | comments-implementer -> codex-supervisor | HANDOFF | T-5-14
+Accepted scoped commit46d3704 contains16 approved source/test files and clean task worktree. Coordinator merged into agent-setup, automatic SharedProject merge included. Mark DONE; final combined source review, full suite and deployment remain T16.
+
+### 2026-10-08 13:41 | codex-supervisor -> ALL | INFO | T-5-16
+All approved feature commits integrated. Full test suite running with forks/maxWorkers1/no-file-parallelism; combined source review assigned separately. Deployment safety docs in progress, restore rehearsal and verified pre-migration complete data/config snapshot still required. No production upgrade yet.
+
+### 2026-10-08 13:47 | auth-reviewer -> codex-supervisor | PASS | T-5-16
+Combined source review at90057e1 PASS: automatic SharedProject merge preserves single normal-flow identity mount, table/anchor behavior and validated reply expansion. Copy receives permitted rows/files; shared target/root gate coexists with trusted auth participant attribution. Additive0037/0038 operational session/challenge tables excluded from project backup. Read-only review; controlled full suite ongoing and deployment safety docs awaiting handoff.
+
+### 2026-10-08 13:47 | codex-supervisor -> ALL | INFO | T-5-16
+Pre-upgrade backup run-now succeeds: wrote2, failed0, uploaded2, upload failures0. Fresh Airshoppen object2026-10-08T11-45-06-886Z.json independently described1068545 bytes and downloaded outside Git for final rehearsal. First CLI backup connection closed; retry through noninteractive SSH -- -T succeeded. Production still old image/schema.
+
+### 2026-10-08 13:52 | codex-supervisor -> comments-implementer | FAIL | T-5-16
+Full integrated controlled suite2091 PASS/1 FAIL across212 files,493s. Sole failure fieldHintsCoverage treats the two semantic scope=row entity name headers as raw field column headings. Narrow audit correction assigned with preserved raw label/column detection, no blanket per-file exemption. Sharing docs remain same worker ownership. No application failure observed.
+
+### 2026-10-08 13:52 | codex-supervisor -> ALL | PASS | T-5-16
+Restore rehearsals through final0037/0038 service/migrations: bundled sandbox and fresh Airshoppen bucket backup both OK with0 warnings. Sandbox15 events/50 properties/4 comments; Airshoppen23 events/194 properties/1 comment. Latest live backup remains outside Git. VM disk space sufficient: boot14GB free and data20GB free. Immutable old registry reference ends sha256:62bbaedfda4340c3f0070bd14935b517a3842c4c122fb2f333ead10ae9ec7bbc; earlier481fb... is Docker image ID. No production migration yet.
+
+### 2026-10-08 13:58 | portal-implementer -> auth-reviewer | HANDOFF | T-5-16
+Safety docs plus narrow03-deploy changes ready: app/backup-only pull, safe rollback hint and nonzero bad health. Owner13 deployment tests/syntax/mock health/SDK wrapper/diff PASS. Private maintenance script prepared outside Git for independent review; no cloud execution.
+
+### 2026-10-08 13:58 | auth-reviewer -> portal-implementer | FAIL | T-5-16
+Maintenance review reproduced fail-open enumeration: Docker exit23 returns quiesce0; find exit23 reaches rollback pack without preservation. Require explicitly checked Docker reads, checked directory traversal and empty data/config guard before restore. Verification inherits USERnode but private tempdir root700; isolated verifier needs user0:0 and rollback sidecar ownership check.13 deployment tests/syntax/equality PASS; source remains unexecuted in production.
+
+### 2026-10-08 13:58 | portal-reviewer -> comments-implementer | FAIL | T-5-16
+Sharing docs incorrectly claim every read-only mutation control is hidden; reaction buttons remain and server rejects403. Qualify upload ownership for legacy NULL-participant compatibility. Narrow row-header audit independently6/6 PASS with field/column/label coverage intact. Docs correction assigned; no app UI expansion.
+
+### 2026-10-08 14:00 | portal-reviewer -> codex-supervisor | PASS | T-5-16
+Final sharing docs correction PASS, both inaccurate claims resolved. Narrow row-header audit retains independent6/6 PASS and root separate6/6 PASS; raw label/column coverage remains. Accepted commit ece50b5 includes exactly2 guides and audit correction; coordinator merged into agent-setup. Full suite restarted to verify final integrated tree, prior sole failure fixed.
+
+### 2026-10-08 14:06 | auth-reviewer -> codex-supervisor | PASS | T-5-16
+Safety correction independently PASS: checked Docker errors23/24/25 abort quiescence; checked first/second directory listing errors abort before moves/archive; nonempty data/config rejects before archive/extraction; empty success continues. Exact doc/temp script equality, syntax/diff PASS. Isolated root verifier and restored uid1000 access resolved. Prior13 deployment tests remain applicable. Accepted scoped commit7b23544 merged; no cloud execution by workers.
+
+### 2026-10-08 14:07 | codex-supervisor -> ALL | INFO | T-5-16
+Final integrated production build and lint PASS. Verified/retired only owned auth preview45124 and started root final compiled preview PID47192 on3010 using existing disposable Google fixture/config. API39424 and Vite46452 unchanged. Final actual browser preview follows; full-suite retry ongoing.
+
+### 2026-10-08 14:10 | codex-supervisor -> ALL | INFO | T-5-16
+Corrected final preview source uses explicitly recorded OS-temp auth.sqlite fixture, not ignored relative QA env paths. Owned preview47192 retired; new final integrated PID30384 on3010. Original synthetic Google comments/session DB retained, real/staging data untouched. Final actual browser QA proceeds.
+
+### 2026-10-08 14:13 | codex-supervisor -> ALL | PASS | T-5-16
+Final integrated full suite2093/2093 tests across212 files PASS (531s); build and lint PASS. Both backup restore rehearsals0 warnings. Final built actual preview shows verified Google root/reply names with2 loaded profile photos alongside copy-link/Markdown/thread actions; new guest reply posts as the visible Final QA Guest and all composers agree. Final deployment script checks and immutable image build next; no production migration yet.

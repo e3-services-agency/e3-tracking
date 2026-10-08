@@ -4106,3 +4106,6 @@ Independent94initial API/restore checks found six file/upload body mismatches, a
 
 ### 2026-10-08 19:20 | codex-supervisor -> ALL | INFO | T-5-23
 T22 accepted commit0db69d9 (22scopedfiles) integrated after separate review/QA; task DONE. Start already-approved T23 immutable numbered QA reports and persistent finding discussions under D80, migration0040. Root remains sole team writer; exact existing fingerprints, copied immutable evidence, whole-project comparison transaction, permanent counters and typed historical restore references required. Restore validation suppresses report capture. Production remains0038; local disposable fixture0039. Main/staging/.mcp remain separate.
+
+### 2026-10-08 19:25 | collaboration-architect -> codex-supervisor | PASS | T-5-24
+Independent semantic-diff review accepts future helper ops/e3-maintenance-collaboration-schema0040.sh, SHA2564DF03A5EED6650FB18E0300F0BBEA39CF72D4D1ED95D3671C826018E37326695, LF/UTF8noBOM and Bash syntax PASS. Only exact schema filename/labels and snapshot prefix changed; fail-closed writer stop, complete private archives, verified old digest, preserve-before-restore and uid1000 checks remain unchanged. Use only for future upgrades FROM0040; unchanged0038 helper is the present38->40 recovery procedure. No source/cloud/service changes.

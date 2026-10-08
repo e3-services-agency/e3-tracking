@@ -91,3 +91,17 @@ Preserve newer comments in failed-upgrade staging for recovery; after rollback t
 ## Existing infrastructure and first-deploy reference
 
 Production infrastructure, DNS and staff OAuth are configured. Verify existing project/cutover counts rather than repeating import. Run their dry runs and actual actions only when a verified prerequisite is missing; do not recreate the VM/data disk. Staff OAuth remains Internal with redirect `https://tracking.e3-services.com/oauth2/callback`; shared commenter auth uses its separate External client. Monitoring alerts use jan.pan@e3-services.com. Full setup details, first-deploy placeholder handling, costs and machine upgrade instructions are in DEPLOY.md.
+
+## Pending collaboration upgrade: 0038 to 0040
+
+T21/T22 are accepted; T23/T24 are still in progress. This section is a planned procedure, not evidence that production has migrated. The exact reserved final migration is `0040_qa_reports.sql`.
+
+Require separate review and API/browser QA, integrated full tests/build/lint, populated migration and immutable-report/typed-restore gates. Run each deployment script with --dry-run first. Fresh portable backups2026-10-08T16-39-17-553Z already uploaded and independently restored with zero warnings; repeat if necessary and always capture current counts at maintenance.
+
+For this release, pre-pull the reviewed candidate and retained old digest, then run the unchanged reviewed0038 helper to take a NEW private complete data/config snapshot immediately before deployment. It pins the currently running0038 image. Leave app/backup/MCP stopped until snapshot acceptance; edge services stay up. Record the exact snapshot path and counts. Do not substitute a prior snapshot.
+
+Deploy the reviewed tag, preserve every setting except IMAGE, and require exact0040 schema, integrity/FK checks, original record counts, positive project-unique finding/report numbers, next sequence allocation above existing maxima and public privacy. Report counts start at zero unless a real comparison runs; do not fabricate historical reports. Final off-site backup restore must retain snapshots/numbers/new comment anchors and suppress report capture during validation; MCP smoke is read-only.
+
+Rollback across this migration uses the fresh0038 snapshot and the unchanged0038 helper, restoring complete data/config before starting the recorded old digest. Never downgrade only the image or overlay a database file.
+
+The independently reviewed future helper [e3-maintenance-collaboration-schema0040.sh](ops/e3-maintenance-collaboration-schema0040.sh), SHA256 `4DF03A5EED6650FB18E0300F0BBEA39CF72D4D1ED95D3671C826018E37326695`, is for a later upgrade FROM0040 and snapshots with prefix `pre-collaboration-0040-*`. It is not the pre-upgrade helper for the current0038 database. Keep both versions and their recorded snapshot/image pins.

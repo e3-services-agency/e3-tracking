@@ -20,6 +20,7 @@ import bundlesRouter from './routes/bundles';
 import filesRouter from './routes/files';
 import exportRouter from './routes/export';
 import sharedRouter from './routes/shared';
+import { createSharedAuthRouter, type SharedAuthOptions } from './routes/sharedAuth';
 import identityRulesRouter from './routes/identity-rules';
 import identifiersRouter from './routes/identifiers';
 import consentCategoriesRouter from './routes/consent-categories';
@@ -56,6 +57,7 @@ function getCorsOrigin(): string | string[] | boolean {
 export interface CreateAppOptions {
   /** Force static serving on/off (tests); default: `shouldServeStatic()` (D-66). */
   serveStatic?: boolean;
+  sharedAuth?: SharedAuthOptions;
   /** Directory holding the Vite build; default `<root>/dist` or `E3_DIST_PATH`. */
   distDir?: string;
 }
@@ -85,6 +87,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   // D-66: the built frontend calls `/tracking-plan/api/...`; the Vite dev proxy rewrites that to
   // `/api/...`, and in a container this does the same.
   app.use(rewriteBaseApi);
+  app.use('/api/shared', createSharedAuthRouter(options.sharedAuth));
   app.use('/api/shared', sharedRouter);
   // M3: a malformed percent-escape elsewhere is a plain 400 (the share router keeps its identical 404).
   app.use(rejectBadEscape);

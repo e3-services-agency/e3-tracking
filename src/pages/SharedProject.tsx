@@ -55,6 +55,7 @@ import { VARIANTS_ANCHOR_PREFIX } from '@/src/features/shared/references';
 import { propertiesToMarkdown, findingsSummaryToMarkdown } from '@/src/domain/document/markdown';
 import { propertyGroupId, propertyKindGroupId, PROPERTY_CATEGORY_LABELS, formatDisplayName } from '@/src/domain/propertyCategory';
 import { SharedEntityTable, SharedEntityRow } from '@/src/features/shared/SharedEntityTable';
+import { SharedGoogleSignIn } from '@/src/features/shared-auth/SharedGoogleSignIn';
 import { EntityIcon } from '@/src/components/ui/EntityIcon';
 import { SharedNav } from '@/src/features/shared/SharedNav';
 import { useActiveSection } from '@/src/features/shared/useActiveSection';
@@ -650,6 +651,10 @@ export function SharedProject({ token }: { token: string }) {
           </div>
         </div>
       </header>
+
+      <div className={`${PAGE_MAX_WIDTH_CLASS} px-4 sm:px-8`}>
+        <SharedGoogleSignIn token={token} />
+      </div>
 
       <div className={`${PAGE_MAX_WIDTH_CLASS} px-4 sm:px-8 py-6 lg:flex lg:gap-8 lg:items-start`}>
         <SharedNav

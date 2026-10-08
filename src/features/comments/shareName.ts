@@ -84,6 +84,8 @@ export interface CommentParticipantState extends CommentParticipantView {
 }
 const participants = new Map<string, CommentParticipantState>();
 const pending = new Map<string, Promise<void>>();
+const requestVersions = new Map<string, number>();
+const handledIdentityEvents = new WeakSet<Event>();
 const versions = new Map<string, number>();
 const claimedVersions = new Map<string, number>();
 function participantSnapshot(key: string): CommentParticipantState {
@@ -107,10 +109,13 @@ export function claimCommentIdentityRefresh(mode: 'shared' | 'internal', id: str
   return true;
 }
 /** One request per mounted share page, shared by every root/reply composer. */
-export function refreshCommentParticipant(mode: 'shared' | 'internal', id: string): Promise<void> {
+export function refreshCommentParticipant(mode: 'shared' | 'internal', id: string, supersede = false): Promise<void> {
   const key = `${mode}:${id}`;
   const existing = pending.get(key);
-  if (existing) return existing;
+  if (existing && !supersede) return existing;
+  // Account transitions supersede older reads; their responses must not restore stale attribution.
+  const requestVersion = (requestVersions.get(key) ?? 0) + 1;
+  requestVersions.set(key, requestVersion);
   participants.set(key, { ...participantSnapshot(key), ready: false, loading: true, error: null });
   listeners.forEach((listener) => listener());
   const url = mode === 'shared' ? `${API_BASE}/api/shared/${encodeURIComponent(id)}/identity` : `${API_BASE}/api/projects/${encodeURIComponent(id)}/comments/identity`;
@@ -118,14 +123,16 @@ export function refreshCommentParticipant(mode: 'shared' | 'internal', id: strin
     if (!response.ok) throw new Error('Identity request failed');
     const value = await response.json() as CommentParticipantView;
     if (typeof value.name !== 'string' || !value.name.trim() || !['guest', 'google', 'staff'].includes(value.kind) || typeof value.verified !== 'boolean') throw new Error('Invalid identity response');
+    if (requestVersions.get(key) !== requestVersion) return;
     participants.set(key, { ...value, ready: true, loading: false, error: null });
     versions.set(key, (versions.get(key) ?? 0) + 1);
     listeners.forEach((listener) => listener());
   }).catch(() => {
+    if (requestVersions.get(key) !== requestVersion) return;
     // Do not attribute writes to a stale or fabricated identity after an offline/auth failure.
     participants.set(key, { ...participantSnapshot(key), name: '', avatar_url: null, verified: false, ready: false, loading: false, error: 'Posting identity unavailable. Retry before posting.' });
     listeners.forEach((listener) => listener());
-  }).finally(() => { pending.delete(key); });
+  }).finally(() => { if (pending.get(key) === request) pending.delete(key); });
   pending.set(key, request);
   return request;
 }
@@ -140,7 +147,11 @@ export function useCommentParticipant(mode: 'shared' | 'internal', id: string): 
   useEffect(() => {
     if (!initialized.has(key)) { initialized.add(key); void refreshCommentParticipant(mode, id); }
     const onIdentityChanged = (event: Event) => {
-      if (mode === 'shared' && (event as CustomEvent<{ token: string }>).detail?.token === id) void refreshCommentParticipant(mode, id);
+      if (mode === 'shared' && (event as CustomEvent<{ token: string }>).detail?.token === id && !handledIdentityEvents.has(event)) {
+        // Every composer receives the same event. Start one fresh read for the whole share.
+        handledIdentityEvents.add(event);
+        void refreshCommentParticipant(mode, id, true);
+      }
     };
     window.addEventListener('e3-share-identity-changed', onIdentityChanged);
     return () => window.removeEventListener('e3-share-identity-changed', onIdentityChanged);

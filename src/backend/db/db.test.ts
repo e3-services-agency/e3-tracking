@@ -273,6 +273,7 @@ const ALL_MIGRATION_FILES = [
   '0035_comment_attachments.sql',
   '0036_enum_examples_cleanup.sql',
   '0037_comment_participants.sql',
+  '0038_comment_auth_sessions.sql',
 ];
 
 describe('listMigrationFiles', () => {

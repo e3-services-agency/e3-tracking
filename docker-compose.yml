@@ -29,6 +29,10 @@ services:
       E3_FILES_PATH: /data/files
       AUTH_MODE: ${E3_AUTH_MODE:-local}
       TRUSTED_PROXY_CIDR: ${TRUSTED_PROXY_CIDR:-172.28.0.8/29}
+      GOOGLE_COMMENT_CLIENT_ID: ${GOOGLE_COMMENT_CLIENT_ID:-}
+      E3_PUBLIC_ORIGIN: ${E3_PUBLIC_ORIGIN:-}
+      COMMENT_STAFF_SESSION: ${COMMENT_STAFF_SESSION:-0}
+      WORKSPACE_DOMAIN: ${WORKSPACE_DOMAIN:-}
     networks:
       default:
     restart: unless-stopped

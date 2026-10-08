@@ -15,6 +15,7 @@ import { toggleReaction } from '../../dal/comment-reaction.dal';
 import { buildBackup } from '../../services/backup.service';
 import { previewRestore, applyRestore } from '../../services/backupRestore.service';
 
+const savedPublicOrigin = process.env.E3_PUBLIC_ORIGIN;
 let server: http.Server;
 let base: string;
 let token: string;
@@ -22,7 +23,7 @@ let projectId: string;
 let clientId: string;
 let eventId: string;
 const endpoint = (path: string) => `${base}/api/shared/${token}${path}`;
-const post = (path: string, body: unknown, cookie = '', extra: Record<string, string> = {}) => fetch(endpoint(path), { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie, ...extra }, body: JSON.stringify(body) });
+const post = (path: string, body: unknown, cookie = '', extra: Record<string, string> = {}) => fetch(endpoint(path), { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: base, Cookie: cookie, ...extra }, body: JSON.stringify(body) });
 const anchor = () => ({ entity_type: 'event', entity_id: eventId });
 async function browser() {
   const response = await fetch(endpoint('/identity'));
@@ -47,8 +48,9 @@ beforeAll(async () => {
   server = http.createServer(app);
   await new Promise<void>((resolve) => server.listen(0, resolve));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  process.env.E3_PUBLIC_ORIGIN = base;
 });
-afterAll(async () => { await new Promise<void>((resolve) => server.close(() => resolve())); closeDb(); delete process.env.E3_DB_PATH; });
+afterAll(async () => { await new Promise<void>((resolve) => server.close(() => resolve())); closeDb(); delete process.env.E3_DB_PATH; if (savedPublicOrigin === undefined) delete process.env.E3_PUBLIC_ORIGIN; else process.env.E3_PUBLIC_ORIGIN = savedPublicOrigin; });
 
 describe('share participants', () => {
   it('uses a stable animal/color guest without exposing session or participant IDs', async () => {

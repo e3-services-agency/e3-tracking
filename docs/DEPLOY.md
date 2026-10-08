@@ -52,6 +52,7 @@ Copy `.env.docker.example` to `.env.docker` (gitignored; optional, compose has d
 | `BACKUP_DIR` | `<db dir>/backups` = `/data/backups` | Backup output directory |
 | `BACKUP_KEEP` | 14 | Backups kept per project |
 | `BACKUP_SKIP_INITIAL` | unset | `1` skips the run at start-up |
+| `BACKUP_BUCKET` | unset | Cloud Storage bucket; when set, each backup is also uploaded (see Off-site backup) |
 
 ## Data volume, backups and restore
 
@@ -60,6 +61,20 @@ The named volume `e3_data` (compose project `e3-tracking`) is mounted at `/data`
 The backup job writes `/data/backups/backup-<project-key>-<YYYY-MM-DD>.json` for every project (the full JSON backup of D-45, uploaded files embedded) and keeps the newest 14 per project. A key that needed sanitising gets a short hash suffix so distinct keys never share a file; leftover `.tmp` files from an interrupted run are removed at the start of each run. Run one by hand: `docker compose exec backup node api/_backend/backup-job.js --once`.
 
 Copy a file out: `docker compose cp app:/data/backups/backup-<key>-<date>.json .`
+
+### Off-site backup (GCP, T-5-08)
+
+When `BACKUP_BUCKET` is set (`deploy/gcp/04-backup.sh` writes it to the VM `.env`), the nightly job (02:00 UTC by default) uploads every project's backup right after writing it, to `gs://<bucket>/<project_key>/<timestamp>.json` (timestamp like `2026-10-05T02-00-00-000Z`). The container has no gcloud: it calls the Cloud Storage JSON API with the VM service account token from the metadata server, with retries and backoff (4 attempts), and logs `[e3-backup] uploaded gs://...` or `upload FAILED`. Off GCP (local Docker) the metadata server is unreachable, so it logs once that the upload is skipped. Local copies and the 14-file retention are unchanged. The bucket is versioned and has a 90-day delete lifecycle (`deploy/gcp/bucket-lifecycle.json`).
+
+`/data/backups/last-backup.json` records the last run; `GET /api/health` exposes it as `last_backup_at` and `last_upload_ok` (`null` when no upload is configured or skipped, `false` after a failed upload).
+
+```bash
+deploy/gcp/04-backup.sh --run-now                  # one backup on the VM, prints the upload log line
+gcloud storage ls gs://<bucket>/ --recursive       # list (run by you)
+gcloud storage cp gs://<bucket>/<key>/<timestamp>.json .   # download
+```
+
+Restore rehearsal: before go-live and then quarterly, download a recent backup and run `npm run restore:rehearsal -- <file>`. It restores into a throwaway in-memory database through the real restore service, runs the comparison, prints counts per table, open findings, size and duration, and exits non-zero on warnings (`--allow-warnings` to accept them). A real restore into the app still goes through the Clients page (always creates a new project).
 
 Restore (creates a **new** project, never overwrites): use the restore form on the Clients page, or the API:
 
@@ -149,7 +164,7 @@ deploy/gcp/01-infra.sh                 # IP, firewall, service account, bucket, 
 deploy/gcp/02-build-push.sh            # build and push to Artifact Registry; prints the tag
 deploy/gcp/03-deploy.sh <tag>          # first run writes /opt/e3-tracking/.env with placeholders
 # on the VM (gcloud compute ssh <vm> --tunnel-through-iap): edit .env, set the OAuth id and secret, then rerun 03-deploy.sh <tag>
-deploy/gcp/04-backup.sh                # BACKUP_BUCKET in the VM .env (upload code: T-5-08)
+deploy/gcp/04-backup.sh                # BACKUP_BUCKET in the VM .env (nightly upload to the bucket)
 deploy/gcp/05-cutover.sh <project-id>...   # move local projects (exports from 127.0.0.1:3020)
 deploy/gcp/06-monitoring.sh            # uptime check on /api/health, email alert
 ```

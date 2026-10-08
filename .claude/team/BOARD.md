@@ -3690,3 +3690,12 @@ Supervisor ruling: polish commit for the three doc/escape items, then merge T-5-
 
 ### 2026-10-08 | implementer | HANDOFF | T-5-09 polish 71ab9b2
 Docs scope of the container test, osAdminLogin named, json_str via sed with a test. src/deploy 16/16. Supervisor: merging.
+
+### 2026-10-08 | supervisor | MERGE | T-5-09 merged into agent-setup — DONE (b214976); tsc, lint clean, 1994 tests / 199 files.
+
+### 2026-10-08 | reviewer | REVIEW | T-5-08 PASS (3 medium, 4 low)
+Gates green (2002/199 twice; shellcheck clean on LF copies; dry runs and the sandbox rehearsal OK, exit 0, 15 findings). MEDIUM: upload fetch has no timeout (a hung connection blocks the daemon's reschedule forever); a single transient metadata failure counts as "skipped" with exit 0 and no health signal; uploadType=media documented for ≤5 MB while backups with images can exceed it. LOW: a run that writes nothing erases last_backup_at; --run-now pipes through grep and masks the exit code; 408 not retried; last_upload_error write-only. Verified: no crash loop in the daemon, atomic status write, additive health fields, rehearsal isolation, docs.
+Supervisor ruling: fix the three MEDIUM + the two first LOW (AbortSignal.timeout scaled by size, metadata retry ×3 then fail when BACKUP_BUCKET is set unless ENOTFOUND, resumable upload above 4 MB, keep last_backup_at, pipefail + status line), then merge.
+
+### 2026-10-08 | implementer | HANDOFF | T-5-08 fix fdfc5cd
+Upload AbortSignal.timeout scaled by size (max 10 min), 408 retryable; token retry ×3, skip only on ENOTFOUND/EAI_AGAIN else failure; resumable upload above 4 MB; status keeps last_backup_at/last_upload_ok when nothing written; --run-now pipefail + status line. 2006 tests / 199 files, gates green. Supervisor: merging.

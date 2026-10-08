@@ -34,7 +34,7 @@ if [ "$DRY_RUN" = 1 ]; then
   while IFS= read -r l; do say "#   $l"; done < "$STAGE/env.template"
 fi
 confirm_once
-say "Previous image on the VM (rollback target):"
+say "Previous image on the VM (record with the pre-upgrade data/config snapshot):"
 PREV_CMD="sudo grep '^IMAGE=' $REMOTE/.env 2>/dev/null || true"
 show gcloud compute ssh "$VM_NAME" "${IAP[@]}" --command "$PREV_CMD"
 PREV=""
@@ -47,13 +47,14 @@ run gcloud compute ssh "$VM_NAME" "${IAP[@]}" --command "mkdir -p ~/$UPLOAD/depl
 run gcloud compute scp "${IAP[@]}" "$REPO_ROOT/docker-compose.yml" "$GCP_DIR/docker-compose.gcp.yml" "$STAGE/env.template" "$VM_NAME:$UPLOAD/"
 run gcloud compute scp --recurse "${IAP[@]}" "$REPO_ROOT/deploy/edge" "$VM_NAME:$UPLOAD/deploy/"
 
-INSTALL_CMD="set -e; sudo install -d -m 755 $REMOTE/deploy && sudo cp ~/$UPLOAD/docker-compose.yml ~/$UPLOAD/docker-compose.gcp.yml $REMOTE/ && sudo cp -r ~/$UPLOAD/deploy/edge $REMOTE/deploy/ && cd $REMOTE && { sudo test -f .env || sudo install -m 600 ~/$UPLOAD/env.template .env; } && sudo sed -i 's#^IMAGE=.*#IMAGE=$IMAGE_BASE:$TAG#' .env && rm -f ~/$UPLOAD/env.template && if sudo grep -q REPLACE_ME .env; then echo 'FIRST DEPLOY: edit OAUTH2_CLIENT_ID and OAUTH2_CLIENT_SECRET in $REMOTE/.env (sudoedit), then rerun this script.'; exit 3; fi && sudo gcloud auth configure-docker $REGION-docker.pkg.dev --quiet && $DC pull && $DC up -d"
+INSTALL_CMD="set -e; sudo install -d -m 755 $REMOTE/deploy && sudo cp ~/$UPLOAD/docker-compose.yml ~/$UPLOAD/docker-compose.gcp.yml $REMOTE/ && sudo cp -r ~/$UPLOAD/deploy/edge $REMOTE/deploy/ && cd $REMOTE && { sudo test -f .env || sudo install -m 600 ~/$UPLOAD/env.template .env; } && sudo sed -i 's#^IMAGE=.*#IMAGE=$IMAGE_BASE:$TAG#' .env && rm -f ~/$UPLOAD/env.template && if sudo grep -q REPLACE_ME .env; then echo 'FIRST DEPLOY: edit OAUTH2_CLIENT_ID and OAUTH2_CLIENT_SECRET in $REMOTE/.env (sudoedit), then rerun this script.'; exit 3; fi && sudo gcloud auth configure-docker $REGION-docker.pkg.dev --quiet && $DC pull app backup && $DC up -d"
 set +e
 run gcloud compute ssh "$VM_NAME" "${IAP[@]}" --command "$INSTALL_CMD"
 rc=$?
 set -e
 
-if [ -n "$PREV" ]; then say "Rollback: $0 ${PREV##*:}"; else say "Rollback: $0 <previous tag>"; fi
+if [ -n "$PREV" ]; then say "Recorded previous image: $PREV"; fi
+say "Rollback across schema 0037/0038 requires stopping all writers, preserving failed-upgrade data, and restoring the verified pre-upgrade data AND config before starting the previous image. See docs/DEPLOY.md; do not run an old image on the migrated database."
 if [ "$rc" = 3 ]; then
   say "Stopped before 'up -d': the OAuth client values are still placeholders. Edit the VM .env, then rerun: $0 $TAG"
   exit 1
@@ -66,6 +67,7 @@ else
   if curl -fsS --retry 30 --retry-delay 5 --retry-all-errors "https://$HOSTNAME/api/health"; then
     echo
   else
-    say "Health check failed (DNS not pointing at the IP yet, certificate pending, or the app is down). Check: docker compose logs on the VM."
+    say "Health check failed (DNS not pointing at the IP yet, certificate pending, or the app is down). Check: docker compose logs on the VM. Deployment verification failed."
+    exit 1
   fi
 fi

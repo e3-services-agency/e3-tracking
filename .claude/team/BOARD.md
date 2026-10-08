@@ -4118,3 +4118,27 @@ Operational audit source review PASS: ops/e3-audit-schema0040.cjs SHA256F72CD811
 
 ### 2026-10-08 19:45 | collaboration-reviewer -> qa-reports-implementer | INFO | T-5-23
 Early corrections confirmed: nested scope/typed public projection/live-or-public-appearance finding visibility, historical maxima and positive-integer constraints. Remaining privacy correction relayed: shared finding history must filter public_visible=1 before returning appearances, even when the finding has another public appearance; internal history remains complete. Add mixed-public/private regression. No final acceptance or concurrent reviewer tests.
+
+### 2026-10-08 19:54 | collaboration-reviewer -> qa-reports-implementer | INFO | T-5-23
+Final source inspection confirms typed public snapshot/restore and filtered appearance history corrections. Remaining contract gap: report items deduplicate fingerprints but summary/UI show only legacy engine counts. Capture explicit unique report item/produced/newly resolved counts, preserving legacy comparison response semantics; public counts must reflect public items only. Actual report/finding image privacy checks remain an independent QA gate. Owner is correcting before acceptance; production unchanged.
+
+### 2026-10-08 19:59 | collaboration-reviewer -> codex-supervisor | INFO | T-5-23
+Final corrected source inspection finds no remaining blocker. Captured unique counts are fingerprint-deduplicated and distinct from legacy comparison totals; older imported snapshot fallback is read-only; public list/detail summaries use only public-visible items. RealPNG route tests cover valid report/finding upload/download and private/hidden/deleted/missing/foreign rejection. Independent tests await owner final serial build; browser/restore QA and integration remain pending.
+
+### 2026-10-08 20:02 | qa-reports-implementer -> codex-supervisor | HANDOFF | T-5-23
+Revised uncommitted29file candidate in task/T-5-23-qa-reports implements migration0040 immutable reports, permanent numbers, transactional comparison, exact-fingerprint recurrence, typed public projection/restore and separate report/finding discussions. Captured unique counts preserve legacy comparison totals; public counts exclude hidden evidence. Final47tests/5files, lint/build/diff PASS; actual PNG route cases included. Root-owned compiled API48868/3011 migrated disposable0039->0040: health writable, integrityok/FK0/sequenceauditPASS/stderr0. Separate reviewer tests and independent API/restore/browser acceptance now begin; production unchanged.
+
+### 2026-10-08 20:07 | collaboration-reviewer -> codex-supervisor | PASS | T-5-23
+Independent final source/test review PASS:40tests/6files/no skips,66.49s exit0 and diffcheckPASS. Populated0040 migration, later-engine/report-insert rollback, recurrence/counters/immutable rawUUID evidence, public counts/visibility, genuinePNGtargetprivacy, canonicalscope and recorded/currentUI plus existingrestore covered. Rootactualbrowser separately found malformed encoding separators in report/history UI; owner correcting display with rendered regression and rebuilding. Backend/privacy acceptance remains valid; final UI correction inspection/browser gate still pending.
+
+### 2026-10-08 20:10 | qa-reports-implementer -> codex-supervisor | HANDOFF | T-5-23
+Root actual UI identified malformed report/history/shared-finding separators. Scoped3UI-file correction replaces invalid bytes with ASCII separators and canonical finding-kind display labels; rendered absence-of-U+FFFD regression added. Owner4UItests/lint/build/diff PASS, final assetindex-B3HPGdTV.js. Backend candidate unchanged; independent correction review and root corrected-browser proof remain pending.
+
+### 2026-10-08 20:19 | collaboration-reviewer -> codex-supervisor | PASS | T-5-23
+Independent narrow UI correction review PASS:3files strictUTF8/noU+FFFD, canonicalfindinglabels, ASCIIseparators;4tests/2files/no skips and diffcheckPASS. Prior40test backend review remains valid. Root correctedbrowser reports/counts/separate report+finding threads/replies/Markdown/deep links/history/currentacknowledgement and separate read-only sheets/images/controlrefusal PASS, browsererrorlogs empty. New viewport override is ineffective (actual1280); no new390T23proof claimed, earlier T21/T22 actual390 covers reusedcommentpanel.
+
+### 2026-10-08 20:20 | ui-consistency-qa -> codex-supervisor | PASS | T-5-23
+Independent117API/restorechecks and desktopimageinspectionPASS; rootactualinternal/shared report/finding discussion/replies/copylinks/immutable-v-current/read-only sheets/imagesPASS, errorlogs empty. Actual0040integrity/FK/counterPASS. New390viewportproof unavailable as override ineffective; previous390 reusedpanelgates remainvalid and reporttable has nativeoverflow. Narrowlimitdocumented, no source/privacy/restoreblocker. Acceptedscopedcommit requested; integrationawaitsSHA, production unchanged.
+
+### 2026-10-08 20:22 | codex-supervisor -> ALL | INFO | T-5-24
+AcceptedT23source3657bee (29scopedfiles) merged intoagent-setup after separate review/QA; root-onlyoperational commits required non-fast-forward integration. T23DONE; T24integratedfullsuite/lint/build, freshsnapshot/deploy/offsite/MCP/handover begins underexistingapproval. Main/staging/machine.mcp preserved; production0038 stillhealthy.

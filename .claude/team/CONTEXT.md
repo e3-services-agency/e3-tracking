@@ -101,3 +101,6 @@ Public OAuth client setup and user-configured billing are complete in e3-trackin
 
 ### Completed UI consistency follow-up
 User approved property definition-count badges beside names, stronger category/property/definition indentation, and shared presentation aligned with the internal platform while preserving current shared-document navigation. D-77 and reports/PLAN-UI-CONSISTENCY-2026-10-08.md define T18/T19/T20. Existing D-73 cooperation/commit authorization continues; coordinator alone writes team records. Completed release240efde-dirty/schema0038 is the current baseline; reports/UI-CONSISTENCY-2026-10-08.md contains acceptance, backup and recovery evidence.
+
+### Approved next collaboration scope
+D-78 and reports/PLAN-COLLABORATION-2026-10-08.md cover approved T-5-21..24: certification/expansion/sticky-collapse/actions UI, identity-rule/catalog/definition comments and history, and saved numbered QA reports plus persistent finding discussions. User approved the final clarification and proceeding with all stages; D-79 removes the redundant on_it reaction from active UI/new submissions while preserving old evidence, stored thread statuses and current reopening permissions. Add How it works help; no assignment feature is introduced. Separate implementation/review/QA and supervisor-only team records continue.

@@ -1,15 +1,14 @@
 /**
- * Comment reactions (D-70 item 3, T-5-03): exactly three kinds (`seen`, `like`, `on_it`), one per
+ * Comment reactions (D-79): Seen/Like are writable, legacy on_it remains readable, one per
  * author per comment per kind (author compared case-insensitively, enforced by the unique index in
- * 0034), toggled on a second press. `on_it` also moves the root's status from open to on_it; a
- * share caller goes through the restricted status rules and a refused status change never blocks
- * the reaction. Not change-logged (comments are their own lightweight trail, D-49).
+ * 0034), toggled on a second press. New reactions never alter thread status.
+ * Stored legacy evidence remains backup/restorable. Not change-logged (D-49).
  */
 import { getDb } from '../db';
 import { newId, nowIso } from '../db/util';
 import { ValidationError } from '../errors';
-import { COMMENT_REACTION_KINDS, type CommentReactionKind } from '../../domain/enums';
-import { getCommentOrThrow, setCommentStatus, StatusNotAllowedError, type CommentRow } from './comment.dal';
+import { COMMENT_REACTION_KINDS, WRITABLE_COMMENT_REACTION_KINDS, type CommentReactionKind, type WritableCommentReactionKind } from '../../domain/enums';
+import { getCommentOrThrow, type CommentRow } from './comment.dal';
 
 export interface ReactionSummary {
   kind: CommentReactionKind;
@@ -19,9 +18,9 @@ export interface ReactionSummary {
   mine?: boolean;
 }
 
-export function assertReactionKind(kind: unknown): asserts kind is CommentReactionKind {
-  if (typeof kind !== 'string' || !(COMMENT_REACTION_KINDS as readonly string[]).includes(kind)) {
-    throw new ValidationError(`kind must be one of ${COMMENT_REACTION_KINDS.join(', ')}.`, 'kind');
+export function assertReactionKind(kind: unknown): asserts kind is WritableCommentReactionKind {
+  if (typeof kind !== 'string' || !(WRITABLE_COMMENT_REACTION_KINDS as readonly string[]).includes(kind)) {
+    throw new ValidationError(`kind must be one of ${WRITABLE_COMMENT_REACTION_KINDS.join(', ')}.`, 'kind');
   }
 }
 
@@ -86,10 +85,7 @@ export function toggleReaction(
   const author = authorName?.trim();
   if (!author) throw new ValidationError('author_name is required.', 'author_name');
   if (author.length > 80) throw new ValidationError('author_name must be 80 characters or fewer.', 'author_name');
-  const comment = getCommentOrThrow(projectId, commentId);
-  if (kind === 'on_it' && comment.parent_id) {
-    throw new ValidationError('"on_it" can only be given on a root comment.', 'kind');
-  }
+  getCommentOrThrow(projectId, commentId);
   const db = getDb();
   let existing = db
     .prepare(opts.participantId ? 'SELECT id FROM comment_reactions WHERE comment_id = ? AND participant_id = ? AND kind = ?' : 'SELECT id FROM comment_reactions WHERE comment_id = ? AND participant_id IS NULL AND lower(author_name) = lower(?) AND kind = ?')
@@ -107,14 +103,5 @@ export function toggleReaction(
   db.prepare(
     'INSERT INTO comment_reactions (id, project_id, comment_id, author_name, kind, via_share, created_at, participant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   ).run(newId(), projectId, commentId, author, kind, opts.viaShare ? 1 : 0, nowIso(), opts.participantId ?? null);
-  let result = getCommentOrThrow(projectId, commentId);
-  if (kind === 'on_it' && result.status === 'open') {
-    try {
-      result = setCommentStatus(projectId, commentId, 'on_it', author, { restricted: !!opts.viaShare });
-    } catch (err) {
-      // The reaction stands even when the status change is refused.
-      if (!(err instanceof StatusNotAllowedError)) throw err;
-    }
-  }
-  return { added: true, comment: result };
+  return { added: true, comment: getCommentOrThrow(projectId, commentId) };
 }

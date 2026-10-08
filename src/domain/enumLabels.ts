@@ -42,6 +42,7 @@ export const STATUS_LABELS: Record<string, string> = {
   done: 'Done',
   wont_do: "Won't do",
 };
+export const COMMENT_STATUS_LABELS: Record<string, string> = { open: 'Open', on_it: 'In progress', done: 'Done', wont_do: "Won't do" };
 /** D-70 item 3 (T-5-03): comment reaction labels, keyed by `COMMENT_REACTION_KINDS`. */
 export const REACTION_LABELS: Record<string, string> = { seen: 'Seen', like: 'Like', on_it: 'On it' };
 export const CLASS_LABELS: Record<string, string> = { custom: 'Custom', sdk: 'SDK', platform: 'Platform' };

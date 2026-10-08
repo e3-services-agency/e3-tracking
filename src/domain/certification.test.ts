@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeCertification } from './certification';
+import { computeCertification, summarizeCertification } from './certification';
 
 describe('computeCertification', () => {
   it('is not applicable for an sdk/platform event, regardless of every other input', () => {
@@ -98,4 +98,11 @@ describe('computeCertification', () => {
     expect(result.certified).toBe(false);
     expect(result.reasons).toEqual(['open_errors: 2', 'acknowledged_errors: 1']);
   });
+});
+
+it('certification guidance never treats acknowledgement as fixing a reproducing error', () => {
+  const summary = summarizeCertification({ applicable: true, certified: false, reasons: ['open_errors: 2', 'acknowledged_errors: 1'] });
+  expect(summary.reasons.join(' ')).toContain('still reproducing');
+  expect(summary.change).toContain('fix the open errors at their source');
+  expect(summary.change).not.toContain('fix or resolve');
 });

@@ -28,9 +28,9 @@ import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { COMMENT_ENTITY_TYPES, COMMENT_STATUSES, type CommentStatus } from '@/src/domain/enums';
-import { enumLabel } from '@/src/domain/enumLabels';
+import { COMMENT_STATUS_LABELS } from '@/src/domain/enumLabels';
 import { groupThreads } from '@/src/domain/commentThreads';
-import { StatusBadge } from '@/src/components/ui/badges';
+import { CommentStatusBadge } from '@/src/features/comments/CommentStatusBadge';
 import { CommentCopyActions } from '@/src/features/comments/CommentCopyActions';
 import { useCommentLink } from '@/src/features/comments/useCommentLink';
 import { COMMENT_TARGET_CLASS, commentDomId, commentLinkUrl, focusComment, resolveCommentTarget } from '@/src/features/comments/commentLinks';
@@ -230,7 +230,7 @@ export function Comments() {
     if (!loading && linkedComment) focusComment(document.getElementById(commentDomId(linkedComment.comment.id)));
   }, [linkedComment?.comment.id, loading, statusFilter, entityType, internalFilter]);
 
-  // D-70: threads (roots with replies); the status filter applies to roots. "Active" = open + on it.
+  // D-70: threads (roots with replies); the status filter applies to roots. "Active" = open + in progress.
   const threads = groupThreads(rows).filter((t) =>
     statusFilter === '' ? true : statusFilter === 'active' ? t.status === 'open' || t.status === 'on_it' : t.status === statusFilter
   );
@@ -267,9 +267,9 @@ export function Comments() {
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
               className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm"
             >
-              <option value="active">Open and on it</option>
+              <option value="active">Open and in progress</option>
               {COMMENT_STATUSES.map((st) => (
-                <option key={st} value={st}>{enumLabel('status', st)}</option>
+                <option key={st} value={st}>{COMMENT_STATUS_LABELS[st]}</option>
               ))}
               <option value="">All</option>
             </select>
@@ -326,7 +326,7 @@ export function Comments() {
                   )}
                   <span>·</span>
                   <span>{new Date(row.created_at).toLocaleString()}</span>
-                  <StatusBadge status={row.status} />
+                  <CommentStatusBadge status={row.status} />
                   <CommentCopyActions mode="internal" row={row} thread={row} getLink={getCommentLink} fileUrl={fileUrl} />
                 </div>
                 <CommentBody className="mt-1" body={row.body} attachments={threadAttachments(row, row.replies)} fileUrl={fileUrl} />
@@ -354,7 +354,7 @@ export function Comments() {
                   className="h-8 rounded-md border border-gray-300 bg-white px-2 text-xs"
                 >
                   {COMMENT_STATUSES.map((st) => (
-                    <option key={st} value={st}>{enumLabel('status', st)}</option>
+                    <option key={st} value={st}>{COMMENT_STATUS_LABELS[st]}</option>
                   ))}
                 </select>
                 <button

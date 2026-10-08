@@ -511,8 +511,11 @@ export type CommentEntityType = (typeof COMMENT_ENTITY_TYPES)[number];
 export const COMMENT_STATUSES = ['open', 'on_it', 'done', 'wont_do'] as const;
 export type CommentStatus = (typeof COMMENT_STATUSES)[number];
 /** Statuses a comment-access share link may set; wont_do and reopening stay internal. */
-/** D-70 item 3 (T-5-03): exactly three reactions; `on_it` also sets the root's status. */
+/** Stored reaction vocabulary retains legacy on_it for backup/restore and old evidence. */
 export const COMMENT_REACTION_KINDS = ['seen', 'like', 'on_it'] as const;
 export type CommentReactionKind = (typeof COMMENT_REACTION_KINDS)[number];
+/** D-79: new reactions never change thread status. */
+export const WRITABLE_COMMENT_REACTION_KINDS = ['seen', 'like'] as const;
+export type WritableCommentReactionKind = (typeof WRITABLE_COMMENT_REACTION_KINDS)[number];
 
 export const SHARE_SETTABLE_COMMENT_STATUSES = ['on_it', 'done'] as const;

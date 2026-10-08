@@ -19,11 +19,12 @@
  * separate, optional prop (`grid`) -- the shared view has no equivalent route and only shows the
  * `EventCard.coverage` summary counts, same as this component does when `grid` is omitted.
  */
+import { Tooltip } from '@/src/components/ui/Tooltip';
 import React from 'react';
 import { enumLabel } from '@/src/domain/enumLabels';
 import { EntityIcon } from '@/src/components/ui/EntityIcon';
 import { HintTh } from '@/src/components/ui/FieldHint';
-import { summarizeCertification } from '@/src/domain/certification';
+import { summarizeCertification, describeCertificationReason } from '@/src/domain/certification';
 import { anyNameDiffersFromKey } from '@/src/domain/payloadKey';
 import { GlossaryTerm, FindingTerm } from '@/src/components/ui/GlossaryTerm';
 import { CodeBlock } from '@/src/components/ui/CodeBlock';
@@ -163,6 +164,7 @@ export function expirationSummary(exp: EventCardData['expiration'] | null): stri
 }
 
 export function CertificationBadge({ certification, compact = false }: { certification: EventCardData['certification']; compact?: boolean }) {
+  const summary = summarizeCertification(certification);
   const label = !certification.applicable ? 'n/a' : certification.certified ? 'certified' : 'not certified';
   const color = !certification.applicable
     ? 'bg-gray-100 text-gray-600 border-gray-200'
@@ -170,13 +172,13 @@ export function CertificationBadge({ certification, compact = false }: { certifi
       ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
       : 'bg-red-50 text-red-800 border-red-200';
   return (
-    <span
-      className={`inline-block rounded-full border px-3 py-1 text-xs font-medium ${color}`}
-      title={certification.reasons.length > 0 ? certification.reasons.join(', ') : undefined}
-    >
+    <Tooltip content={<div className="space-y-1"><p className="font-semibold">{summary.status}</p>
+      {summary.reasons.map(reason => <p key={reason}>{reason}</p>)}
+      <p>{summary.change}</p></div>}>
+    <span className={`inline-block rounded-full border px-3 py-1 text-xs font-medium ${color}`}>
       {label}
-      {!compact && certification.reasons.length > 0 ? ` (${certification.reasons.join(', ')})` : ''}
-    </span>
+      {!compact && certification.reasons.length > 0 ? ` (${certification.reasons.map(describeCertificationReason).join(' ')})` : ''}
+    </span></Tooltip>
   );
 }
 

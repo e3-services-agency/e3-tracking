@@ -1,13 +1,8 @@
-/**
- * `CommentReactions` (D-70 item 3, T-5-03): the three reaction buttons under a comment (Seen, Like,
- * On it), counts, names on hover via the Tooltip, the viewer's own reaction highlighted. `On it`
- * only exists on a root comment. When the share link requires a name and none is entered the
- * buttons are `aria-disabled` and a press shows the message right here, not at the bottom form.
- */
+/** D-79: Seen/Like controls only; legacy stored on_it is never offered as an action. */
 import { useState } from 'react';
 import { Tooltip } from '@/src/components/ui/Tooltip';
 import { REACTION_ICONS } from '@/src/components/layout/navIcons';
-import { COMMENT_REACTION_KINDS, type CommentReactionKind } from '@/src/domain/enums';
+import { WRITABLE_COMMENT_REACTION_KINDS, type CommentReactionKind } from '@/src/domain/enums';
 import { REACTION_LABELS } from '@/src/domain/enumLabels';
 
 export interface ReactionSummaryView {
@@ -19,10 +14,10 @@ export interface ReactionSummaryView {
 
 export function CommentReactions({
   reactions,
-  isRoot,
   ownName,
   nameRequired,
   busy,
+  readOnly = false,
   onReact,
 }: {
   reactions: ReactionSummaryView[] | undefined;
@@ -32,10 +27,11 @@ export function CommentReactions({
   /** Shared link with `require_name` and no name entered yet. */
   nameRequired: boolean;
   busy: boolean;
+  readOnly?: boolean;
   onReact: (kind: CommentReactionKind) => void;
 }) {
   const [message, setMessage] = useState<string | null>(null);
-  const kinds = COMMENT_REACTION_KINDS.filter((k) => isRoot || k !== 'on_it');
+  const kinds = WRITABLE_COMMENT_REACTION_KINDS;
   return (
     <div className="mt-1 flex items-center gap-1 flex-wrap" data-testid="comment-reactions">
       {kinds.map((kind) => {
@@ -50,8 +46,10 @@ export function CommentReactions({
             <button
               type="button"
               aria-pressed={mine}
-              aria-disabled={nameRequired || busy}
+              aria-disabled={readOnly || nameRequired || busy}
+              disabled={readOnly}
               onClick={() => {
+                if (readOnly) return;
                 if (nameRequired) {
                   setMessage('Enter your name first.');
                   return;
@@ -61,7 +59,7 @@ export function CommentReactions({
               }}
               className={`inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] ${
                 mine ? 'border-[var(--brand-primary)] bg-blue-50 text-[var(--brand-primary)]' : 'border-gray-300 bg-white text-gray-600'
-              } ${nameRequired ? 'opacity-50' : 'hover:bg-gray-50'}`}
+              } ${nameRequired || readOnly ? 'opacity-50' : 'hover:bg-gray-50'}`}
             >
               {Icon && <Icon className="h-3 w-3" aria-hidden />}
               {label}

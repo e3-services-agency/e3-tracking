@@ -39,6 +39,7 @@ import { API_BASE } from '@/src/config/env';
 import type { CommentEntityType, CommentStatus } from '@/src/domain/enums';
 import { groupThreads } from '@/src/domain/commentThreads';
 import { CommentItem } from './CommentItem';
+import { CommentWorkflowHelp } from './CommentWorkflowHelp';
 import type { ReactionSummaryView } from './CommentReactions';
 import { useShareName, shareNamePayload, useCommentParticipant, refreshCommentParticipant, claimCommentIdentityRefresh, isVisitorId } from './shareName';
 import { CommentIdentity } from './CommentIdentity';
@@ -270,7 +271,7 @@ export function CommentsPanel({
   };
 
   const react = async (row: CommentPanelRow, kind: string) => {
-    if (!participant.ready) return;
+    if (!participant.ready || (api.mode === 'shared' && api.access !== 'comment')) return;
     setBusyId(row.id);
     setError(null);
     try {
@@ -342,6 +343,10 @@ export function CommentsPanel({
         </ul>
       )}
 
+      <div className="flex flex-wrap items-baseline gap-3">
+        <h4 className="text-sm font-medium text-gray-900">{canComment ? 'Add a comment' : 'Comments access'}</h4>
+        <CommentWorkflowHelp api={api} />
+      </div>
       {canComment && (
         <form onSubmit={(e) => void submit(e)} className="space-y-2">
           {api.mode === 'internal' && (
@@ -351,7 +356,7 @@ export function CommentsPanel({
                 Internal only
               </FieldLabel>
               <p className="text-[11px] text-gray-400">
-                {internalOnly ? 'Not visible on the share link.' : 'Visible to anyone with the share link.'}
+                {internalOnly ? 'Not visible on the share link.' : 'May be visible through share links, depending on project sharing settings.'}
               </p>
             </div>
           )}

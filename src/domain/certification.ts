@@ -95,7 +95,7 @@ export function summarizeCertification(c: Certification): CertificationSummary {
   const fixes: string[] = [];
   for (const r of c.reasons) {
     if (r === 'status_ignored') fixes.push('set the event status to something other than ignored');
-    else if (r.startsWith('open_errors')) fixes.push('fix or resolve the open error findings');
+    else if (r.startsWith('open_errors')) fixes.push('fix the open errors at their source and rerun the comparison');
     else if (r.startsWith('acknowledged_errors')) fixes.push('fix the acknowledged errors at their source');
     else if (r === 'no_observations') fixes.push('import or submit at least one observation in a QA run');
   }

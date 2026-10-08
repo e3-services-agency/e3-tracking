@@ -3,14 +3,56 @@
  * the config values, and never contains a destructive verb. Skipped when bash is not available.
  */
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 const dir = path.resolve(__dirname, '../../deploy/gcp');
 const bash = spawnSync('bash', ['-c', 'echo ok']);
 const hasBash = bash.status === 0 && String(bash.stdout).includes('ok');
+const bashPlatform = hasBash ? spawnSync('bash', ['-c', 'printf "%s" "$OSTYPE"'], { encoding: 'utf8' }).stdout : '';
+const usesWsl = process.platform === 'win32' && bashPlatform.startsWith('linux');
+function runShell(args: string[], input?: string) {
+  // The legacy Windows bash.exe launcher drops positional args after -c. WSL's
+  // native exec mode preserves them; MSYS/Cygwin and POSIX Bash use direct argv.
+  return spawnSync(usesWsl ? 'wsl.exe' : 'bash', usesWsl ? ['--exec', 'bash', ...args] : args,
+    { encoding: 'utf8', input });
+}
+const fixtureDir = mkdtempSync(path.join(os.tmpdir(), 'e3-gcp-tests-'));
+const configFile = path.join(fixtureDir, 'config with spaces.env');
+const jsonScript = path.join(fixtureDir, 'json quoting.sh');
+// Config is a shell input: Git's Windows checkout can give the example CRLF endings.
+writeFileSync(configFile, readFileSync(path.join(dir, 'config.env.example'), 'utf8').replace(/\r\n/g, '\n'));
+afterAll(() => {
+  unlinkSync(configFile);
+  try { unlinkSync(jsonScript); } catch (err) { if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err; }
+  rmdirSync(fixtureDir);
+});
+
+const bashPaths = new Map<string, string>();
+function toBashPath(file: string): string {
+  if (process.platform !== 'win32') return file;
+  const cached = bashPaths.get(file);
+  if (cached) return cached;
+  // Windows can resolve `bash` to Git/MSYS, Cygwin, or WSL. Let that runtime translate
+  // its own paths; pass the path as an argument so spaces/accents/quotes stay literal.
+  const converted = runShell(['-c',
+    'if command -v cygpath >/dev/null 2>&1; then cygpath -u "$1"; elif command -v wslpath >/dev/null 2>&1; then wslpath -a "$1"; else printf "%s\\n" "$1"; fi',
+    'gcp-test-path', file]);
+  expect(converted.status, converted.stderr).toBe(0);
+  const result = converted.stdout.trim();
+  expect(result).not.toBe('');
+  bashPaths.set(file, result);
+  return result;
+}
+
+function runBash(script: string, args: string[] = [], input?: string) {
+  // WSL does not automatically forward custom Windows environment variables.
+  // Assign CONFIG inside Bash, avoiding shell interpolation of any path or argument.
+  return runShell(['-c', 'export CONFIG="$1"; shift; exec bash "$@"',
+    'gcp-test', toBashPath(configFile), toBashPath(script), ...args], input);
+}
 
 function parseConfig(): Record<string, string> {
   const out: Record<string, string> = {};
@@ -22,10 +64,7 @@ function parseConfig(): Record<string, string> {
 }
 
 function dry(script: string, args: string[] = []): string {
-  const r = spawnSync('bash', [path.join(dir, script), ...args, '--dry-run'], {
-    encoding: 'utf8',
-    env: { ...process.env, CONFIG: path.join(dir, 'config.env.example') },
-  });
+  const r = runBash(path.join(dir, script), [...args, '--dry-run']);
   expect(r.status, `${script}: ${r.stderr}`).toBe(0);
   return r.stdout;
 }
@@ -73,7 +112,7 @@ describe.skipIf(!hasBash)('deploy/gcp --dry-run', () => {
     const out = dry('03-deploy.sh', ['v1']);
     expect(out).toContain('~/e3-deploy/deploy/');
     // The local path may be shell-quoted (spaces, accents), so assert source and destination separately.
-    expect(out).toMatch(/deploy\/edge'? e3-tracking:~\/e3-deploy\/deploy\//);
+    expect(out).toMatch(/deploy\/edge'? e3-tracking:e3-deploy\/deploy\//);
     expect(out).toContain('sudo install -d -m 755 /opt/e3-tracking/deploy');
     expect(out).toContain('sudo install -m 600');
     const cmd = out.split('\n').find((l) => l.includes('install -d -m 755')) ?? '';
@@ -89,10 +128,7 @@ describe.skipIf(!hasBash)('deploy/gcp --dry-run', () => {
   });
 
   it('03-deploy.sh requires a tag', () => {
-    const r = spawnSync('bash', [path.join(dir, '03-deploy.sh'), '--dry-run'], {
-      encoding: 'utf8',
-      env: { ...process.env, CONFIG: path.join(dir, 'config.env.example') },
-    });
+    const r = runBash(path.join(dir, '03-deploy.sh'), ['--dry-run']);
     expect(r.status).toBe(2);
   });
 });
@@ -101,9 +137,9 @@ describe.skipIf(!hasBash)('07-mcp.sh json_str', () => {
   it('escapes backslashes and quotes', () => {
     const fn = readFileSync(path.join(dir, '07-mcp.sh'), 'utf8').split(/\r?\n/).find((l) => l.startsWith('json_str()'))!;
     const input = String.fromCharCode(97, 92, 98, 34, 99); // a"c
-    const script = path.join(os.tmpdir(), `jsonstr-${process.pid}.sh`);
-    writeFileSync(script, `${fn}\nIFS= read -r x\njson_str "$x"\n`);
-    const r = spawnSync('bash', [script.split(path.sep).join('/')], { encoding: 'utf8', input: input + '\n' });
+    writeFileSync(jsonScript, `${fn}\nIFS= read -r x\njson_str "$x"\n`);
+    const r = runBash(jsonScript, [], input + '\n');
+    expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).toBe(String.fromCharCode(34, 97, 92, 92, 98, 92, 34, 99, 34));
   });
 });

@@ -43,10 +43,11 @@ if [ "$DRY_RUN" != 1 ]; then
 fi
 
 run gcloud compute ssh "$VM_NAME" "${IAP[@]}" --command "mkdir -p ~/$UPLOAD/deploy"
-run gcloud compute scp "${IAP[@]}" "$REPO_ROOT/docker-compose.yml" "$GCP_DIR/docker-compose.gcp.yml" "$STAGE/env.template" "$VM_NAME:~/$UPLOAD/"
-run gcloud compute scp --recurse "${IAP[@]}" "$REPO_ROOT/deploy/edge" "$VM_NAME:~/$UPLOAD/deploy/"
+# PuTTY pscp on Windows does not expand '~'; relative destinations start in the SSH user's home.
+run gcloud compute scp "${IAP[@]}" "$REPO_ROOT/docker-compose.yml" "$GCP_DIR/docker-compose.gcp.yml" "$STAGE/env.template" "$VM_NAME:$UPLOAD/"
+run gcloud compute scp --recurse "${IAP[@]}" "$REPO_ROOT/deploy/edge" "$VM_NAME:$UPLOAD/deploy/"
 
-INSTALL_CMD="set -e; sudo install -d -m 755 $REMOTE/deploy && sudo cp ~/$UPLOAD/docker-compose.yml ~/$UPLOAD/docker-compose.gcp.yml $REMOTE/ && sudo cp -r ~/$UPLOAD/deploy/edge $REMOTE/deploy/ && cd $REMOTE && { sudo test -f .env || sudo install -m 600 ~/$UPLOAD/env.template .env; } && sudo sed -i 's#^IMAGE=.*#IMAGE=$IMAGE_BASE:$TAG#' .env && rm -f ~/$UPLOAD/env.template && if sudo grep -q REPLACE_ME .env; then echo 'FIRST DEPLOY: edit OAUTH2_CLIENT_ID and OAUTH2_CLIENT_SECRET in $REMOTE/.env (sudoedit), then rerun this script.'; exit 3; fi && $DC pull && $DC up -d"
+INSTALL_CMD="set -e; sudo install -d -m 755 $REMOTE/deploy && sudo cp ~/$UPLOAD/docker-compose.yml ~/$UPLOAD/docker-compose.gcp.yml $REMOTE/ && sudo cp -r ~/$UPLOAD/deploy/edge $REMOTE/deploy/ && cd $REMOTE && { sudo test -f .env || sudo install -m 600 ~/$UPLOAD/env.template .env; } && sudo sed -i 's#^IMAGE=.*#IMAGE=$IMAGE_BASE:$TAG#' .env && rm -f ~/$UPLOAD/env.template && if sudo grep -q REPLACE_ME .env; then echo 'FIRST DEPLOY: edit OAUTH2_CLIENT_ID and OAUTH2_CLIENT_SECRET in $REMOTE/.env (sudoedit), then rerun this script.'; exit 3; fi && sudo gcloud auth configure-docker $REGION-docker.pkg.dev --quiet && $DC pull && $DC up -d"
 set +e
 run gcloud compute ssh "$VM_NAME" "${IAP[@]}" --command "$INSTALL_CMD"
 rc=$?

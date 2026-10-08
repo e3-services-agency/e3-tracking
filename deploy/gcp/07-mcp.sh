@@ -6,6 +6,8 @@ set -euo pipefail
 # shellcheck source=lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 plan_header "07 mcp over IAP"
+# PuTTY otherwise substitutes "y" for stdin, dropping the MCP JSON-RPC requests on Windows.
+export CLOUDSDK_SSH_PUTTY_FORCE_CONNECT=false
 REMOTE=/opt/e3-tracking
 KEY="${E3_PROJECT_KEY:-}"
 REMOTE_CMD="cd $REMOTE && sudo docker compose --env-file .env -f docker-compose.yml -f docker-compose.gcp.yml run --rm -T -e E3_PROJECT_KEY=$KEY mcp"
@@ -19,7 +21,8 @@ say "    \"e3-tracking-gcp\": {"
 say "      \"command\": \"cmd\","
 printf '      "args": ["/c"'
 for a in "${GC[@]}"; do printf ', %s' "$(json_str "$a")"; done
-say "]"
+say "],"
+say "      \"env\": {\"CLOUDSDK_SSH_PUTTY_FORCE_CONNECT\": \"false\"}"
 say "    }"
 say "  }"
 say "}"

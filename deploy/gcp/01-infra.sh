@@ -16,6 +16,12 @@ ensure "firewall: SSH from the IAP range only" "${G[*]} compute firewall-rules d
   "${G[@]}" compute firewall-rules create "$VM_NAME-iap-ssh" --network default --direction INGRESS \
   --allow tcp:22 --source-ranges "$IAP_RANGE" --target-tags "$VM_NAME"
 
+# Override default-allow-ssh (priority 65534) without changing firewall rules for other VMs.
+# The IAP allow rule has priority 1000 and wins over this scoped deny.
+ensure "firewall: block direct SSH" "${G[*]} compute firewall-rules describe $VM_NAME-deny-direct-ssh" -- \
+  "${G[@]}" compute firewall-rules create "$VM_NAME-deny-direct-ssh" --network default --direction INGRESS \
+  --action DENY --rules tcp:22 --priority 1001 --source-ranges 0.0.0.0/0 --target-tags "$VM_NAME"
+
 ensure "service account" "${G[*]} iam service-accounts describe $SA_EMAIL" -- \
   "${G[@]}" iam service-accounts create "$SA_NAME" --display-name "e3-tracking VM"
 

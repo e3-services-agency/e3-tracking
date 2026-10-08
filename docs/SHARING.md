@@ -1,6 +1,6 @@
-# Sharing (D-48, D-49, D-50, D-60)
+# Sharing (D-48, D-49, D-50, D-60, D-73–D-76)
 
-How a client sees the documentation without a login, and how they can comment on it.
+How a client reads the public documentation, chooses a commenting identity, and participates in shared threads.
 
 ## Creating and rotating a link
 
@@ -19,7 +19,8 @@ Settings page, "Share" block (`src/features/projects/pages/ProjectSettings.tsx`)
 The link itself is `<origin>/tracking-plan/shared/<token>` (`shareUrl` in `routes/projects.ts`,
 built from the request's own host — there is no separate "public base URL" setting). The token is
 stored in plaintext (`projects.share_token`) so Settings can re-display the current link; there is
-no expiry and no login. `share_created_at` is shown next to the link.
+no expiry and no required login. Optional Google commenter sign-in does not change link access.
+`share_created_at` is shown next to the link.
 
 ### Sandbox projects refuse a share link without `force` (D-60)
 
@@ -34,8 +35,11 @@ control, just a confirm dialog in front of the same button.
 - **`read`** — the shared page renders; no comment form appears (the shared `CommentsPanel` hides
   its form when `access !== 'comment'`, a client-side courtesy — `POST /api/shared/:token/comments`
   itself also 403s `SHARE_READ_ONLY` server-side, so the rule holds even against a direct API call).
-- **`comment`** — same as `read`, plus the comment form appears on every event card, use case, and
-  requirement row in the shared view.
+- **`comment`** — same as `read`, plus new-comment and reply forms on events, properties, use cases
+  and requirements. Reactions and permitted thread status changes also require comment access.
+
+Both access levels can read permitted comments and use their copy controls. Signing in identifies a
+commenter; it does not upgrade a read link or grant access to the internal app.
 
 ## The public projection
 
@@ -73,42 +77,40 @@ at that path.
 - `GET /:token/files/*` — the same decode/traversal checks as the internal `routes/files.ts`,
   scoped to this token's own project (a trigger screenshot, the project logo).
 - `GET /:token/comments` / `POST /:token/comments` (D-49 amendment, T-4-04) — see below.
+- `GET /:token/identity` — the current commenter’s display metadata, without participant IDs.
+- `GET /:token/auth/config`, `POST /:token/auth/google` and `POST /:token/auth/logout` — optional
+  verified commenter authentication, mounted before the shared router. See
+  [Google identity setup](SHARED-GOOGLE-AUTH.md).
 
-**Every error is the identical 404 `SHARE_NOT_FOUND` body**, including a malformed percent-escape
-in the URL (Express's own route-matching `URIError`, caught by a router-level error handler) and
-the global error handler no longer emits a stack trace outside `NODE_ENV=development`. Every
-response carries `Cache-Control: no-store` — a token-bearing URL must never be cached by a browser
-or a proxy.
-
-Note (T-4-03 QA, D-09 scope): a malformed escape (`/tracking-plan/shared/%ZZ`) crashes Vite's own
-dev/preview static middleware before any app code runs (`decodeURI` throws), on any path, not just
-`/shared/...` — this is a dev-server behaviour, not an app defect, and the app-level guard
-(`src/sharedRoute.ts`) is correct; the deploy target (Vercel static rewrites) has no equivalent
-decode step, so no fix is planned before phase 5, where it should be re-verified on the real host.
+Unknown, revoked and malformed share tokens return the same 404 `SHARE_NOT_FOUND` body,
+including malformed percent-escapes caught by the router. Other failures retain their appropriate
+codes: read-only writes return 403, invalid input returns 400, and rate limits return 429. Hidden or
+missing comment attachments return the same 404 `NOT_FOUND` file response. Responses carry
+`Cache-Control: no-store`; a token-bearing URL must not be cached by a browser or proxy. The global
+error handler does not emit stack traces outside `NODE_ENV=development`.
 
 ## Comments (D-49, one shared thread — amendment 2026-09-29)
 
 Comments attach to an `event`, `property`, `use_case`, or `requirement` (`entity_type`/`entity_id`,
-`comments` table, migration `0019`). **A comment thread is shared, not two separate ones**: `GET
-/api/shared/:token/comments` returns every comment on the anchor — posted internally through
-`/api/projects/:id/comments` or through the same share link alike. An internal reply **is** visible
-to anyone holding the share link, by design (the point of the feature is a consultant answering a
-client's question where it was asked). A comment is visible unless it is flagged **Internal only**
-(see "Comment visibility controls" below); a private, team-only note either carries that flag or
-belongs in one of the internal-only fields the public projection strips (`use_case.internal_notes`/
-`internal_url`, `agent_instructions`, `owners`, `identity_note`). The internal `CommentsPanel`
-states the current visibility next to the form ("Visible to anyone with the share link", or "Not
-visible on the share link." once "Internal only" is checked).
+`comments` table, migration `0019`). **A comment thread is shared, not two separate ones**: internal
+and share-link participants answer the same root comment. A link sees only permitted roots and
+non-private replies. Under the default `all` setting, internal replies are visible to link holders;
+under `via_share_only`, they remain visible when the root was posted through the link. An
+**Internal only** root hides the entire thread, and an independently private reply is excluded
+regardless of its root. See "Comment visibility controls" below.
 
-`via_share` (was this particular comment posted through a share link, not the same as "is this
-comment visible through a share link" — every comment is) stays visible on both sides so the
-internal Comments page and event/use-case panels can still tell them apart. `resolved_at`/
-`resolved_by` (internal triage only, never settable through the share route) and `project_id` are
-stripped from the public `GET` response (`toPublicComment`).
+Private team notes belong in an Internal only comment or a field the public projection strips
+(`use_case.internal_notes`/`internal_url`, `agent_instructions`, `owners`, `identity_note`). The
+internal `CommentsPanel` states the visibility next to the form. `via_share` records where a
+particular comment was posted; it is not itself a public-visibility flag.
+
+The public comment projection strips `project_id`, `internal_only`, internal resolution/status
+attribution, and participant IDs. Display names, verified identity badges and approved profile
+photos remain visible so readers can understand who posted.
 
 `POST /api/shared/:token/comments`:
 - 403 `SHARE_READ_ONLY` unless `access === 'comment'`.
-- 400 `FIELD_NOT_ALLOWED` for any body key outside `entity_type`/`entity_id`/`author_name`/`body`
+- 400 `FIELD_NOT_ALLOWED` for any body key outside `entity_type`/`entity_id`/`author_name`/`body`/`parent_id`
   — in particular `resolved` can never be set through this route.
 - The anchor is validated the same way the internal route validates it
   (`comment.dal.ts#createComment`'s `assertEntityExists`, scoped to this token's own project), so a
@@ -116,14 +118,14 @@ stripped from the public `GET` response (`toPublicComment`).
 - Every comment created this way carries `via_share: true`.
 - A per-token rate limit of 60 posts per 10 minutes (in-memory, reset on process restart) returns
   429 `RATE_LIMITED` past the limit — a cheap guard against a script hammering a leaked link, not
-  real rate limiting (see "Phase 5" below).
+  real rate limiting (see "Remaining hosting considerations" below).
 
 ### Threads and status (D-70, T-5-02, migration `0033`)
 
 A comment can have **replies** (`comments.parent_id`; `parent_id` is an allowed `POST` key). A reply
-always attaches to the root and inherits its entity and `internal_only` from it, so an internal-only
-thread never appears, replies included. On a `via_share_only` link the rule applies to roots: a
-visible root keeps its replies.
+attaches to the root and inherits its entity and initial `internal_only` value. A private root hides
+the whole thread; a reply can also carry its own private flag. On a `via_share_only` link the origin
+rule applies to roots: a visible root keeps its non-private replies, including internal replies.
 
 The root carries a **status**: `open`, `on_it`, `done`, `wont_do` (`resolved_at`/`resolved_by` are
 mirrored for `done`, so `PATCH {resolved: true|false}` still works internally: done / open).
@@ -135,7 +137,11 @@ rate limit and field whitelist as posts):
 - `read` links get 403 `SHARE_READ_ONLY`; an internal-only comment (or one hidden by `via_share_only`) answers the identical 404 `SHARE_NOT_FOUND`;
 - internal callers (`PATCH /api/projects/:id/comments/:id {status}`) may set any of the four.
 
-Every hidden or missing comment id (internal-only, hidden by `via_share_only`, nonexistent, a reply id on the status route, or a `parent_id` pointing at any of these) answers the identical 404 `SHARE_NOT_FOUND` body, so a link cannot probe for existence. Internally, `?resolved=false` also matches `on_it` and `wont_do` (it means not done), and `PATCH {resolved}` on a reply is a 400 by design (only a root has a status).
+Hidden or missing targets return the identical 404 `SHARE_NOT_FOUND` body for replies, reactions
+and status changes, so a link cannot probe for existence. Status changes accept only root IDs. A
+visible reply used as `parent_id` is normalized to its root; a private reply cannot be used this
+way. Internally, `?resolved=false` also matches `on_it` and `wont_do` (it means not done), and
+`PATCH {resolved}` on a reply is a 400 by design (only a root has a status).
 
 Who changed it last is kept as `status_changed_by`/`status_changed_at` on the comment (stripped from the public response; comments stay out of `change_log`).
 
@@ -165,8 +171,9 @@ Two controls narrow the "one shared thread" default. Both are enforced server-si
   (`GET /comments?internal_only=true|false`).
 - **Per link: "Show internal comments on the shared view"** (`projects.share_comments`, migration
   `0024`, values `all` | `via_share_only`, `SHARE_COMMENT_VISIBILITIES` in `src/domain/enums.ts`).
-  `all` (default) shows every comment that is not internal-only. `via_share_only` shows only the
-  comments posted through the link (`via_share = 1`), hiding comments the team posted internally.
+  `all` (default) shows non-private roots and their non-private replies. `via_share_only` shows
+  only roots posted through the link (`via_share = 1`) and their non-private replies. It hides
+  internally created roots, not internal replies on a shared root.
   Set from Settings > Share link, saved through `PATCH /api/projects/:id/share {share_comments}`
   (400 for any other value; `GET /:id/share` returns it). The setting belongs to the project, so it
   survives rotating or revoking the link.
@@ -185,63 +192,86 @@ A comment can carry up to 10 images (`comment_attachments`). Rules, enforced ser
   image per request) and `DELETE .../attachments/:attId`; the internal files route serves all.
 - **Shared**: `POST /api/shared/:token/comments/:commentId/attachments`, comment access only (403
   `SHARE_READ_ONLY` otherwise). The target must be a comment posted through a share link, visible to
-  that link, and at most 15 minutes old, so a visitor can attach screenshots to the comment they just
-  wrote but not to anyone else's. Limits per token (in memory, reset on restart): 60 uploads per 10
-  minutes and 200 MB per rolling 24 hours, both 429 `RATE_LIMITED`. A visitor cannot delete images.
+  that link, and at most 15 minutes old. New participant-bound comments additionally require
+  ownership by the current server participant. Legacy comments with a null `participant_id`
+  retain the older visibility/freshness compatibility exception; ownership is not checked for
+  those records. Limits per token (in memory, reset on restart): 60 uploads per 10 minutes and
+  200 MB per rolling 24 hours, both 429 `RATE_LIMITED`. A visitor cannot delete images.
 - **Serving**: `GET /api/shared/:token/files/<project>/comments/...` returns the image only when its
-  comment is visible to that link (not `internal_only`, and the `share_comments` rule); anything
-  else, including a comments path with no attachment row, is the same 404 `NOT_FOUND` as a missing
+  owning comment **and its root** are visible to that link (neither is `internal_only`, and the root
+  passes `share_comments`). Anything else, including a comments path with no attachment row,
+  is the same 404 `NOT_FOUND` as a missing
   file. The public comment list carries `attachments[]` without `project_id`, and only on the
   comments that pass the public filters.
 - Backup embeds the files like trigger screenshots (`files_missing[]` warning), restore rewrites ids
   and paths; CSV entity `comment_attachments`.
 
-Both columns are picked up by the JSON backup/restore and the `comments` CSV (`internal_only`).
-
-There is no edit, on either side — only resolve (internal-only,
-`PATCH /api/projects/:id/comments/:id {resolved}`) and delete (internal-only,
-`DELETE /api/projects/:id/comments/:id`, from the project-wide Comments page).
+Comment visibility and attachment metadata are preserved by JSON backup/restore; the `comments`
+CSV includes `internal_only`. Comment bodies cannot be edited after posting. Internal staff can
+change visibility, manage root status and delete comments from the project-wide Comments page.
+Share-link visitors have only the restricted root status actions described above.
 
 ### Markdown bodies (D-71, T-5-05)
 
-A comment body is Markdown text, stored exactly as typed (the public `GET` is unchanged: Markdown is text). Supported: bold, italic, strikethrough, inline code and code blocks, links, bullet, numbered and task lists, quotes. Raw HTML is never rendered (it shows as text). Links open in a new tab with `rel="noopener noreferrer nofollow"` and external links show their host. Images only render as `![alt](attachment:<id>)` for an image attached to that comment (resolved to the internal files URL, or the share files URL in the shared view); any other image source shows the alt text only. The body limit is 10,000 characters on both the internal and the shared `POST` (400 `VALIDATION_ERROR`). The composer is the shared `MarkdownEditor` (toolbar, Write/Preview, Ctrl/Cmd+Enter posts).
+A comment body is Markdown text, stored exactly as typed (the public `GET` is unchanged: Markdown is text). Supported: bold, italic, strikethrough, inline code and code blocks, links, bullet, numbered and task lists, quotes. Raw HTML is never rendered (it shows as text). Links open in a new tab with `rel="noopener noreferrer nofollow"` and external links show their host. Images only render as `![alt](attachment:<id>)` for an image in the visible thread’s attachment pool (resolved to the internal files URL, or the permitted share files URL in the shared view); any other image source shows the alt text only. The body limit is 10,000 characters on both the internal and the shared `POST` (400 `VALIDATION_ERROR`). The composer is the shared `MarkdownEditor` (toolbar, Write/Preview, Ctrl/Cmd+Enter posts).
 
 ## The shared view page (`src/pages/SharedProject.tsx`, D-50)
 
-`/tracking-plan/shared/<token>` is matched before `ProtectedRoute` (`src/App.tsx`), so it never
-requires the local auth session. It fetches with a plain `fetch` (no auth header), fetches the
-project header, the public tracking document, and the comment list once per page load (not once
-per panel — a fix-round change so a project with many events issues one comments request, not one
-per event card), then renders: client header and logo, table of contents, custom event cards first
-(sdk/platform collapsed in a `<details>`), properties with their `definitions[]`, use cases with
-narrative/requirements/`documentation_url`, identity rules, consents, catalogs, standard event
-mappings, a findings summary, both downloads (tracking document JSON, documentation HTML), and an
-"invalid link" page on any non-OK response. `CommentsPanel` (`src/features/comments/`) is mounted
-on each event card, use case, and requirement row, in `shared` mode, hiding its form when access is
-`read`.
+`/tracking-plan/shared/<token>` is matched before `ProtectedRoute` (`src/App.tsx`) and requires no
+staff login. It fetches the project header, public tracking document and permitted comments, using
+one shared comment store rather than a request per entity panel. The page shows the client header
+and logo, navigation, Events, Properties, Use cases, Identity, Consents, Catalogs, Mapping and
+Findings, plus tracking-document JSON and documentation HTML downloads. Empty sections are
+omitted. Invalid or revoked links show the invalid-link page.
 
-`EventCardView` (extracted from the internal event card page) is the one renderer behind the
-internal card, the shared view, and the HTML export, so all three always agree (D-50).
+Events, properties, use cases, catalogs, mappings and finding lists use aligned tables with labeled
+columns, entity icons, full wrapping names/descriptions and compact action columns. Expandable
+detail rows retain the existing document content. Inline `CommentsPanel` instances cover events,
+properties, use cases and requirements. Read access hides posting/reply forms and status controls;
+existing reaction counts remain visible. Reacting requires comment access, and the server rejects
+read-only writes with 403 `SHARE_READ_ONLY`. Optional Google identity controls do not change access.
 
-## Phase 5 notes (not built yet)
+`EventCardView` is the common event-detail renderer behind the internal event card, shared view and
+HTML export (D-50). The shared page consumes only the public projection.
 
-- **Token hashing**: the token is stored in plaintext today so Settings can re-display it; a hosted
-  deployment should hash it (one-time display on generation) the way a password would be.
-- **Real rate limiting**: the in-memory, per-process 60/10-minutes counter on comment posts is a
-  placeholder — it resets on restart and is not shared across multiple server instances. A hosted
-  deployment needs real, durable rate limiting on every `/api/shared/*` route, not just comments.
-- **Passphrase** (user option, 2026-09-27): an optional passphrase per share link, stored hashed,
-  checked once per browser session via a cookie — planned together with hashing and rate limiting.
-- **Hosting**: verify the malformed-percent-escape behaviour (see above) on the real host once
-  phase 5 deploys; the Vercel static-rewrite target has no decode step matching Vite's, so it may
-  already differ.
+## Remaining hosting considerations
+
+- **Token hashing**: share tokens are stored in plaintext so Settings can re-display them.
+  Hashing with one-time display would require a separate change to that workflow.
+- **Durable rate limiting**: in-memory per-token counters reset on restart and are not shared
+  across server instances. Durable limits across shared routes remain separate work.
+- **Passphrase**: an optional per-link passphrase, stored hashed and checked once per browser
+  session, remains planned together with token hashing and durable rate limiting.
 
 ## Client view layout (T-4-14)
 
-The shared page renders every event and use case as a collapsed row; the body mounts only when expanded. `#event-<name>` links (copy-link icon on each event row) expand and scroll to that event; an expanded event's title row stays under the page header until the next event takes over.
+The shared portal uses tables instead of separate chip-like cards (T-5-12, D-73). Names and
+descriptions wrap in full rather than truncating with ellipses. Entity type icons, classification
+and certification badges, source details, comment counts and copy/link actions occupy consistent
+columns. Tables have their own horizontal scroll regions when a narrow viewport needs them.
+Sidebar labels wrap too.
 
-One global Expand all / Collapse all pair in the page toolbar (also reachable below `md`, in the row above the content) opens or closes every event and use case; the Use cases header and each event group header (Custom, SDK, Platform) keep a small local pair for that section only. Every top-level section header (Events, Properties, Use cases, Identity, Consents, Catalogs, Mapping, Findings) and every event group header is sticky at the same offset under the page header and is replaced by the next header as it scrolls in; inside an expanded event the event title row wins over the group header (it is drawn on top at the same offset while the event body is on screen). Anchors and the scroll spy account for the sticky height (`scroll-margin-top` = page header, plus the group header for an event), and the headers contain the comment and copy-link buttons rather than covering them. A sticky left navigation (a dropdown below 1024px) lists Events (custom, sdk, platform), Properties, Use cases, Identity, Consents, Catalogs, Mapping and Findings, with a filter box and a highlight for the section on screen. The group rows (Events and its Custom/SDK/Platform groups) have a chevron, and the group label itself is a button that does the same (Enter/Space work; while a filter is active the chevron is disabled and the label is a plain link that navigates), collapsing or expanding their children (all start expanded; a filter shows matches regardless). Clicking a section link scrolls to it and highlights it until the reader's first own scroll (wheel, touch, scrollbar drag or autoscroll; scroll events during the click's own scroll are ignored until they have been quiet for 150 ms; typing or Tabbing in the nav does not clear it), so the last, short sections (Consents, Mapping, Findings) highlight even though they never reach the scroll-spy band at the end of the page. Comments are a compact button (speech-bubble icon and the comment count, `0` muted) on each requirement row and each event header, in the shared view and in the internal app alike; clicking it opens that thread inline (the add form shows only when the link allows `comment`, always internally). Sections with nothing to show (no use cases, no rules, empty derived metrics, and so on) are not rendered. On the shared view the "Implementation" section is collapsed behind a Show/Hide toggle (the internal event card starts it expanded); it has GTM / Web SDK / Tracking API tabs, and every code block has a copy button that also works over plain http (textarea fallback) and says "Copied" or "Copy failed". Content polish (T-4-19): table cells wrap (no one-line clamp anywhere in the shared view or the event cards; the Message column takes the remaining width); example values read as plain values (arrays comma-separated, objects pretty-printed in a code span), never escaped JSON. The event property table has a fixed shared column set (Payload key, Type, Kind, Required, Description, Example); role, name, formats, allowed values, PII, bundle and dataLayer path appear as small secondary lines in the Description cell when present, so the table fits the card at 1440px without a horizontal scroller (the internal card keeps every column inside its own scroller). Standard event mappings are one block per mapping ("standard event → event (variant)", "n of m fields mapped", a Bloomreach field / project property list with mapped fields first and the rest shown as "not mapped"). The Findings summary shows open counts by severity, a by-kind-family table (Schema, Values, Arithmetic, Consistency, Coverage, Data Manager: the kinds with human labels and counts, and a next step), open counts by comparison (human names, the explanation in a tooltip), the top five events by open errors (linked to their cards), and the acknowledged count when there is one; it is computed from the public document only. A "Copy findings as Markdown" button copies the same summary. Below it the Findings section is grouped by comparison (sticky group headers) with one leaf per affected event linking to its card, plus a "Not tied to an event" leaf. sdk and platform class badges use the Bloomreach accent (`--brand-bloomreach` in `src/index.css`). The documentation HTML export mirrors the mapping blocks, the findings summary and the example rendering; its use cases, consents and mapping sections are not regrouped (only the findings summary and findings tables carry the new labels and families).
-The page consumes only the public projection; nothing internal is added by this layout.
+Expandable events, properties, use cases, catalogs and mappings start collapsed. Global
+**Expand all / Collapse all** controls open or close these rows; local controls operate on their
+section or group. Existing entity links, such as `#event-<name>` and `#property-<slug>`, open and
+scroll to the appropriate row. Comment links additionally open the specific thread and reply.
+
+A sticky left navigation becomes a dropdown below 1024px. It lists the available sections and
+groups, with filtering and a highlight for the current section. Group controls work with mouse,
+Enter and Space. Filtering reveals matching children, and clicking a section highlights it until
+the reader scrolls. Section/group headings and scroll offsets account for the page header.
+
+Speech-bubble buttons open event, property, use-case and requirement discussions inline, showing
+a comment count (`0` muted). Posting/reply forms and status controls require comment access;
+reaction counts remain visible on read links, and reaction writes require comment access. Event
+Implementation details remain behind a Show/Hide toggle, with GTM / Web SDK / Tracking API tabs
+and code-copy feedback. Event property tables retain Payload key, Type, Kind, Required,
+Description and Example columns; additional metadata appears as secondary description lines.
+
+The Findings summary includes open counts by severity, kind family and comparison, top events by
+open errors, and acknowledged counts when present. It is computed from the public document only
+and can be copied as Markdown. Findings groups and requirement targets keep their same-page
+cross-links. Documentation HTML keeps its export layout; it does not include comments.
 
 ### Grouped use cases, consents, mapping and findings (T-4-21)
 
@@ -256,9 +286,9 @@ The navigation and the page group four more sections the same way as Events: **U
 
 ### Grouped properties, catalogs and icons (D-64, T-4-20)
 
-The Properties section lists **event and customer properties together**, grouped System customer, Customer, SDK default and Event (Event sub-grouped by kind: event, item, state list, context). Each group has a sticky group header at the same offset as the event groups, with its own Expand all / Collapse all; each property is a collapsed row (name, type, one-line description) that opens to its named definitions and, for an event property, the events that use it. The navigation lists the groups under Properties (and the kind subgroups under Event). A "Copy properties as Markdown" button copies the same grouping (`propertiesToMarkdown`); the HTML export groups the same way.
+The Properties section lists **event and customer properties together**, grouped System customer, Customer, SDK default and Event (Event sub-grouped by kind: event, item, state list, context). Each group has a sticky group header at the same offset as the event groups, with its own Expand all / Collapse all; each property is a collapsed table row (full wrapping name, type and description) that opens to its named definitions and, for an event property, the events that use it. The navigation lists the groups under Properties (and the kind subgroups under Event). A "Copy properties as Markdown" button copies the same grouping (`propertiesToMarkdown`); the HTML export groups the same way.
 
-The Catalogs section is present only when the project has catalogs: one card per catalog with its kind (product, variant, other), market and language, version (and whether it is live), the number of searchable fields, the lookup key, its mapping role, status, source system and sync method (D-61), a fields table (name, type, lookup key, searchable, description) and the list of event properties that look up into it (`mapped_catalog_field_id`). It is in the navigation and the HTML export. When the project has sources, a "Collected from" line under the Events heading lists each source as "System via method" with its event count, and each event card's Overview shows its sources the same way (D-62); these are client-facing and stay in the public projection. `owner`, `client_name` and `priority` of a catalog are never part of the tracking document, so they are not in the public projection either; `source_system`, `sync_method` and `update_frequency` are kept as client-facing.
+The Catalogs section is present only when the project has catalogs: one expandable table row per catalog with its kind (product, variant, other), market and language, version (and whether it is live), the number of searchable fields, the lookup key, its mapping role, status, source system and sync method (D-61), a fields table (name, type, lookup key, searchable, description) and the list of event properties that look up into it (`mapped_catalog_field_id`). It is in the navigation and the HTML export. When the project has sources, a "Collected from" line under the Events heading lists each source as "System via method" with its event count, and each event card's Overview shows its sources the same way (D-62); these are client-facing and stay in the public projection. `owner`, `client_name` and `priority` of a catalog are never part of the tracking document, so they are not in the public projection either; `source_system`, `sync_method` and `update_frequency` are kept as client-facing.
 
 Section headers and top-level navigation entries carry the sidebar's icons (Events, Properties, Use cases, Identity, Consents, Catalogs, Mapping, Findings) from one module, `src/components/layout/navIcons.ts`, used by both the sidebar and the shared view.
 
@@ -268,10 +298,49 @@ Every use case requirement row shows a small type label with the sidebar icon (E
 
 The "Not tied to an event" leaf in a findings group is clickable and expands to that comparison's project-level findings: kind (human label, explanation in a tooltip), severity, message and the entity it concerns. A finding with a property or variant links to its row or event; a catalog or consent finding (recognised from its kind prefix, since a finding carries no catalog or consent id) links to the Catalogs or Consents section. The navigation leaf opens and scrolls to that list (`src/features/shared/findingEntity.ts`).
 
+### Comment identities (T-5-13, T-5-15; D-74, D-76)
 
-### Comment identities (T-5-13)
 Every new-comment and reply editor shows **Posting as** after the server identity has loaded. While loading, posting and reaction/status writes wait; an identity failure shows Retry and preserves drafts and chosen names. A guest can enter or change their display name in either editor; all editors on that share page update together. Optional-name links allow an animal/color guest name, such as Blue Otter. Required-name links require a deliberately entered name or a server-verified account; an old generated `Visitor xxxx` label does not satisfy that rule.
 
-The chosen guest name stays in the browser per share link. A separate opaque HttpOnly, SameSite=Lax cookie identifies the guest for 30 days and survives disabled localStorage. Disabling cookies starts a new participant on each request. Changing a display name does not change reaction ownership, and different guests can have the same display name. Guest names are labelled **Guest** and are not proof of identity. Profile photos are shown only for supported verified Google image URLs; other identities use initials or an animal icon.
+The chosen guest name stays in the browser per share link. A separate opaque HttpOnly, SameSite=Lax cookie identifies the guest for 30 days and survives disabled localStorage. Disabling cookies starts a new participant on each request. Changing a display name does not change reaction ownership, and different guests can have the same display name. Guest names are labelled **Guest** and are not proof of identity. Verified identities show **Google account** or **Signed-in account** badges. Profile photos are shown only for supported verified Google image URLs; other identities use initials or an animal icon.
 
 `GET /api/shared/:token/identity` returns display metadata only (`name`, `kind`, `avatar_url`, `verified`, `name_chosen`). Shared writes accept an optional explicitly chosen `author_name`; the server supplies anonymous names and overrides names from a verified session. Client-supplied `participant_id`, `author_kind`, `avatar_url` and `verified` fields are refused. Comment/reaction public responses never expose participant IDs or session credentials. Guest session credentials are not included in project backup exports. Migration 0037 is additive: old comment author names and name-based reactions remain readable and restorable.
+
+When configured, **Continue with Google** identifies a commenter using a separate External Google
+Web client. Eligible Google Identity Services (GIS) One Tap/auto-selection may offer an existing
+Google session; it does not read the Chrome browser profile, and automatic selection is not
+guaranteed. The explicit button remains available. The server verifies the account before using
+its display name/photo. Trusted staff-session reuse can provide a Signed-in account identity;
+without a trusted photo, initials are shown. The existing Internal staff OAuth client and
+`/oauth2/callback` remain unchanged.
+
+**Use guest identity** opts out of the shared verified identity and prevents automatic Google
+selection and staff-session reuse. It does not log the user out of Google or the staff portal.
+Google script/network failures leave guest commenting available. Signing in never upgrades share
+access, reveals private fields or creates a staff role. The External GIS flow uses a public client
+ID and no client secret; configuration and real sign-in verification are described in
+[Google identity setup](SHARED-GOOGLE-AUTH.md). Auth session/challenge credentials are operational
+data and are excluded from project backups.
+
+### Copying comments and opening links (T-5-14, D-75)
+
+Each root comment and reply has **Copy comment link** and **Copy comment Markdown** controls.
+Roots also offer **Copy thread Markdown**, including the root and all replies permitted in the
+current view, oldest first. Copy feedback is accessible and reports success or failure; a failed
+clipboard write leaves the content unchanged and can be retried.
+
+Markdown retains the original body, author, timestamp and attachment references. Image references
+are resolved to absolute URLs permitted in the current view: share-file URLs on a shared page,
+internal file URLs for staff. Unknown or unavailable attachment references use an unavailable
+marker. Shared copying never fetches private comments or private attachments. Copied image URLs
+remain protected by the same share/staff permissions; copying does not make them public. Document
+JSON, HTML and ordinary entity Markdown exports still exclude comments.
+
+A comment link retains the current share token or uses the internal project Comments page. Its
+versioned fragment identifies the entity, thread root and target comment. On opening, reloading or
+changing the fragment, the page checks those relationships against permitted data, expands the
+containing entity/group and thread, reveals all replies (including a target beyond the first two),
+and focuses/highlights the target. Existing entity anchors still work. Internal Comments-page
+links clear filters that would otherwise hide the target. Invalid, removed or private targets
+show a generic unavailable/invalid notice; revoked shares show the invalid-link page. No internal
+fallback is used to resolve a target from a shared page.

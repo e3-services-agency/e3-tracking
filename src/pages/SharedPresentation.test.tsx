@@ -91,7 +91,7 @@ describe('Shared presentation keeps the public document capabilities', () => {
     const requested: string[] = [];
     vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request) => {
       const address = String(url); requested.push(address);
-      const value = address.endsWith('/tracking-document.json') ? doc : address.endsWith('/comments') ? [] : {
+      const value = address.endsWith('/tracking-document.json') ? doc : (address.endsWith('/comments') || address.endsWith('/qa-reports')) ? [] : {
         project: { name: 'Shared project complete name', client_logo_path: null },
         client: { name: 'Public client' }, access: 'read', generated_at: null,
       };
@@ -113,6 +113,7 @@ describe('Shared presentation keeps the public document capabilities', () => {
     expect(main.querySelector('[id$="-details"]')).toBeNull();
     expect(container!.textContent).not.toMatch(/Add Property|Delete|Edit Property|Internal Project/);
     expect(requested.every(address => address.includes('/api/shared/public-share-fixture'))).toBe(true);
-    expect(requested).toHaveLength(3);
+    expect(requested).toHaveLength(4);
+    expect(requested.filter(address => address.endsWith('/qa-reports'))).toHaveLength(1);
   });
 });

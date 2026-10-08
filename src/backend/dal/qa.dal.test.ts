@@ -1,7 +1,7 @@
 /**
  * QaRun / Observation / Finding DAL tests (T-1-09): lifecycle (archive, finish), observation
  * dedupe by raw_hash, finding upsert-by-fingerprint and stale resolution, and the 0008 ON DELETE
- * behaviour (`findings.observation_id` SET NULL, `findings.qa_run_id` CASCADE).
+ * behaviour (`findings.observation_id` SET NULL, `findings.qa_run_id` SET NULL).
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { closeDb, getDb } from '../db';
@@ -182,7 +182,7 @@ describe('finding.dal', () => {
     expect(reloaded.observation_id).toBeNull();
   });
 
-  it('deleting the qa_run CASCADEs findings.qa_run_id (0008_findings_on_delete.sql)', () => {
+  it('deleting the qa_run directly preserves its finding and clears qa_run_id (0040)', () => {
     const run = QaRunDAL.createQaRun(projectId, { kind: 'export_paste' });
     const finding = FindingDAL.upsertFinding(projectId, {
       comparison: 'definition_vs_observations',
@@ -192,6 +192,8 @@ describe('finding.dal', () => {
       qa_run_id: run.id,
     });
     getDb().prepare('DELETE FROM qa_runs WHERE id = ?').run(run.id);
-    expect(FindingDAL.getFindingById(projectId, finding.id)).toBeNull();
+    expect(FindingDAL.getFindingById(projectId, finding.id)).toMatchObject({
+      id: finding.id, qa_run_id: null, fingerprint: finding.fingerprint, finding_sequence: finding.finding_sequence,
+    });
   });
 });

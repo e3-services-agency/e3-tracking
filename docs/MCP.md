@@ -265,11 +265,11 @@ Stdout must carry JSON-RPC only, so:
   (and `gcloud compute ssh --command ... -- -t` is the opposite flag, do not add it).
 - The entrypoint and all MCP logs write to stderr only (`src/mcp/log.ts`); compose's "Creating/Running"
   lines also go to stderr. `src/deploy/mcpContainer.test.ts` runs the real image through
-  `docker compose run --rm -T mcp` and asserts every stdout line is JSON-RPC and `tools/list` has 29 tools.
+  `docker compose run --rm -T mcp` (base compose file, not the VM command or the ssh hop) and asserts every stdout line is JSON-RPC and `tools/list` has 29 tools.
 - `E3_PROJECT_KEY` is set with `-e E3_PROJECT_KEY=<key>` inside the remote command (the environment of
   your laptop does not reach the container through ssh).
 
 Expect a few seconds of startup per session (SSH handshake through IAP plus a container start, longer on
 the e2-micro); Claude Code keeps the process for the whole session, so the cost is paid once. Every tool call
 afterwards is a normal local-to-VM round trip. If a session hangs, run the printed command by hand and read
-stderr (IAP permission `roles/iap.tunnelResourceAccessor`, OS Login, `sudo docker` permission, `.env` on the VM).
+stderr (IAP permission `roles/iap.tunnelResourceAccessor`, OS Login, passwordless `sudo` for the user (`roles/compute.osAdminLogin`, or docker group membership), `.env` on the VM).

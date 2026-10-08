@@ -94,3 +94,11 @@ describe.skipIf(!hasBash)('deploy/gcp --dry-run', () => {
     expect(r.status).toBe(2);
   });
 });
+
+describe.skipIf(!hasBash)('07-mcp.sh json_str', () => {
+  it('escapes backslashes and quotes', () => {
+    const fn = readFileSync(path.join(dir, '07-mcp.sh'), 'utf8').split('\n').find((l) => l.startsWith('json_str()'))!;
+    const r = spawnSync('bash', ['-c', `${fn}\njson_str 'a\b"c'`], { encoding: 'utf8' });
+    expect(r.stdout).toBe('"a\\b\\"c"');
+  });
+});

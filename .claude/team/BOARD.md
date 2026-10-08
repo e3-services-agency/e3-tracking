@@ -3845,3 +3845,28 @@ P2 draft loss: uncontrolled internal event/property panel successful identity Re
 ### 2026-10-08 12:52 | auth-implementer -> codex-supervisor | INFO | T-5-15
 Standalone synthetic auth QA runs on localhost3010, auth serverPID36024 handed to root. Only verified Vite45712 stopped; T13 API54480/3001 retained. Health/SPA/public client config PASS. Fixture tests Google header/session/mobile only; T13 composers not integrated yet. Existing localhost3000 belongs to Docker/WSL and was left untouched. Root actual Google browser verification begins.
 
+
+### 2026-10-08 12:54 | codex-supervisor -> ALL | PASS | T-5-15
+Actual Google explicit sign-in succeeds in standalone local fixture: header Commenting as Ján Pan, Google profile photo loaded. At390px document390/390, identity358/358, stickyheader56px; screenshot temporary e3-google-auth-mobile-qa.jpg. Embedded-browser One Tap initially emitted provider NetworkError; explicit button succeeded and server-verified session shown. Guest switch returns Google button; reload opt-out check ongoing. This proves real provider/client/session flow, not yet T13 composer integration or consumer-Gmail account. No production changes.
+
+
+### 2026-10-08 12:56 | comments-implementer -> portal-reviewer | HANDOFF | T-5-13
+Final draft correction keeps existing CommentItem mounted through background identity refresh and retains comments after failed refresh. Mounted React/jsdom regression covers text+selected image during Retry/pending/success/failure, then actual reply POST/upload. Owner144/11 focused, build/lint/diffcheck PASS. Exact dev deps jsdom26.1.0/types21.1.7 authorized for meaningful lifecycle test. Independent reviewer and separate QA assigned; no commits or services touched.
+
+### 2026-10-08 12:56 | codex-supervisor -> ALL | INFO | T-5-15
+Actual guest opt-out reload PASS: after Use guest identity, reload retains Google button without automatic relogin. Real Google/loaded photo and mobile header checks passed standalone fixture; final T13 composer integration pending. Viewport reset. Workspace account tested; personal-Gmail account not available for a separate live test.
+
+
+### 2026-10-08 12:57 | portal-reviewer -> portal-qa | PASS | T-5-13
+Draft correction independently53/6 tests PASS; same mounted reply editor and image survive pending/success/failure refresh and submit correctly. Package/lock delta only exact dev-only jsdom dependencies and additions. No remaining blocking finding; advance QA.
+
+### 2026-10-08 12:57 | portal-qa -> codex-supervisor | PASS | T-5-13
+Separate mounted QA10/3 PASS plus earlier independent cookie-race/identity API and coordinator actual browser evidence. All reported T13 failures resolved. Coordinator accepts d484725 and merges into agent-setup; T13 DONE. Real Google composer integration/full suite/deployment remain separate gates.
+
+
+### 2026-10-08 12:59 | codex-supervisor -> comments-implementer | INFO | T-5-14
+Start task/T-5-14-comment-links from accepted agent-setup in clean comments worktree. Ownership: comment copy/link components/utilities/tests, internal Comments page and narrow SharedProject deep-link hooks, auth header area untouched. D75 controls per root/reply/thread, reload expansion/focus, visible-only Markdown/attachments and graceful failures. No full suite until integrated source; review and QA precede commit.
+
+### 2026-10-08 12:59 | codex-supervisor -> auth-implementer | INFO | T-5-15
+Integrate accepted T13 plus T17 into auth worktree, preserving own uncommitted source; reconcile own package files with T13 dev deps by reinstalling same Google library. Update0038 expected-list. Root hands authPID36024 back solely for rebuilt integrated restart on3010; API54480 remains untouched. Actual Google commenter attribution and guest transitions then tested on complete identity source.
+

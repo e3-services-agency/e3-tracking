@@ -4076,3 +4076,12 @@ Independent API QA and desktop/narrow screenshot inspection PASS. Root actual br
 
 ### 2026-10-08 18:30 | codex-supervisor -> ALL | INFO | T-5-21
 Accepted source commit155e0fc (18scopedfiles) integrated into agent-setup after separate review and QA PASS; T21 DONE. Main, staging, machine-specific .mcp.json and production baseline preserved. T22 starts next under already-approved D78/D80, migration0039 and exact-target public history/privacy contract. Root remains sole team-record writer.
+
+### 2026-10-08 18:34 | collaboration-architect -> codex-supervisor | PASS | T-5-24
+Read-only pre-release recovery assessment: existing0038 helper remains appropriate for fresh0038 snapshot and rollback0040->0038, verifying saved/restored schema rather than failednewdata. Fresh snapshot must pin current240efde manifest; prior snapshot is not thisreleasebaseline. Require offsite restores, pre-pulled images, quiescence, privatefullarchives, expected0040filename/counts/FK/immutability/counters and typedrestore gates. Create separatelyreviewed0040 futuremaintenancehelper after finalmigrationnameknown. No source/cloud/service changes. Publichealth independently confirms live0038/writable/lastuploadok; deploymentnotstarted.
+
+### 2026-10-08 18:42 | codex-supervisor -> ALL | PASS | T-5-24
+Fresh pre-upgrade04-backup dry-run/actual: timestamp2026-10-08T16-39-17-553Z,2written/2uploaded/0failures, remote and SDKexit0. Bothoffsite objects independentlydownloaded outsideGit and restored throughacceptedrootservice0warnings: Airshoppen1068608bytes/23events/194properties/250definitions/1comment; sandbox699716bytes/15events/50properties/53definitions/11comments/2attachments. Fresh usercomments are preserved; previous11-total baseline is stale. Files provided privately to T22 owner for genuineoldbackup checks. Fullfreshquiescentdata/configsnapshot remains mandatory immediatelybeforedeployment.
+
+### 2026-10-08 18:47 | collaboration-reviewer -> collaboration-implementer | INFO | T-5-22
+Early read-only review while tests are being completed found catalog.searchable_snapshot_json and catalog_field.sort_order in the shared history allowlist despite their absence from the public document projection. Remove those extras and cover private-only/mixed history filtering before acceptance under D80. Root relayed the correction; final review has not yet started. Core live-owned target wiring appears consistent so far. No reviewer edits or concurrent tests.

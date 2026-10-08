@@ -10,6 +10,7 @@
  * Not change-logged (D-44 lists comments as their own lightweight trail, not a definition write).
  * `entity_label` is resolved on read, not stored here -- see `src/backend/services/comments.service.ts`.
  */
+import type { CommentAuthorKind } from '../../domain/commentIdentity';
 import { COMMENT_BODY_MAX } from '../../domain/markdownEdit';
 import { getDb } from '../db';
 import { newId, nowIso } from '../db/util';
@@ -26,6 +27,9 @@ export interface CommentRow {
   entity_type: CommentEntityType;
   entity_id: string;
   author_name: string;
+  participant_id: string | null;
+  author_kind: CommentAuthorKind;
+  avatar_url: string | null;
   via_share: boolean;
   /** D-49 amendment 2, T-4-10: never returned by the public share routes. */
   internal_only: boolean;
@@ -55,6 +59,9 @@ export interface CommentInput {
   entity_id: string;
   author_name: string;
   body: string;
+  participant_id?: string;
+  author_kind?: CommentAuthorKind;
+  avatar_url?: string | null;
   via_share?: boolean;
   internal_only?: boolean;
   /** D-70: makes this a reply; entity and internal_only are inherited from the root. */
@@ -180,9 +187,9 @@ export function createComment(projectId: string, input: CommentInput): CommentRo
   const id = newId();
   const now = nowIso();
   db.prepare(
-    `INSERT INTO comments (id, project_id, entity_type, entity_id, author_name, via_share, internal_only, body, created_at, resolved_at, resolved_by, parent_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?)`
-  ).run(id, projectId, entityType, entityId, authorName, input.via_share ? 1 : 0, internalOnlyFlag ? 1 : 0, body, now, parentId);
+    `INSERT INTO comments (id, project_id, entity_type, entity_id, author_name, via_share, internal_only, body, created_at, resolved_at, resolved_by, parent_id, participant_id, author_kind, avatar_url)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?)`
+  ).run(id, projectId, entityType, entityId, authorName, input.via_share ? 1 : 0, internalOnlyFlag ? 1 : 0, body, now, parentId, input.participant_id ?? null, input.author_kind ?? 'legacy', input.avatar_url ?? null);
   return getCommentOrThrow(projectId, id);
 }
 

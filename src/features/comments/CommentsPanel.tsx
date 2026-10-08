@@ -17,9 +17,8 @@
  * and hides the form entirely when `access !== 'comment'` (403 `SHARE_READ_ONLY` on the server side
  * is the same rule, this is just not showing a control that would fail). The shared form's author
  * name is remembered per link in `localStorage['e3.share.<token>.name']` (`shareName.ts`, guarded
- * with try/catch: a private window must not break the form). With no name entered, reactions and
- * status changes send a generated per-link "Visitor xxxx" id instead; posts and replies still need a
- * real name.
+ * with try/catch: a private window must not break the form). With no name entered, optional-name links use a server-issued animal/color guest. Required-name
+ * links require a deliberately chosen name or a verified account. Every editor displays identity.
  *
  * Fix round (W1): a page mounting many panels for the same project (the shared view: one per event
  * card, use case and requirement row; the internal use case page: one per requirement row) used to
@@ -38,7 +37,9 @@ import type { CommentEntityType, CommentStatus } from '@/src/domain/enums';
 import { groupThreads } from '@/src/domain/commentThreads';
 import { CommentItem } from './CommentItem';
 import type { ReactionSummaryView } from './CommentReactions';
-import { useShareName, ensureAuthorName, isVisitorId } from './shareName';
+import { useShareName, shareNamePayload, useCommentParticipant, refreshCommentParticipant, claimCommentIdentityRefresh, isVisitorId } from './shareName';
+import { CommentIdentity } from './CommentIdentity';
+import type { CommentAuthorKind } from '@/src/domain/commentIdentity';
 import { MarkdownEditor } from '@/src/components/ui/MarkdownEditor';
 import { COMMENT_BODY_MAX, resolveAttachmentSrc } from '@/src/domain/markdownEdit';
 import { AttachmentPicker, CommentAttachments, uploadAttachments, type CommentAttachmentItem } from './CommentAttachments';
@@ -48,6 +49,8 @@ export interface CommentPanelRow {
   entity_type?: string;
   entity_id?: string;
   author_name: string;
+  author_kind?: CommentAuthorKind;
+  avatar_url?: string | null;
   via_share: boolean;
   /** Internal mode only; the public route never returns it (D-49 amendment 2, T-4-10). */
   internal_only?: boolean;
@@ -141,6 +144,8 @@ export function CommentsPanel({
   const [storedName, setAuthorName] = useShareName(api.mode === 'shared' ? api.token : null);
   // A generated visitor id is not a typed name: the form shows empty and posts still ask for one.
   const authorName = isVisitorId(storedName) ? '' : storedName;
+  const participant = useCommentParticipant(api.mode, api.mode === 'shared' ? api.token : api.projectId);
+  const identity = <CommentIdentity participant={participant} guestName={authorName} onGuestNameChange={api.mode === 'shared' ? setAuthorName : undefined} requireName={api.mode === 'shared' && !!api.requireName} onRetry={() => void refreshCommentParticipant(api.mode, api.mode === 'shared' ? api.token : api.projectId)} />;
   const [internalOnly, setInternalOnly] = useState(false);
   const [posting, setPosting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -157,13 +162,11 @@ export function CommentsPanel({
       const data = await parseJson(res);
       if (!res.ok) {
         setError(typeof data?.error === 'string' ? data.error : 'Failed to load comments.');
-        setOwnRows([]);
         return;
       }
       setOwnRows(Array.isArray(data) ? data : []);
     } catch {
       setError('Failed to load comments.');
-      setOwnRows([]);
     } finally {
       setLoading(false);
     }
@@ -171,9 +174,9 @@ export function CommentsPanel({
   }, [entityType, entityId, api.mode, api.mode === 'internal' ? api.projectId : api.token]);
 
   useEffect(() => {
-    if (controlled) return;
+    if (controlled || (!participant.ready && participant.loading)) return;
     void load();
-  }, [controlled, load]);
+  }, [controlled, load, participant]);
 
   const refresh = useCallback(async () => {
     if (controlled) {
@@ -183,9 +186,14 @@ export function CommentsPanel({
     await load();
   }, [controlled, onChanged, load]);
 
+  useEffect(() => {
+    if (controlled && onChanged && participant.ready && claimCommentIdentityRefresh(api.mode, api.mode === 'shared' ? api.token : api.projectId)) onChanged();
+  }, [controlled, onChanged, participant, api.mode, api.mode === 'shared' ? api.token : api.projectId]);
+
   const post = async (text: string, parentId: string | null, files: File[] = []): Promise<boolean> => {
     if (!text.trim()) return false;
-    if (api.mode === 'shared' && !authorName.trim()) {
+    if (!participant.ready) { setError('Wait for your posting identity or retry loading it.'); return false; }
+    if (api.mode === 'shared' && api.requireName && !participant.verified && !authorName.trim()) {
       setError('Enter your name first.');
       return false;
     }
@@ -194,7 +202,7 @@ export function CommentsPanel({
     try {
       const payload: Record<string, unknown> = { entity_type: entityType, entity_id: entityId, body: text };
       if (parentId) payload.parent_id = parentId;
-      if (api.mode === 'shared') payload.author_name = authorName;
+      if (api.mode === 'shared') Object.assign(payload, shareNamePayload(api.token));
       else if (!parentId) payload.internal_only = internalOnly;
       const res = await doFetch(api, postUrl(api), {
         method: 'POST',
@@ -234,11 +242,12 @@ export function CommentsPanel({
   };
 
   const setStatus = async (row: CommentPanelRow, status: CommentStatus) => {
+    if (!participant.ready) return;
     setBusyId(row.id);
     setError(null);
     try {
       const payload: Record<string, unknown> = { status };
-      if (api.mode === 'shared') payload.author_name = ensureAuthorName(api.token);
+      if (api.mode === 'shared') Object.assign(payload, shareNamePayload(api.token));
       const res = await doFetch(api, statusUrl(api, row.id), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -258,11 +267,12 @@ export function CommentsPanel({
   };
 
   const react = async (row: CommentPanelRow, kind: string) => {
+    if (!participant.ready) return;
     setBusyId(row.id);
     setError(null);
     try {
       const payload: Record<string, unknown> = { kind };
-      if (api.mode === 'shared') payload.author_name = ensureAuthorName(api.token);
+      if (api.mode === 'shared') Object.assign(payload, shareNamePayload(api.token));
       const res = await doFetch(api, reactionUrl(api, row.id), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -281,7 +291,7 @@ export function CommentsPanel({
     }
   };
 
-  const nameRequired = api.mode === 'shared' && !!api.requireName && !authorName.trim();
+  const nameRequired = api.mode === 'shared' && !!api.requireName && !participant.verified && !authorName.trim();
   const threads = groupThreads(rows);
   const canComment = api.mode === 'internal' || api.access === 'comment';
 
@@ -293,7 +303,8 @@ export function CommentsPanel({
 
       {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{error}</div>}
 
-      {loading ? (
+      {loading && rows.length > 0 && <p role="status" className="text-xs text-gray-400">Refreshing comments…</p>}
+      {loading && rows.length === 0 ? (
         <p className="text-sm text-gray-400">Loading…</p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-gray-500">No comments yet.</p>
@@ -305,14 +316,16 @@ export function CommentsPanel({
               thread={thread}
               mode={api.mode}
               canComment={canComment}
-              busy={busyId === thread.id}
+              busy={busyId === thread.id || !participant.ready}
               onSetStatus={(status) => void setStatus(thread, status)}
               onReply={(text, files) => post(text, thread.id, files)}
               fileUrl={(pth) => fileUrl(api, pth)}
               renderAttachments={(c) => <CommentAttachments attachments={c.attachments} fileUrl={(pth) => fileUrl(api, pth)} />}
               onReact={(row, kind) => void react(row, kind)}
               ownName={api.mode === 'shared' ? storedName : ''}
-              nameMissing={api.mode === 'shared' && !authorName.trim()}
+              nameMissing={nameRequired}
+              composerIdentity={identity}
+              identityReady={participant.ready}
               nameRequired={nameRequired}
             />
           ))}
@@ -332,22 +345,12 @@ export function CommentsPanel({
               </p>
             </div>
           )}
-          {api.mode === 'shared' && (
-            <input
-              type="text"
-              value={authorName}
-              onChange={(e) => setAuthorName(e.target.value)}
-              placeholder="Your name"
-              maxLength={80}
-              required
-              className="h-9 w-full rounded-md border border-gray-300 bg-white px-2 text-sm"
-            />
-          )}
+          {identity}
           <MarkdownEditor
             value={body}
             onChange={setBody}
             onSubmit={() => {
-              if (!posting && body.trim() && !(api.mode === 'shared' && !authorName.trim())) void post(body, null, pendingImages);
+              if (!posting && participant.ready && body.trim() && !nameRequired) void post(body, null, pendingImages);
             }}
             placeholder={nameRequired ? 'Enter your name to comment' : 'Add a comment…'}
             disabled={nameRequired}
@@ -360,7 +363,7 @@ export function CommentsPanel({
           <AttachmentPicker files={pendingImages} onChange={setPendingImages} disabled={posting} progress={uploadProgress} />
           <button
             type="submit"
-            disabled={posting || !body.trim() || (api.mode === 'shared' && !authorName.trim())}
+            disabled={posting || !participant.ready || !body.trim() || nameRequired}
             className="h-8 rounded-md bg-[var(--brand-primary)] px-3 text-xs font-medium text-white disabled:opacity-50"
           >
             {posting ? 'Posting…' : 'Post comment'}

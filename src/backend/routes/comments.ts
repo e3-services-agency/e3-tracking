@@ -3,6 +3,8 @@
  * side only. `POST /api/shared/:token/comments` (T-4-04, D-49) is the public counterpart and never
  * accepts `resolved`.
  */
+import { staffParticipantId } from '../services/commentParticipant';
+import { staffDisplayName } from '../../domain/commentIdentity';
 import { Router, type Request, type Response } from 'express';
 import * as CommentDAL from '../dal/comment.dal';
 import { attachReactions, toggleReaction, listReactionSummaries } from '../dal/comment-reaction.dal';
@@ -28,6 +30,10 @@ function parseBoolParam(raw: unknown, name: string): boolean | undefined {
   throw new ValidationError(`${name} must be "true" or "false".`, name);
 }
 
+router.get('/identity', (req: Request, res: Response) => {
+  res.json({ name: staffDisplayName(req.userName ?? 'Local user'), kind: 'staff', avatar_url: null, verified: true, name_chosen: true });
+});
+
 router.get('/', (req: Request, res: Response) => {
   try {
     const { entity_type, entity_id, resolved } = req.query;
@@ -44,7 +50,7 @@ router.get('/', (req: Request, res: Response) => {
       status: typeof req.query.status === 'string' ? req.query.status : undefined,
       internalOnly: parseBoolParam(req.query.internal_only, 'internal_only'),
     });
-    res.status(200).json(attachReactions(req.projectId!, withEntityLabels(req.projectId!, comments), req.userName));
+    res.status(200).json(attachReactions(req.projectId!, withEntityLabels(req.projectId!, comments), req.userName, req.userId ? staffParticipantId(req.userId) : undefined));
   } catch (err) {
     handleRouteError(err, res);
   }
@@ -84,7 +90,9 @@ router.post('/', (req: Request, res: Response) => {
     const comment = CommentDAL.createComment(req.projectId!, {
       entity_type: stringOrUndefined(body, 'entity_type') ?? '',
       entity_id: stringOrUndefined(body, 'entity_id') ?? '',
-      author_name: authorName ?? req.userName ?? '',
+      author_name: authorName ?? staffDisplayName(req.userName ?? ''),
+      participant_id: authorName === undefined && req.userId ? staffParticipantId(req.userId) : undefined,
+      author_kind: authorName === undefined ? 'staff' : 'legacy',
       body: stringOrUndefined(body, 'body') ?? '',
       via_share: false,
       parent_id: stringOrUndefined(body, 'parent_id') ?? null,
@@ -133,14 +141,14 @@ router.post('/:id/reactions', (req: Request, res: Response) => {
       req.projectId!,
       req.params.id,
       body.kind,
-      stringOrUndefined(body, 'author_name') ?? req.userName ?? '',
-      { viaShare: false }
+      stringOrUndefined(body, 'author_name') ?? staffDisplayName(req.userName ?? ''),
+      { viaShare: false, participantId: body.author_name === undefined && req.userId ? staffParticipantId(req.userId) : undefined, legacyAuthorName: body.author_name === undefined ? req.userName : undefined }
     );
     const entity = resolveCommentEntity(req.projectId!, result.comment);
     res.status(200).json({
       added: result.added,
       comment: { ...result.comment, use_case_id: entity.use_case_id, entity_label: entity.label },
-      reactions: listReactionSummaries(req.projectId!, [req.params.id], req.userName).get(req.params.id) ?? [],
+      reactions: listReactionSummaries(req.projectId!, [req.params.id], req.userName, req.userId ? staffParticipantId(req.userId) : undefined).get(req.params.id) ?? [],
     });
   } catch (err) {
     handleRouteError(err, res);

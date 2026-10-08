@@ -27,6 +27,7 @@ let baseUrl: string;
 let tmpFilesDir: string;
 let projectId: string;
 let clientId: string;
+let sharedCookie = '';
 let eventId: string;
 
 async function png(width = 8, height = 8): Promise<Buffer> {
@@ -48,7 +49,7 @@ function form(buf: Buffer | Uint8Array, name = 'shot.png', type = 'image/png'): 
 }
 
 async function upload(url: string, buf: Buffer, name?: string, type?: string): Promise<Response> {
-  return fetch(url, { method: 'POST', body: form(buf, name, type) });
+  return fetch(url, { method: 'POST', headers: url.includes('/api/shared/') && sharedCookie ? { Cookie: sharedCookie } : undefined, body: form(buf, name, type) });
 }
 
 async function postComment(extra: Record<string, unknown> = {}): Promise<{ id: string }> {
@@ -77,6 +78,7 @@ async function sharedComment(token: string): Promise<{ id: string }> {
     body: JSON.stringify({ entity_type: 'event', entity_id: eventId, author_name: 'Client', body: 'screenshot' }),
   });
   expect(res.status).toBe(201);
+  sharedCookie = res.headers.get('set-cookie')?.split(';')[0] ?? sharedCookie;
   return res.json();
 }
 

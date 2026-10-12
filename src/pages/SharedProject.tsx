@@ -63,6 +63,7 @@ import { eventCardToMarkdown, useCaseToMarkdown, propertiesToMarkdown, findingsS
 import { propertyGroupId, propertyKindGroupId, PROPERTY_CATEGORY_LABELS, formatDisplayName } from '@/src/domain/propertyCategory';
 import { SharedActiveEntitySummary } from '@/src/features/shared/SharedActiveEntitySummary';
 import { SharedEntityTable, SharedEntityRow } from '@/src/features/shared/SharedEntityTable';
+import { SharedFindingsTable } from '@/src/features/shared/SharedFindingsTable';
 import { SharedGoogleSignIn } from '@/src/features/shared-auth/SharedGoogleSignIn';
 import { EntityIcon } from '@/src/components/ui/EntityIcon';
 import { SharedNav } from '@/src/features/shared/SharedNav';
@@ -1163,7 +1164,9 @@ export function SharedProject({ token }: { token: string }) {
               actions={<CopyMarkdownButton getMarkdown={() => findingsSummaryToMarkdown(groups.summary)} label="Copy findings as Markdown" />}
             >
               <FindingsSummaryBlock summary={groups.summary} anchorFor={(eventId) => anchorById.get(eventId)} />
-              <div className="space-y-2" aria-label="Individual finding discussions">{[...doc.events.flatMap(e=>e.findings),...(doc.unattached_findings??[])].map(f=><div key={f.id} className="border-t py-2"><p className="text-sm leading-relaxed break-words">Finding #{String(f.finding_sequence??'').padStart(3,'0')} / {f.message}</p><TargetCollaboration api={api} entityType="finding" entityId={f.id} label={`Finding #${String(f.finding_sequence??'').padStart(3,'0')}`} rows={comments} onChanged={reloadComments} forceOpen={linkedComment?.target.entityId===f.id}/></div>)}</div>
+              <SharedFindingsTable events={doc.events} unattached={doc.unattached_findings ?? []} api={api} comments={comments}
+                onChanged={reloadComments} linkedFindingId={linkedComment?.target.entityType === 'finding' ? linkedComment.target.entityId : undefined}
+                anchorFor={eventId => anchorById.get(eventId)} onNavigate={navigateTo} />
               <div className="mt-4 space-y-4">
                 {groups.findingGroups.map((g) => (
                   <div key={g.id} id={g.id} style={marginTop('group')} className="space-y-2">

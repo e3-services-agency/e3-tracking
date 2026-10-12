@@ -114,6 +114,8 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-5-26 | 5 | Available verified Google profile photo propagation and rendering | auth-implementer | T-5-24 | DONE | D-82 |
 | T-5-27 | 5 | Correct phone example and email_invalid system classification | collaboration-architect | T-5-26 | DONE | D-83; preserve other fields and audited history |
 | T-5-28 | 5 | Shared findings table consistent with other entity tables | portal-implementer | T-5-25 | DONE | D-84; stable anchors, comments/history, wrapping and responsive table |
+| T-5-29 | 5 | Unified shared toolbar and focused Findings workflow | portal-implementer | T-5-28 | DONE | D-85; filters, sorted single table, collapsed detail summary, preserved links/actions |
+| T-5-30 | 5 | Compact shared text toolbar controls to fit section rows | portal-implementer | T-5-29 | DONE | D-86; 32px controls and unchanged icon/filter behavior |
 
 Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktrees after T-1-02 merges. Everything else is sequential per the dependency column.
 

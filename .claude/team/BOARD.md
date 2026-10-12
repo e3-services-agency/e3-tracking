@@ -4342,3 +4342,92 @@ Independent fullportablebackupdiff PASS: Airshoppen only four targetrows changed
 
 ### 2026-10-12 13:09 | collaboration-reviewer -> codex-supervisor | PASS | T-5-28
 Final handover consistency PASS: image/schema/snapshotpin/config/data/helperhash/failclosed thenverified3writes5history/rerun0/projections/finalbackups/MCP match. Actualbrowsergeometry limitation explicit, no secret exposure or contradictorypendingrelease claims. Separate finalportableQA nowPASS. T27/T28DONE; finalteamrecords scopedcommit next.
+
+### 2026-10-12 16:01 | codex-supervisor -> ALL | INFO | T-5-29
+StartinguserapprovedD85 toolbar/Findingsreorganization oncurrent7bb68a4. Delegatedportalimplementer isolatedsourcework; rootsoleteamwriter. Source/review/mountedQA/build thenSDKrelease; livebaselinef1edc1c-dirty/a1c6b459/schema0040. Preservepreexisting.mcp/main/staging/data. Actualbrowser availabilitywillberechecked, no visualclaimifruntimefails.
+
+### 2026-10-12 16:02 | codex-supervisor -> portal-implementer | INFO | T-5-29
+UseraddsapprovedUsecasepreviewcorrection: collapsedrowplain-textMarkdownpreview200characterswithellipsis; fullnarrative onlyexpandedbody/export. SameT29 ownernotified; testsforboundedpreview/fullcontentpreservation. ScreenshotshowsMarkdownheading/layoutinflation, fixingthisalongsideapprovedtoolbar/Findingsscope.
+
+### 2026-10-12 16:16 | portal-implementer -> codex-supervisor | INFO | T-5-29
+Ownerfirst26tests/5files25PASS; rawHTMLskip fixtureexpectationcorrected, final36/6focusedflowbatchrunning. Newworkflow/navbar/model/preview code isolated; legacyaliases excludedfromscrollspy toavoidwrongselection, globalcontrols includefindingcontexts/summary. UCpureexistingMarkdownparsedtextpreview(noDOM/SSR/dependencies), fullnarrative movesexpanded. Sourcefreeze/build/lint/independentreview/QA pending; no deployment.
+
+### 2026-10-12 16:18 | portal-implementer -> codex-supervisor | HANDOFF | T-5-29
+Frozen9file candidate inshared-portal task/T-5-29-shared-findings-workflow, focused36tests/6filesPASS. Uniformtoolbar, primaryfilteredFindingstablewithboundedNumber/Severity/Actionswidths andremainingMessagewidth, collapsedDetailedsummary/globalcontrols, aliasesexcludedscrollspy/targetreveal, boundedUCplainpreview/fullnarrativeexpanded/exportpreserved. Build/lint underway; separate reviewer/QA triggered serialtestgates. No commit/deploy; visualruntime unavailable.
+
+### 2026-10-12 16:19 | collaboration-reviewer -> portal-implementer | FAIL | T-5-29
+Source reviewfoundpreservationgap: removedgroupedprojectfindingtable carriedexistingresolvedProperty/Variant/Catalog/Consentlinks, newcontextplainonly. Restoreexactpublicreferenceindexlinks insideexpandedprimaryrow andaddmountedregression, no duplicatelists/newfetches. Ownercorrecting; finalbuildmustreflectboundedcolumnrevision(previousbuildstale). Earlier36testPASSdoesnotacceptcorrectivesource; independenttestsawaitfinalfrozenhandoff.
+
+### 2026-10-12 16:22 | collaboration-reviewer -> codex-supervisor | INFO | T-5-29
+The missing resolved finding context links are restored through existing findingEntity/reference-index navigation in expanded rows. Source review now passes provisionally; owner final38tests/6files, fresh build and lint are still pending. New tests cover Property, Variant, Catalog, Consent and unresolved fallback, plus page-level Property/Catalog navigation. No additional API or private context is introduced; separate acceptance tests remain required.
+
+### 2026-10-12 16:27 | portal-implementer -> codex-supervisor | HANDOFF | T-5-29
+Final corrected nine-file source is frozen. All38 focused tests across6files, fresh build, TypeScript/colors and diff check pass. Emitted index-BGJtBPBw.js confirms bounded columns and restored resolved Entity context. Reviewer gets first independent test slot, then QA. No backend/schema/API/auth/dependency/cloud/data changes; actual browser geometry remains unavailable. Scoped source commit waits for both independent PASS verdicts.
+
+### 2026-10-12 16:29 | collaboration-reviewer -> codex-supervisor | PASS | T-5-29
+Final independent source review and all38 tests across6files pass, no skips. Reviewed29/5 plus exact9/1 comment-link suite serially; diff check passes. Corrected context links, filter/sort/navigation/scroll-spy aliases, comment/current-target reveal, global summary controls, native40px/14px toolbar and bounded200-code-point preview/full original Markdown copies are preserved. Independent QA has the test slot. Browser geometry is not claimed.
+
+### 2026-10-12 16:32 | portal-qa -> codex-supervisor | PASS | T-5-29
+Independent mounted/source QA38tests/6files PASS, no skips,103.32s serial maxWorkers1. Covers filters/reset/no results, stable sort, one table/context, sidebar/current/comment links and hidden-target reveal, native toolbar class parity, global summary expansion, alias spy exclusion, all resolved context kinds/unresolved fallback, UCplain200-character preview/full original Markdown copies and existing presentation/comment privacy. Actual desktop/mobile geometry was not measured. Owner scoped source commit authorized after separate review/QA; fresh portable backup equality is the final release data gate.
+
+### 2026-10-12 16:34 | codex-supervisor -> ALL | PASS | T-5-29
+Accepted owner5a5d4b8 integrated as bcd7a46 on agent-setup after independent review and QA38/6 PASS plus final owner build/type/lint. 02/03 dry runs pass for bcd7a46-dirty; actual build/push started. Fresh live pre-audit0040 integrity/FK/sequences/counts and privateenv/compose/Caddy hashes unchanged. Source only; no release or visual acceptance is claimed yet.
+
+### 2026-10-12 16:40 | codex-supervisor -> ALL | PASS | T-5-29
+02 built/pushed bcd7a46-dirty manifest5b3009e78cc5aa61352b2fe310e44eaeaa04c7683b56a8a0ea17ccaacaf32be8 and precached it on VM. Fresh14:35:34.103Z off-site backups uploaded2/failures0; both actual downloads/restores pass with0warnings. Complete verified0040 snapshot /var/backups/e3-tracking/pre-collaboration-0040-20261012T143846Z captured frozen13comments before deployment.03actual now running after dry-run PASS; no new data changes or visual claim.
+
+### 2026-10-12 16:45 | codex-supervisor -> ALL | PASS | T-5-29
+03 actual bcd7a46-dirty is healthy, exact running manifest5b3009e78cc5aa61352b2fe310e44eaeaa04c7683b56a8a0ea17ccaacaf32be8. Snapshot143846Z pins prior a1c6b459 image. Live0040 integrity/FK/sequence/exact counts and privateenv/compose/Caddy hashes pass unchanged; active OAuth token-header audit passes. Public index-DSBg2jAz.js HTTP2001465342bytes contains filters, detailed summary,112/108/132px columns and Entity context; index-BeXEpQQe.css HTTP20060619bytes. Actual browser geometry still unverified. Final04backup then07MCP running; final downloads/restores and independent whole JSON equality remain.
+
+### 2026-10-12 16:48 | collaboration-reviewer -> portal-implementer | FAIL | T-5-29
+Final navigation review identifies a concrete UX gap: unqualified #findings scrolls the first row and skips heading/totals/filter controls. Correct only unqualified section navigation to the existing findings section with sticky margin; preserve filtered and exact-row behavior. Add mounted initial-hash/sidebar regression. Current deployed bcd7a46 is healthy; task remains open for this scoped correction, no data/API change. Detailed summary below the primary table is accepted within scope.
+
+### 2026-10-12 16:50 | portal-qa -> codex-supervisor | PASS | T-5-29
+First release whole portable JSON comparison passes for both projects, ignoring only exported_at: every table/row/history/file/app/client/project field is identical. Final14:45:23.330Z backups both downloaded/restored with0warnings; MCP29 tools passes. Task remains open only for the scoped top-level navigation correction, now frozen in two source/test files; owner19/2 checks then fresh build/lint and separate review/QA are pending.
+
+### 2026-10-12 16:53 | collaboration-reviewer -> codex-supervisor | PASS | T-5-29
+Navigation correction source and independent affected19/2 tests pass, no skips,12.23s. Unqualified Findings resets filters and reveals the section heading/totals/search; qualified group/event/exact-row/stale targets preserve behavior. Owner fresh build/type/lint/diff passes; independent QA31/3 next. Two-file scoped corrective commit waits for QA; no backend/data change.
+
+### 2026-10-12 22:01 | codex-supervisor -> ALL | PASS | T-5-29
+Corrective navigation independent QA31/3 passes in24.70s after reviewer19/2 and owner build/type/lint. Implementer stopped on workspace credit exhaustion before committing; all source/tests were already completed and separately accepted. Coordinator verified exactly two unchanged accepted dirty files, performed scoped commit d17ddef without source edits, and integrated bedc714 on agent-setup.02/03dry runs pass; actual corrective build/push running. User explicitly requested continuation; no additional source agent is required to finish operations.
+
+### 2026-10-12 22:05 | codex-supervisor -> ALL | PASS | T-5-29
+Corrective02 build/push bedc714-dirty manifest6683b7c2e7636e039b6c45b3099a23e3be8405b9ef6746d9b60f180cdef170e9 passes and is precached on VM. Fresh20:01:40.800Z off-site backups both download/restore0warnings. New complete verified0040 snapshot /var/backups/e3-tracking/pre-collaboration-0040-20261012T200401Z captured frozen13comments before corrective03actual. New Linux frontend assets index-CaxsI2Vp.js/index-BeXEpQQe.css identified from the exact image. Live final audit/backup/restore/equality still pending.
+
+### 2026-10-12 22:09 | codex-supervisor -> portal-implementer | INFO | T-5-30
+User live screenshot approves compact text controls: shared32px height/px3/py0/textsm replacing40px, preserve consistent top and section styling. Narrow source/test task assigned; prior agent credit failure will be checked once. T29 navigation is already deployed bedc714/6683..., final backup/download equality is ongoing.
+
+### 2026-10-12 22:16 | portal-implementer -> codex-supervisor | HANDOFF | T-5-30
+Frozen two-file correction on task/T-5-30-compact-shared-toolbar: SharedToolbarControl.tsx sets h-8/px-3/py-0/text-sm; SharedFindingsTable.test.tsx asserts parity. Owner22 focused tests/2files, TypeScript/colors and diff PASS; no filter-input/icon/source scope expansion. Separate reviewer first, QA next. Fresh actual Docker build will verify deployable assets before maintenance; actual browser geometry remains unavailable.
+
+
+### 2026-10-12 22:16 | portal-qa -> codex-supervisor | PASS | T-5-29
+Corrective final20:07:50.751Z off-site backups both downloaded and restored with zero warnings. Independent whole JSON before/after equality passes ignoring ONLY exported_at, preserving every row/history/file/app/client/project field. Corrective bedc714-dirty/6683b7c2 is healthy with exact0040 schema/count/config/token-header audits; MCP29tools PASS. T29 complete; smaller controls continue separately as user-directed T30.
+
+
+### 2026-10-12 22:16 | collaboration-reviewer -> codex-supervisor | PASS | T-5-30
+Independent exact two-file review and22/22 tests across2files PASS,16.99s/no skips. Compact h-8/px-3/py-0 retains text-sm/border/radius/native semantics/handlers; filter h-10 and row icons unchanged. Test slot cleared to separate QA; scoped accepted commit waits QA, fresh Docker build and live gates remain.
+
+
+### 2026-10-12 22:18 | portal-qa -> codex-supervisor | PASS | T-5-30
+Independent mounted/source QA22/22 across2files PASS,no skips,16.33s. Toolbar h-8/px-3/py-0/text-sm parity, unchanged h-10 filters, native actions/expansion/reset/navigation/current/comment/history targets pass. Row icons/handlers untouched. Heavy slot clear; owner scoped two-file commit now authorized underD73. Actual browser geometry remains unverified.
+
+
+### 2026-10-12 22:19 | codex-supervisor -> ALL | PASS | T-5-30
+Accepted owner e911968 integrated as9bc5e72 on agent-setup after separate reviewer/QA22/2 PASS each.02/03dry runs pass; actual02 fresh build/push running for9bc5e72-dirty. Fresh20:17:05.748Z offsite uploads2/failures0, both actual downloads/restores0warnings. Live0040 integrity/FK/sequences/count/config/helper hashes pass before maintenance; no data/schema/auth changes.
+
+
+### 2026-10-12 22:22 | codex-supervisor -> ALL | PASS | T-5-30
+Fresh02 build/push9bc5e72-dirty manifest20fc8b7fba1089150b1976f50edbcaac2a51b6ff023f610ee81182f2d617f70a passes, cachedVM before stopping writers. Verified complete0040 snapshot /var/backups/e3-tracking/pre-collaboration-0040-20261012T202046Z captures2clients/2projects/13comments.03actual now running after dryrun PASS; preserve existing auth/config, final checks pending. New exact image frontend index-D0HtCr9x.js/index-BeMDgXrs.css.
+
+
+### 2026-10-12 22:24 | codex-supervisor -> ALL | PASS | T-5-30
+03 actual9bc5e72-dirty healthy with exact manifest20fc8b7fba1089150b1976f50edbcaac2a51b6ff023f610ee81182f2d617f70a. Snapshot202046Z pins prior6683 image. Post0040 integrity/FK/sequences/all counts and private env/compose/Caddy hashes unchanged; active OAuth token-header stripping PASS. New public JS index-D0HtCr9x.js HTTP2001465445bytes andCSS index-BeMDgXrs.css HTTP20060664bytes containcompactcontrol markers. This is asset/source verification, not actual browser geometry. Final04backup/07MCP and finaldownload/restore/equality gates running.
+
+
+### 2026-10-12 22:26 | codex-supervisor -> ALL | PASS | T-5-30
+Final04 offsite2026-10-12T20-24-27-517Z uploaded2/failures0 and both actual SDKdownloads/restore rehearsals PASS0warnings.07dryrun/actualPASS29tools. Independent QA gets explicit final-both-downloads-complete clearance for wholeJSONequality excluding only exported_at. Final data verdict and authoritative records close task; no browsergeometry claim.
+
+
+### 2026-10-12 22:27 | portal-qa -> codex-supervisor | PASS | T-5-30
+Independent whole portable JSON final gate PASS for both projects, excluding ONLY root exported_at, exact all remaining fields with array order retained. Sandbox242history/12comments/59findings/1report59items/6files; Airshoppen668history/1comment18findings/0reports retained. No other exemptions/production writes. Finaldownloads and restores0warnings, all live image/health/data/config/asset/MCP gates PASS; supervisor marksT30DONE and records authoritative release.

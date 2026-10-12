@@ -1,6 +1,12 @@
 # Live GCP upgrade runbook: e3-tracking
 
-## Current release — compact UI and Google photos, 2026-10-08
+## Current release — Findings workflow and compact controls, 2026-10-12
+
+T29/T30 are complete. Live `9bc5e72-dirty`, exact schema `0040_qa_reports.sql`, immutable manifest `sha256:20fc8b7fba1089150b1976f50edbcaac2a51b6ff023f610ee81182f2d617f70a`. One filtered/sorted Findings table with collapsed detailed summary, bounded 200-character UC preview/full expanded text, and consistent 32px shared text toolbar controls. Separate source review/mounted QA, fresh Docker build, dry-run/actual scripts, health/assets/data/config/token-header gates pass. Actual browser geometry remains unverified because the agent browser runtime is unavailable; user explicitly authorized SDK continuation.
+
+Current complete recovery snapshot `/var/backups/e3-tracking/pre-collaboration-0040-20261012T202046Z` pins prior manifest `sha256:6683b7c2e7636e039b6c45b3099a23e3be8405b9ef6746d9b60f180cdef170e9`. Use the reviewed0040 full-data/config helper (SHA2564df03a5e...), preserving failed-release data before full restore; never image-only downgrade or oldSQLite/newWAL overlay. Private credentials/settings and active edge token stripping are unchanged. Final offsite backups `2026-10-12T20-24-27-517Z` both actually downloaded/restored with zero warnings; independent whole JSON equality ignores only exported_at. MCP29 tools passes. Counts2clients/2projects/13comments/77findings/1realreport59items retained, plus all entities/history/files. [Authoritative release evidence](FINDINGS-WORKFLOW-RELEASE-2026-10-12.md) supersedes historical checkpoints below.
+
+## Historical release — compact UI and Google photos, 2026-10-08
 
 Live `b2b31be-dirty`, exact schema `0040_qa_reports.sql`, immutable manifest `sha256:d7f42dc234e78c1acc551de5a1832c6599df37ab7d4b76a06843a1ad86203dcf`. T25/T26 complete: compact Markdown row icons,14px finding text, available Google photos. Full2196tests/228files, lint/build and separate source/browser/real-photo QA passed. Live integrity/FK/sequences and latest genuine user data retained:13comments/77findings/1QA-report59items/4attachments9reactions plus all existing projects/entities.
 
@@ -121,5 +127,5 @@ Rollback across this migration uses the fresh0038 snapshot and the unchanged0038
 
 The independently reviewed future helper [e3-maintenance-collaboration-schema0040.sh](ops/e3-maintenance-collaboration-schema0040.sh), SHA256 `4DF03A5EED6650FB18E0300F0BBEA39CF72D4D1ED95D3671C826018E37326695`, is for a later upgrade FROM0040 and snapshots with prefix `pre-collaboration-0040-*`. It is not the pre-upgrade helper for the pre-upgrade0038 baseline. Keep both versions and their recorded snapshot/image pins.
 
-## Current release checkpoint — 2026-10-12
+## Historical release checkpoint — initial Findings table, 2026-10-12
 Shared Findings table and Airshoppen property corrections delivered. Live f1edc1c-dirty/manifesta1c6b459a406ff838dc150b2ce7482e7135d2f5ebbf8467574d1ee98d54de783, schema0040. Current complete snapshot /var/backups/e3-tracking/pre-collaboration-0040-20261012T104906Z pins prior d7f42dc image. Use0040 fullsnapshot rollback helper if needed; no image-only downgrade. Final11:02:42.805Z offsite backups bothrestore0warnings; MCP29tools. Actualagentbrowservisual checkunavailable; userexplicitSDKproceed, source/mountedQA/HTTPassets/health/data/config acceptancePASS. Authoritative reports/FINDINGS-TABLE-2026-10-12.md; replaces oldercurrentrelease checkpoints.

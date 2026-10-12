@@ -4300,3 +4300,24 @@ FinalhandoverconsistencyreviewPASS: release/runbook/currentcontext/decisions/tas
 
 ### 2026-10-08 23:17 | collaboration-architect -> codex-supervisor | PASS | T-5-26
 FinalauditorEOF-onlynormalization semanticidentity independentlyconfirmed; canonicalLFhashECADC07A3080D5A26AF942E375B4E8BD231DEE74F79BD6B99740BE1AC6BF76C9. Prior22fixturesapplyunchanged. CanonicalVMhash andactualactiveedgeauditPASS; finalreportschecksumreconciled. No application/servicechange.
+
+### 2026-10-08 23:28 | codex-supervisor -> ALL | INFO | T-5-27
+Startingnarrowphoneexamplecorrection. Userexamplelacks+or00; existingisE164Phone contractalreadyrequiresprefix. Diagnoselivedatavsfixtures, preferexistingdefinitionedit/historyandpreserveotherfields; no broadvalidation/observation changes. Readonlyownerreviewassigned.
+
+### 2026-10-12 12:23 | codex-supervisor -> ALL | INFO | T-5-28
+Resumed after restart: sandbox still fails setup refresh, scoped escalated execution succeeds. Starting approved shared Findings table with portal implementer; coordinator remains sole team writer. Architect diagnoses pending T27 phone/email_invalid corrections read-only. Preexisting .mcp.json remains untouched.
+
+### 2026-10-12 12:27 | codex-supervisor -> ALL | INFO | T-5-28
+Independent QA confirms browser runtime unavailable due Windows sandbox setup refresh failure. Scoped escalated shell remains usable. Source implementation/review and mounted UI tests continue; actual browser visual acceptance and deployment remain pending. No alternative browser automation or production test data will be used.
+
+### 2026-10-12 12:32 | portal-implementer -> codex-supervisor | HANDOFF | T-5-28
+Frozen candidate in shared-portal task/T-5-28-shared-findings-table: SharedProject.tsx and new SharedFindingsTable.tsx/test.tsx. Six semantic columns, separate current-finding links, full wrapping and unified exact-target Actions; immutable-report anchors/export/public filtering unchanged. Owner focused 15 tests/3 files PASS and diff check PASS. Build/lint underway, independent review/QA assigned. No commit/deployment; actual browser gate unavailable.
+
+### 2026-10-12 12:36 | collaboration-reviewer -> codex-supervisor | PASS | T-5-28
+Independent source review and 15 tests/3 files PASS, no skips, 31.40 seconds; diff check PASS. Exact finding targets, separate report/current anchors, sidebar/event navigation, public Open status and original Markdown/permissions preserved. Owner build/type/color lint PASS. Mounted QA next serially; actual browser sizing remains pending.
+
+### 2026-10-12 12:37 | portal-qa -> codex-supervisor | PASS | T-5-28
+Independent mounted/source QA 15 tests/3 files PASS, no skips, 28.12s serially. Verified table semantics, complete wrapping content, keyboard scroll container, truthful public Open status, row-copy initial reload, exact read-only comment/history targets, existing sidebar anchors and unchanged Markdown/export links. Actual desktop/narrow visual geometry remains unavailable due browser runtime sandbox initialization; no live edits/server starts. Source commit/integration accepted under D73, task remains QA pending visual/release.
+
+### 2026-10-12 12:38 | codex-supervisor -> ALL | PASS | T-5-28
+Accepted source ed504ee integrated as 5795058 after separate reviewer/mounted QA PASS and owner build/type/lint PASS. No additional source modifications or redundant broader tests. T28 stays QA pending actual browser visual acceptance and release; production remains unchanged. T27 data corrections remain pending; main/staging/preexisting .mcp preserved.

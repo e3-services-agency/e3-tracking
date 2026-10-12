@@ -219,10 +219,12 @@ describe('Shared current Findings table', () => {
     const local = container.querySelector<HTMLButtonElement>('button[aria-label="Expand all custom events"]')!;
     const links = ['#qa-reports', '/tracking-document.json', '/documentation.html'].map(suffix => container.querySelector<HTMLAnchorElement>(`main a[href$="${suffix}"]`)!);
     for (const control of [global, local, ...links]) {
-      expect(control.className).toContain('h-10'); expect(control.className).toContain('text-sm');
-      expect(control.className).toContain('px-4'); expect(control.className).toContain('rounded-md');
-      expect(control.className).not.toMatch(/h-7|h-9|text-xs/);
+      expect(control.className).toContain('h-8'); expect(control.className).toContain('text-sm');
+      expect(control.className).toContain('px-3'); expect(control.className).toContain('py-0'); expect(control.className).toContain('rounded-md');
+      expect(control.className).not.toMatch(/h-7|h-9|h-10|text-xs/);
     }
+    expect(container.querySelector<HTMLInputElement>('input[id$="-search"]')!.className).toContain('h-10');
+    expect(Array.from(container.querySelectorAll<HTMLSelectElement>('select[id*="-severity"], select[id*="-event"], select[id*="-comparison"]')).every(control => control.className.includes('h-10'))).toBe(true);
     expect(global.tagName).toBe('BUTTON'); expect(links.every(link => link.tagName === 'A')).toBe(true);
     expect(container.querySelector('button a')).toBeNull();
     const details = Array.from(container.querySelectorAll('details')).find(detail => detail.querySelector('summary')?.textContent === 'Detailed findings summary')!;

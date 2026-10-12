@@ -172,6 +172,28 @@ describe('Shared current Findings table', () => {
     expect(container.querySelector('[data-testid="project-findings"]')).toBeNull();
     expect(details.open).toBe(false);
   });
+  it.each(['initial hash', 'sidebar'] as const)('lands %s top-level Findings navigation at totals and filters, clearing prior filters', async source => {
+    if (source === 'initial hash') window.history.replaceState(null, '', '#findings');
+    await mount(<SharedProject token="public-fixture" />);
+    if (source === 'sidebar') {
+      const control = container.querySelector<HTMLSelectElement>('select[id$="-event"]')!;
+      await act(async () => { control.value = '__project__'; control.dispatchEvent(new Event('change', { bubbles: true })); });
+      expect(container.querySelector(`#current-finding-${first.id}`)).toBeNull();
+      vi.mocked(HTMLElement.prototype.scrollIntoView).mockClear();
+      await act(async () => container.querySelector<HTMLAnchorElement>('nav a[href="#findings"]')!.click());
+    }
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 60)); });
+    const section = container.querySelector<HTMLElement>('#findings')!;
+    expect(vi.mocked(HTMLElement.prototype.scrollIntoView).mock.contexts.at(-1)).toBe(section);
+    expect(parseFloat(section.style.scrollMarginTop)).toBeGreaterThan(0);
+    const totals = section.querySelector('[aria-label="Current finding totals"]')!;
+    const search = section.querySelector<HTMLInputElement>('input[type="search"]')!;
+    const firstRow = section.querySelector(`#current-finding-${first.id}`)!;
+    expect(totals.textContent).toContain('2 open findings');
+    expect(search.compareDocumentPosition(firstRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(Array.from(section.querySelectorAll<HTMLSelectElement>('select')).every(select => select.value === '')).toBe(true);
+    expect(section.querySelector('table tbody')!.querySelectorAll('tr')).toHaveLength(2);
+  });
   it('reveals copied row and comment targets despite different active filters, and safely handles stale row hashes', async () => {
     await mount(<SharedProject token="public-fixture" />);
     const eventSelect = container.querySelector<HTMLSelectElement>('select[id$="-event"]')!;

@@ -10,7 +10,7 @@ import type { CommentPanelRow, CommentsPanelApi } from '@/src/features/comments/
 import { CopyLinkButton } from './CopyLinkButton';
 import { SharedEntityTable, SharedEntityRow } from './SharedEntityTable';
 import { SharedToolbarControl } from './SharedToolbarControl';
-import { stickyScrollMarginPx } from './viewHelpers';
+import { SECTION_IDS, stickyScrollMarginPx } from './viewHelpers';
 import { EMPTY_FINDING_FILTERS, PROJECT_FINDINGS, filterSharedFindings, sharedFindingRows, type FindingFilters, type FindingNavigation } from './sharedFindingsModel';
 
 /** Current public findings only. Report evidence retains its separate finding-<id> anchors. */
@@ -41,8 +41,10 @@ export function SharedFindingsTable({ events, unattached, api, comments, onChang
     const requested = { ...EMPTY_FINDING_FILTERS, comparison: navigation.comparison ?? '', eventId: navigation.eventId ?? '' };
     setFilters(requested);
     const matches = filterSharedFindings(rows, requested);
-    const target = navigation.findingId ? matches.find(row => row.finding.id === navigation.findingId) : matches[0];
-    const frame = requestAnimationFrame(() => document.getElementById(target ? `current-finding-${target.finding.id}` : 'current-findings-table')?.scrollIntoView({ block: 'start' }));
+    const target = navigation.findingId != null ? matches.find(row => row.finding.id === navigation.findingId) : matches[0];
+    const qualified = navigation.findingId != null || navigation.comparison != null || navigation.eventId != null;
+    const scrollAnchor = qualified ? target ? `current-finding-${target.finding.id}` : 'current-findings-table' : SECTION_IDS.findings;
+    const frame = requestAnimationFrame(() => document.getElementById(scrollAnchor)?.scrollIntoView({ block: 'start' }));
     return () => cancelAnimationFrame(frame);
   }, [navigation, rows]);
   const changeFilter = (key: keyof FindingFilters, value: string) => setFilters(previous => ({ ...previous, [key]: value }));

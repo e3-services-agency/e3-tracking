@@ -44,7 +44,9 @@ import { SetByCell } from '@/src/features/identity/SetByCell';
 import { catalogMarketLabel } from '@/src/domain/catalogs';
 import { API_BASE } from '@/src/config/env';
 import { AgencyBrand } from '@/src/components/layout/AgencyBrand';
-import { Button } from '@/src/components/ui/Button';
+import { SharedToolbarControl } from '@/src/features/shared/SharedToolbarControl';
+import { useCasePreview } from '@/src/features/shared/useCasePreview';
+import { PROJECT_FINDINGS, type FindingNavigation } from '@/src/features/shared/sharedFindingsModel';
 import { DefinitionCountBadge } from '@/src/components/ui/DefinitionCountBadge';
 import { PAGE_MAX_WIDTH_CLASS } from '@/src/components/layout/PageShell';
 import { EventCardView, CertificationBadge, type EventCardData } from '@/src/features/events/components/EventCardView';
@@ -141,12 +143,12 @@ function leafIds(items: NavItem[]): string[] {
 function ExpandToggles({ onExpand, onCollapse, label }: { onExpand: () => void; onCollapse: () => void; label: string }) {
   return (
     <span className="inline-flex items-center gap-1">
-      <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={onExpand} aria-label={`Expand all ${label}`}>
+      <SharedToolbarControl type="button" onClick={onExpand} aria-label={`Expand all ${label}`}>
         Expand all
-      </Button>
-      <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={onCollapse} aria-label={`Collapse all ${label}`}>
+      </SharedToolbarControl>
+      <SharedToolbarControl type="button" onClick={onCollapse} aria-label={`Collapse all ${label}`}>
         Collapse all
-      </Button>
+      </SharedToolbarControl>
     </span>
   );
 }
@@ -411,7 +413,9 @@ export function SharedProject({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);
   const [openEvents, setOpenEvents] = useState<Set<string>>(new Set());
   const [openUseCases, setOpenUseCases] = useState<Set<string>>(new Set());
-  const [openProjectFindings, setOpenProjectFindings] = useState<Set<string>>(new Set());
+  const [findingNavigation, setFindingNavigation] = useState<FindingNavigation>();
+  const [findingExpansion, setFindingExpansion] = useState({ expanded: false, revision: 0 });
+  const [detailedSummaryOpen, setDetailedSummaryOpen] = useState(false);
   const [openProperties, setOpenProperties] = useState<Set<string>>(new Set());
   const [openCatalogs, setOpenCatalogs] = useState<Set<string>>(new Set());
   const [openMappings, setOpenMappings] = useState<Set<string>>(new Set());
@@ -490,7 +494,13 @@ export function SharedProject({ token }: { token: string }) {
   const nav = useMemo(() => (doc ? buildSectionIndex(doc) : []), [doc]);
   const groups = useMemo(() => (doc ? sharedSectionGroups(doc) : null), [doc]);
   const filteredNav = useMemo(() => filterNav(nav, navQuery), [nav, navQuery]);
-  const spyId = useActiveSection(useMemo(() => leafIds(nav), [nav]), spyTopOffsetPx());
+  const scrollSpyIds = useMemo(() => {
+    // Legacy Findings aliases share a table location and exist for hash routing only.
+    const ids = leafIds(nav).filter(id => !id.startsWith('findings-'));
+    if (nav.some(item => item.id === SECTION_IDS.findings)) ids.push(SECTION_IDS.findings);
+    return ids;
+  }, [nav]);
+  const spyId = useActiveSection(scrollSpyIds, spyTopOffsetPx());
   const activeId = clickedId ?? spyId;
   useEffect(() => {
     if (!clickedId) return;
@@ -540,6 +550,7 @@ export function SharedProject({ token }: { token: string }) {
     if (!linkedComment) return;
     const { target, useCaseId } = linkedComment;
     const expand = (previous: Set<string>, id: string) => previous.has(id) ? previous : new Set(previous).add(id);
+    if (target.entityType === 'finding') setFindingNavigation(previous => ({ revision: (previous?.revision ?? 0) + 1, findingId: target.entityId }));
     if (target.entityType === 'event') setOpenEvents((previous) => expand(previous, target.entityId));
     if (target.entityType === 'property') setOpenProperties((previous) => expand(previous, target.entityId));
     if (target.entityType === 'property_definition' && doc) { const p = [...doc.properties,...(doc.event_properties ?? [])].find((p) => p.definitions.some((d) => d.id === target.entityId)); if (p) setOpenProperties((previous) => expand(previous,p.property_id)); }
@@ -562,7 +573,18 @@ export function SharedProject({ token }: { token: string }) {
       // T-4-25: variants-event-<slug> opens the event and scrolls to its variants block.
       const variantsOf = decoded.startsWith(VARIANTS_ANCHOR_PREFIX) ? decoded.slice(VARIANTS_ANCHOR_PREFIX.length) : null;
       const event = eventForHash(variantsOf ?? id, doc.events);
-      if (decoded.startsWith('findings-') && decoded.endsWith('-project')) setOpenProjectFindings((prev) => new Set(prev).add(decoded));
+      const findingGroup = groups?.findingGroups.find(group => group.id === decoded || group.leaves.some(leaf => leaf.id === decoded));
+      if (findingGroup) {
+        const leaf = findingGroup.leaves.find(item => item.id === decoded);
+        const eventId = leaf ? leaf.cardAnchor ? [...anchorById].find(([, anchor]) => anchor === leaf.cardAnchor)?.[0] : PROJECT_FINDINGS : undefined;
+        setFindingNavigation(previous => ({ revision: (previous?.revision ?? 0) + 1, comparison: findingGroup.comparison, eventId }));
+        return;
+      }
+      if (decoded === SECTION_IDS.findings || decoded.startsWith('current-finding-')) {
+        setFindingNavigation(previous => ({ revision: (previous?.revision ?? 0) + 1,
+          findingId: decoded.startsWith('current-finding-') ? decoded.slice('current-finding-'.length) : undefined }));
+        return;
+      }
       if (event) setOpenEvents((prev) => (prev.has(event.id) ? prev : new Set(prev).add(event.id)));
       // T-4-22: a hash on a property row opens that row (its group is always rendered).
       const propertyId = propertyIdForHash(id, refIndex);
@@ -594,7 +616,7 @@ export function SharedProject({ token }: { token: string }) {
         document.getElementById(target)?.scrollIntoView({ block: 'start' });
       });
     },
-    [doc, groups, refIndex]
+    [doc, groups, refIndex, anchorById]
   );
 
   // Opening the URL with a hash, and hand-edited hash changes.
@@ -644,17 +666,19 @@ export function SharedProject({ token }: { token: string }) {
   // One global pair (toolbar) covers every collapsible row; the section headers keep a local pair.
   const allPropertyIds = [...doc.properties, ...(doc.event_properties ?? [])].map((p) => p.property_id);
   const expandAll = () => {
+    setDetailedSummaryOpen(true);
     setOpenCatalogs(new Set(doc.catalogs.map((c) => c.id ? refIndex.catalogAnchorById.get(c.id) ?? c.name : c.name)));
     setOpenMappings(new Set(groups.mappingLeaves.map((m) => m.id)));
-    setOpenProjectFindings(new Set(groups.findingGroups.flatMap((g) => g.leaves.filter((l) => l.id.endsWith('-project')).map((l) => l.id))));
+    setFindingExpansion(previous => ({ expanded: true, revision: previous.revision + 1 }));
     setEvents(allEventIds, true);
     setUseCases(allUseCaseIds, true);
     setOpenProperties((prev) => setExpanded(prev, allPropertyIds, true));
   };
   const collapseAll = () => {
+    setDetailedSummaryOpen(false);
     setOpenCatalogs(new Set());
     setOpenMappings(new Set());
-    setOpenProjectFindings(new Set());
+    setFindingExpansion(previous => ({ expanded: false, revision: previous.revision + 1 }));
     setEvents(allEventIds, false);
     setUseCases(allUseCaseIds, false);
     setOpenProperties((prev) => setExpanded(prev, allPropertyIds, false));
@@ -694,7 +718,7 @@ export function SharedProject({ token }: { token: string }) {
         />
 
         <main ref={mainRef} className={`flex-1 min-w-0 space-y-6 ${PAGE_MAX_WIDTH_CLASS}`}>
-          <SharedActiveEntitySummary container={mainRef} revision={JSON.stringify([[...openEvents], [...openProperties], [...openUseCases], [...openCatalogs], [...openMappings], [...openProjectFindings]])} />
+          <SharedActiveEntitySummary container={mainRef} revision={JSON.stringify([[...openEvents], [...openProperties], [...openUseCases], [...openCatalogs], [...openMappings], findingExpansion])} />
           <div className="space-y-4 border-b border-[var(--border-default)] pb-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex min-w-0 flex-1 basis-64 items-start gap-3">
@@ -705,10 +729,10 @@ export function SharedProject({ token }: { token: string }) {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {(present.events || present.properties || present.useCases || present.catalogs || present.mapping) && <ExpandToggles label="rows" onExpand={expandAll} onCollapse={collapseAll} />}
-                <Button variant="outline" size="sm" asChild><a href="#qa-reports">QA reports</a></Button>
-                <Button variant="outline" size="sm" asChild><a href={downloadUrl(token, 'tracking-document.json')}>JSON</a></Button>
-                <Button variant="outline" size="sm" asChild><a href={downloadUrl(token, 'documentation.html')}>HTML</a></Button>
+                {(present.events || present.properties || present.useCases || present.catalogs || present.mapping || present.findings) && <ExpandToggles label="rows" onExpand={expandAll} onCollapse={collapseAll} />}
+                <SharedToolbarControl asChild><a href="#qa-reports">QA reports</a></SharedToolbarControl>
+                <SharedToolbarControl asChild><a href={downloadUrl(token, 'tracking-document.json')}>JSON</a></SharedToolbarControl>
+                <SharedToolbarControl asChild><a href={downloadUrl(token, 'documentation.html')}>HTML</a></SharedToolbarControl>
               </div>
             </div>
             <SharedGoogleSignIn token={token} />
@@ -912,7 +936,7 @@ export function SharedProject({ token }: { token: string }) {
                     <SharedEntityRow key={uc.id} anchor={ucAnchor} name={`${uc.code ? `${uc.code} — ` : ''}${uc.name}`} kind="use_case"
                       expanded={expanded} onToggle={() => toggle(setOpenUseCases, uc.id)} scrollMarginTop={stickyScrollMarginPx('event')}
                       cells={[
-                        uc.narrative ? <MarkdownView key="description" source={uc.narrative} /> : '—',
+                        uc.narrative ? useCasePreview(uc.narrative) : '—',
                         enumLabelOr('status', uc.status) || '—',
 
                         <div key="actions" className="flex flex-wrap items-center gap-2"><CommentCountButton key="comments"
@@ -935,6 +959,7 @@ export function SharedProject({ token }: { token: string }) {
                       ]}>
                       {expanded && (
                         <div className="px-3 pb-3">
+                          {uc.narrative && <div className="mb-4 whitespace-normal"><MarkdownView source={uc.narrative} /></div>}
                           {uc.requirements.length > 0 && (
                             <div className="overflow-x-auto mt-2">
                               <table className="w-full table-fixed text-left text-xs">
@@ -1160,53 +1185,22 @@ export function SharedProject({ token }: { token: string }) {
           {present.findings && (
             <SectionCard
               id={SECTION_IDS.findings}
-              title="Findings summary"
+              title="Findings"
               actions={<CopyMarkdownButton getMarkdown={() => findingsSummaryToMarkdown(groups.summary)} label="Copy findings as Markdown" />}
             >
-              <FindingsSummaryBlock summary={groups.summary} anchorFor={(eventId) => anchorById.get(eventId)} />
               <SharedFindingsTable events={doc.events} unattached={doc.unattached_findings ?? []} api={api} comments={comments}
                 onChanged={reloadComments} linkedFindingId={linkedComment?.target.entityType === 'finding' ? linkedComment.target.entityId : undefined}
-                anchorFor={eventId => anchorById.get(eventId)} onNavigate={navigateTo} />
-              <div className="mt-4 space-y-4">
-                {groups.findingGroups.map((g) => (
-                  <div key={g.id} id={g.id} style={marginTop('group')} className="space-y-2">
-                    <GroupHeader
-                      label={
-                        <>
-                          <FindingTerm comparison={g.comparison} /> ({g.total})
-                        </>
-                      }
-                    />
-                    <SharedEntityTable label={`${g.comparison} findings`} columns={[{ label: 'Entity', width: '65%' }, { label: 'Open findings', width: '20%' }, { label: 'Actions', width: '15%' }]}>
-                      {g.leaves.map((l) => {
-                        if (l.id.endsWith('-project')) {
-                          const open = openProjectFindings.has(l.id);
-                          const rows = (doc.unattached_findings ?? []).filter((f) => f.comparison === g.comparison);
-                          return <SharedEntityRow key={l.id} anchor={l.id} name={l.label}
-                            expanded={open} onToggle={() => toggle(setOpenProjectFindings, l.id)} scrollMarginTop={stickyScrollMarginPx('event')}
-                            cells={[l.count, <CopyLinkButton key="link" anchor={l.id} label={l.label} />]}>
-                            <div data-testid="project-findings">
-                              <SimpleTable head={['Kind', 'Severity', 'Entity', 'Description']} rows={rows.map((f) => {
-                                const ent = findingEntity(f, refIndex, { catalogs: SECTION_IDS.catalogs, consents: SECTION_IDS.consents });
-                                return [<FindingTerm key="kind" kind={f.kind} />, f.severity,
-                                  ent.href ? <a key="entity" href={ent.href} className={linkClass} onClick={(e) => { e.preventDefault(); navigateTo(ent.href!.slice(1)); }}>{ent.type}: {ent.label ?? 'open section'}</a> : [ent.type, ent.label].filter(Boolean).join(': ') || '—',
-                                  f.message ?? '—'];
-                              })} />
-                            </div>
-                          </SharedEntityRow>;
-                        }
-                        return <tr key={l.id} id={l.id} style={marginTop('event')}>
-                          <th scope="row" className="px-3 py-3 text-left font-medium [overflow-wrap:anywhere]">
-                            {l.cardAnchor ? <a href={`#${l.cardAnchor}`} className={linkClass} onClick={(e) => { e.preventDefault(); navigateTo(l.cardAnchor!); }}><EntityIcon kind="event" className="mr-1 inline" />{l.label}</a> : l.label}
-                          </th>
-                          <td className="px-3 py-3 text-gray-600">{l.count}</td>
-                          <td className="px-3 py-3"><CopyLinkButton anchor={l.id} label={l.label} /></td>
-                        </tr>;
-                      })}
-                    </SharedEntityTable>
-                  </div>
-                ))}
-              </div>
+                anchorFor={eventId => anchorById.get(eventId)} onNavigate={navigateTo} navigation={findingNavigation} expansion={findingExpansion}
+                legacyAnchors={groups.findingGroups.flatMap(group => [group.id, ...group.leaves.map(leaf => leaf.id)])}
+                renderContext={finding => {
+                  const entity = findingEntity(finding, refIndex, { catalogs: SECTION_IDS.catalogs, consents: SECTION_IDS.consents });
+                  return entity.href ? <a href={entity.href} className={linkClass} onClick={event => { event.preventDefault(); navigateTo(entity.href!.slice(1)); }}>{entity.type}: {entity.label ?? 'open section'}</a>
+                    : [entity.type, entity.label].filter(Boolean).join(': ') || '—';
+                }} />
+              <details open={detailedSummaryOpen} onToggle={event => setDetailedSummaryOpen(event.currentTarget.open)} className="mt-4 rounded-lg border border-[var(--border-default)] bg-white p-4">
+                <summary className="cursor-pointer text-sm font-medium">Detailed findings summary</summary>
+                <div className="mt-4"><FindingsSummaryBlock summary={groups.summary} anchorFor={(eventId) => anchorById.get(eventId)} /></div>
+              </details>
             </SectionCard>
           )}
         </main>

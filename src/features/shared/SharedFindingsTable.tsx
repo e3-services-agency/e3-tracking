@@ -1,15 +1,21 @@
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import type { EventCard, EventCardFinding } from '@/src/domain/document/trackingDocument';
-import { SeverityBadge, StatusBadge } from '@/src/components/ui/badges';
+import { SeverityBadge } from '@/src/components/ui/badges';
 import { FindingTerm } from '@/src/components/ui/GlossaryTerm';
 import { EntityIcon } from '@/src/components/ui/EntityIcon';
+import { Input } from '@/src/components/ui/Input';
+import { FAMILY_INFO, comparisonLabel, findingFamily } from '@/src/domain/findingsCatalog';
 import { TargetCollaboration } from '@/src/features/comments/TargetCollaboration';
 import type { CommentPanelRow, CommentsPanelApi } from '@/src/features/comments/CommentsPanel';
 import { CopyLinkButton } from './CopyLinkButton';
 import { SharedEntityTable, SharedEntityRow } from './SharedEntityTable';
+import { SharedToolbarControl } from './SharedToolbarControl';
 import { stickyScrollMarginPx } from './viewHelpers';
+import { EMPTY_FINDING_FILTERS, PROJECT_FINDINGS, filterSharedFindings, sharedFindingRows, type FindingFilters, type FindingNavigation } from './sharedFindingsModel';
 
 /** Current public findings only. Report evidence retains its separate finding-<id> anchors. */
-export function SharedFindingsTable({ events, unattached, api, comments, onChanged, linkedFindingId, anchorFor, onNavigate }: {
+export function SharedFindingsTable({ events, unattached, api, comments, onChanged, linkedFindingId, anchorFor, onNavigate,
+  legacyAnchors = [], navigation, expansion, renderContext }: {
   events: Pick<EventCard, 'id' | 'name' | 'findings'>[];
   unattached: EventCardFinding[];
   api: CommentsPanelApi;
@@ -18,32 +24,78 @@ export function SharedFindingsTable({ events, unattached, api, comments, onChang
   linkedFindingId?: string;
   anchorFor: (eventId: string) => string | undefined;
   onNavigate: (anchor: string) => void;
+  legacyAnchors?: string[];
+  navigation?: FindingNavigation;
+  expansion?: { expanded: boolean; revision: number };
+  renderContext?: (finding: EventCardFinding) => ReactNode;
 }) {
-  const rows = [...events.flatMap(event => event.findings.map(finding => ({ finding, event }))),
-    ...unattached.map(finding => ({ finding, event: null }))];
-  return <SharedEntityTable label="Individual finding discussions" columns={[
-    { label: 'Number', width: '10%' }, { label: 'Severity', width: '14%' }, { label: 'Event', width: '20%' },
-    { label: 'Message', width: '26%' }, { label: 'Status', width: '10%' }, { label: 'Actions', width: '20%' },
-  ]}>
-    {rows.map(({ finding, event }) => {
-      const label = `Finding #${String(finding.finding_sequence ?? '').padStart(3, '0')}`;
-      const anchor = `current-finding-${finding.id}`;
-      const eventAnchor = event ? anchorFor(event.id) : undefined;
-      return <SharedEntityRow key={finding.id} anchor={anchor} name={`#${String(finding.finding_sequence ?? '').padStart(3, '0')}`}
-        scrollMarginTop={stickyScrollMarginPx('event')} cells={[
-          <SeverityBadge key="severity" severity={finding.severity} />,
-          event ? eventAnchor ? <a key="event" href={`#${eventAnchor}`} className="inline-flex items-start gap-1.5 text-[var(--color-info)] hover:underline"
-            onClick={e => { e.preventDefault(); onNavigate(eventAnchor); }}><EntityIcon kind="event" /><span className="min-w-0 [overflow-wrap:anywhere]">{event.name}</span></a> : event.name : 'Not tied to an event',
-          <div key="message" className="space-y-1"><p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{finding.message ?? '—'}</p>
-            <div className="text-xs text-gray-500"><FindingTerm comparison={finding.comparison} /></div></div>,
-          // The tracking document explicitly projects status=open; acknowledged/resolved details live in history.
-          <StatusBadge key="status" status="open" />,
-          <div key="actions" className="flex flex-wrap items-start gap-1">
-            <TargetCollaboration api={api} entityType="finding" entityId={finding.id} label={label} rows={comments}
-              onChanged={onChanged} forceOpen={linkedFindingId === finding.id} />
-            <CopyLinkButton anchor={anchor} label={label} />
-          </div>,
-        ]} />;
-    })}
-  </SharedEntityTable>;
+  const filterId = useId();
+  const [filters, setFilters] = useState<FindingFilters>(EMPTY_FINDING_FILTERS);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const rows = useMemo(() => sharedFindingRows(events, unattached), [events, unattached]);
+  const shown = useMemo(() => filterSharedFindings(rows, filters), [rows, filters]);
+  useEffect(() => { if (linkedFindingId) setFilters(EMPTY_FINDING_FILTERS); }, [linkedFindingId]);
+  useEffect(() => { if (expansion) setExpanded(expansion.expanded ? new Set(rows.map(row => row.finding.id)) : new Set()); }, [expansion, rows]);
+  useEffect(() => {
+    if (!navigation) return;
+    const requested = { ...EMPTY_FINDING_FILTERS, comparison: navigation.comparison ?? '', eventId: navigation.eventId ?? '' };
+    setFilters(requested);
+    const matches = filterSharedFindings(rows, requested);
+    const target = navigation.findingId ? matches.find(row => row.finding.id === navigation.findingId) : matches[0];
+    const frame = requestAnimationFrame(() => document.getElementById(target ? `current-finding-${target.finding.id}` : 'current-findings-table')?.scrollIntoView({ block: 'start' }));
+    return () => cancelAnimationFrame(frame);
+  }, [navigation, rows]);
+  const changeFilter = (key: keyof FindingFilters, value: string) => setFilters(previous => ({ ...previous, [key]: value }));
+  const comparisons = [...new Set(rows.map(row => row.finding.comparison))];
+  const selectClass = 'h-10 w-full rounded-md border border-[var(--border-default)] bg-white px-3 text-sm';
+  const reset = () => setFilters(EMPTY_FINDING_FILTERS);
+  return <div className="space-y-3">
+    <p aria-label="Current finding totals" className="text-sm text-gray-700"><strong>{rows.length} open findings</strong> · Error {rows.filter(row => row.finding.severity === 'error').length} · Warning {rows.filter(row => row.finding.severity === 'warning').length} · Info {rows.filter(row => row.finding.severity === 'info').length}</p>
+    <div className="grid items-end gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,2fr)_1fr_1fr_1fr_auto]">
+      <label htmlFor={`${filterId}-search`} className="space-y-1 text-sm">Search findings<Input id={`${filterId}-search`} type="search" className="h-10" value={filters.search} onChange={event => changeFilter('search', event.target.value)} /></label>
+      <label htmlFor={`${filterId}-severity`} className="space-y-1 text-sm">Severity<select id={`${filterId}-severity`} className={selectClass} value={filters.severity} onChange={event => changeFilter('severity', event.target.value)}><option value="">All severities</option><option value="error">Error</option><option value="warning">Warning</option><option value="info">Info</option></select></label>
+      <label htmlFor={`${filterId}-event`} className="space-y-1 text-sm">Event<select id={`${filterId}-event`} className={selectClass} value={filters.eventId} onChange={event => changeFilter('eventId', event.target.value)}><option value="">All events</option>{events.filter(event => event.findings.length).map(event => <option key={event.id} value={event.id}>{event.name}</option>)}{unattached.length > 0 && <option value={PROJECT_FINDINGS}>Not tied to an event</option>}</select></label>
+      <label htmlFor={`${filterId}-comparison`} className="space-y-1 text-sm">Comparison<select id={`${filterId}-comparison`} className={selectClass} value={filters.comparison} onChange={event => changeFilter('comparison', event.target.value)}><option value="">All comparisons</option>{comparisons.map(comparison => <option key={comparison} value={comparison}>{comparisonLabel(comparison)}</option>)}</select></label>
+      <SharedToolbarControl type="button" onClick={reset}>Reset filters</SharedToolbarControl>
+    </div>
+    <p role="status" className="text-sm text-gray-500">Showing {shown.length} of {rows.length} findings</p>
+    <div aria-hidden="true" className="h-0 overflow-hidden">{legacyAnchors.map(anchor => <span key={anchor} id={anchor} className="block h-0" />)}</div>
+    <div id="current-findings-table" style={{ scrollMarginTop: stickyScrollMarginPx('event') }}>
+      <SharedEntityTable label="Individual finding discussions" columns={[
+        { label: 'Number', width: '112px' }, { label: 'Severity', width: '108px' }, { label: 'Event', width: '18%' },
+        { label: 'Message' }, { label: 'Actions', width: '132px' },
+      ]}>
+        {shown.map(({ finding, event }) => {
+          const label = `Finding #${String(finding.finding_sequence ?? '').padStart(3, '0')}`;
+          const anchor = `current-finding-${finding.id}`;
+          const eventAnchor = event ? anchorFor(event.id) : undefined;
+          const open = expanded.has(finding.id);
+          return <SharedEntityRow key={finding.id} anchor={anchor} name={`#${String(finding.finding_sequence ?? '').padStart(3, '0')}`}
+            expanded={open} onToggle={() => setExpanded(previous => { const next = new Set(previous); if (next.has(finding.id)) next.delete(finding.id); else next.add(finding.id); return next; })}
+            scrollMarginTop={stickyScrollMarginPx('event')} cells={[
+              <SeverityBadge key="severity" severity={finding.severity} />,
+              event ? eventAnchor ? <a key="event" href={`#${eventAnchor}`} className="inline-flex items-start gap-1.5 text-[var(--color-info)] hover:underline"
+                onClick={e => { e.preventDefault(); onNavigate(eventAnchor); }}><EntityIcon kind="event" /><span className="min-w-0 [overflow-wrap:anywhere]">{event.name}</span></a> : event.name : 'Not tied to an event',
+              finding.message ?? '—',
+              <div key="actions" className="flex flex-wrap items-start gap-1">
+                <TargetCollaboration api={api} entityType="finding" entityId={finding.id} label={label} rows={comments}
+                  onChanged={onChanged} forceOpen={linkedFindingId === finding.id} />
+                <CopyLinkButton anchor={anchor} label={label} />
+              </div>,
+            ]}>
+            <div className="space-y-2 text-sm [overflow-wrap:anywhere]">
+              <p><strong>Comparison: </strong><FindingTerm comparison={finding.comparison} /></p>
+              <p><strong>Kind: </strong><FindingTerm kind={finding.kind} /></p>
+              {renderContext && <p><strong>Entity: </strong>{renderContext(finding)}</p>}
+              {finding.property && <p><strong>Property: </strong>{finding.property}</p>}
+              {finding.variant && <p><strong>Variant: </strong>{finding.variant}</p>}
+              {finding.rule && <p><strong>Rule: </strong>{finding.rule}</p>}
+              <p><strong>Next step: </strong>{FAMILY_INFO[findingFamily(finding.comparison, finding.kind)].next}</p>
+            </div>
+          </SharedEntityRow>;
+        })}
+        {shown.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-sm text-gray-500">No findings match these filters.</td></tr>}
+      </SharedEntityTable>
+    </div>
+  </div>;
 }

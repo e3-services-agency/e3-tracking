@@ -65,7 +65,7 @@ export function SharedNav({
           ) : (
             <span className="shrink-0 w-[18px]" aria-hidden="true" />
           )}
-          {hasChildren && !filtering ? (
+          {hasChildren && !filtering && !item.id.startsWith('findings-') && item.id !== 'findings' ? (
             // A group label toggles the group exactly like its chevron (T-4-18); a native button
             // gives Enter/Space for free. While filtering the group is pinned open, so the label
             // navigates instead.

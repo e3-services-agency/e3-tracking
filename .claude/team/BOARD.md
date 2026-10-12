@@ -4321,3 +4321,24 @@ Independent mounted/source QA 15 tests/3 files PASS, no skips, 28.12s serially. 
 
 ### 2026-10-12 12:38 | codex-supervisor -> ALL | PASS | T-5-28
 Accepted source ed504ee integrated as 5795058 after separate reviewer/mounted QA PASS and owner build/type/lint PASS. No additional source modifications or redundant broader tests. T28 stays QA pending actual browser visual acceptance and release; production remains unchanged. T27 data corrections remain pending; main/staging/preexisting .mcp preserved.
+
+### 2026-10-12 12:46 | codex-supervisor -> ALL | INFO | T-5-28
+User directs completing release despite agent-only CUA initialization failure. SDK required reauthentication and user completed it; build/push f1edc1c-dirty resumed. Live readonly audit exact0040 integrity/FK/sequences PASS, unchanged2clients2projects13comments244properties303definitions38events77findings1report59items4attachments9reactions. EnvexcludingIMAGE3f9d.../compose2d44.../Caddy02d8... unchanged. Pre-release04dryPASS/actualrunning; fresh complete snapshot after image cache. Actual visual acceptance remains unavailable, not claimed.
+
+### 2026-10-12 12:51 | codex-supervisor -> ALL | PASS | T-5-28
+02built/pushed f1edc1c-dirty manifest a1c6b459a406ff838dc150b2ce7482e7135d2f5ebbf8467574d1ee98d54de783; VM image precached. Fresh04offsite10:46:50.244Z uploaded2/failures0; both SDKdownloaded and restore rehearsals0warnings, retaining sandbox1realreport59items andAirshoppen1comment. Fullverified0040snapshot /var/backups/e3-tracking/pre-collaboration-0040-20261012T104906Z captured before03, services stopped.03actual underway afterdryPASS. Activeconfig/privateenv hashes previouslychecked unchanged; actualvisual unavailable and userexplicitproceed honored.
+
+### 2026-10-12 12:58 | codex-supervisor -> ALL | PASS | T-5-28
+03actual f1edc1c-dirty healthy; exactrunningmanifest a1c6b459..., exact0040 schema/integrity/FK/sequences/counts unchanged. PrivateenvexcludingIMAGE3f9d.../compose2d44.../Caddy02d8... preserved; activeCaddyJSON token-header audit PASS. Public /tracking-plan/assets/index-CGdTnKlq.js HTTP2001460378bytes contains current Findings table and current-finding anchors, CSS60424bytesHTTP200. Actual browser visual geometry remains unavailable; no claim of visual check. T27dryrun failedclosed0APIwrites on legacyprimitiveexamplearray, actualfreshbackupshape verified and correctivehelperreviewassigned.
+
+### 2026-10-12 12:59 | codex-supervisor -> ALL | INFO | T-5-27
+Existing trusted-loopback API operator helper A707... reviewed/pure+isolatedAPI PASS, but actualdryrun stopped beforeplan/APIwrites on legacyprimitive ['421949336382']. Freshportablebackup confirms customerphone barestring/general same, eventphone already prefixed; email_invalid explicitcategory_override customer and matchinggeneraldescription. Architect correction E6EEC... supports actualprimitive andobjectmetadata shapes; independent rereview pending. No live property corrections yet; T28 livehealthy and MCP29toolsPASS.
+
+### 2026-10-12 13:03 | codex-supervisor -> ALL | PASS | T-5-27
+Correctivehelper E6EEC... independent9fixtures/review+actuallegacy/objectAPIfixtures PASS. VM hashverified; explicitexistingproxyloopback/noheader401/serviceactor auth200. Actualdryrun0writes captured baseline4742c8... matchingoriginalreportedvalues, three approvedfields only. Apply3APIwrites/5historyrows, unrelatedfieldsunchanged postfb8dac...; idempotent rerun0writes. Internal andanonymoussharedtrackingdocument assertionsPASS phone/general+421949336382, email_invalidsystem_customer and bothcorrectdescriptions; eventphoneunchanged. Global0040integrity/FK/sequence/exactcountsPASS. Privateoriginal/afterevidence /data/t27-correction-20261012/plan.json. Finaloffsite11:02:42.805Z uploaded2/failures0, downloads/rehearsal/independentportable diff next.
+
+### 2026-10-12 13:09 | portal-qa -> codex-supervisor | PASS | T-5-27
+Independent fullportablebackupdiff PASS: Airshoppen only four targetrows changed (customerphone+generalexample and email_invalidcategory/parent+generaldescription), updatedtimestamps, five exactsingle-field updatehistories actor e3-maintenance@localhost. All663oldhistories identical(final668), every othertable/row/file/client/project/app unchanged; eventphonefullrow identical. Sandboxwholebackup unchangedexceptexported_at, genuine report59items/comments/files retained. Readonly actualoffsitecomparison, no visualclaim.
+
+### 2026-10-12 13:09 | collaboration-reviewer -> codex-supervisor | PASS | T-5-28
+Final handover consistency PASS: image/schema/snapshotpin/config/data/helperhash/failclosed thenverified3writes5history/rerun0/projections/finalbackups/MCP match. Actualbrowsergeometry limitation explicit, no secret exposure or contradictorypendingrelease claims. Separate finalportableQA nowPASS. T27/T28DONE; finalteamrecords scopedcommit next.

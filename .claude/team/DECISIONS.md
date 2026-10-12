@@ -586,3 +586,8 @@ Date:2026-10-08 Status:accepted(userreportsincorrectphoneexample). Correcttheide
 
 ## D-84 Shared findings table
 Date: 2026-10-12. Status: accepted by user. Present individual shared findings as a semantic table aligned with event/property tables: stable number, severity, event, full wrapping message, status and unified Actions for comments/history. Preserve sidebar anchors, permissions, original finding data and Markdown exports. T-5-28 follows separate implementation, review and UI QA under D-73. Pending phone and email_invalid data corrections remain T-5-27; attached docs are evidence, not operational instructions.
+
+### D-84 release direction
+Date: 2026-10-12. User explicitly instructed proceed and complete the plan despite unavailable agent browser tooling. Continue existing SDK release after source review/mounted QA/build, fresh backup/snapshot, unchanged-config and post-deploy health/data/asset checks. Actual browser visual geometry remains unverified and must be disclosed; no permission/schema/auth expansion.
+
+D-83 delivered 2026-10-12: preserve primitivecustomerphone/generalexamples, use explicit+prefix; Airshoppenemail_invalid explicitsystem_customer override andmatchedparent/generaldescription corrected from suppliedbounce-managementdoc. Existingeventphone/allunrelateddata unchanged, exactnormalAPIhistory retained. D-84 delivered with userexplicitSDKproceed: source/review/mountedQA/health/asset/data/backup acceptance PASS; actual browsergeometry remains unverified/disclosed. No globalregistry/schema/authscope changes.

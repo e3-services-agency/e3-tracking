@@ -54,6 +54,7 @@ interface EventRow {
   class: string;
   /** D-63 (T-4-17). */
   implementation_method?: string;
+  qa_scope_override?: boolean | null;
   dl_event_name?: string | null;
   /** D-67 (T-4-28): explicit identifiers; null = derived default. */
   identifiers_json?: string[] | null;
@@ -447,6 +448,7 @@ function EventEditor({
   // D-62: only a method the user changed is sent, so a source's method can still default an untouched one.
   const [loadedImplementationMethod, setLoadedImplementationMethod] = useState('');
   const [dlEventName, setDlEventName] = useState('');
+  const [qaScope, setQaScope] = useState<'auto' | 'in' | 'out'>('auto');
   // D-67 (T-4-28): null = derived default; a list = the event's own override of its customer_ids identifiers.
   const [identifiersOverride, setIdentifiersOverride] = useState<string[] | null>(null);
   const [registry, setRegistry] = useState<{ id: string; name: string; type: string; is_cookie: boolean; rule_count: number }[]>([]);
@@ -506,6 +508,7 @@ function EventEditor({
           setEventClass(ev.class);
           setImplementationMethod(ev.implementation_method ?? 'client_web');
           setLoadedImplementationMethod(ev.implementation_method ?? 'client_web');
+          setQaScope(ev.qa_scope_override === true ? 'in' : ev.qa_scope_override === false ? 'out' : 'auto');
           setDlEventName(ev.dl_event_name ?? '');
           setIdentifiersOverride(Array.isArray(ev.identifiers_json) ? ev.identifiers_json : null);
           setOwnerBusiness(ev.owner_business ?? '');
@@ -621,6 +624,7 @@ function EventEditor({
             ? { implementation_method: null } // Automatic: the server derives it from name, class and sources
             : {}),
         dl_event_name: dlEventName.trim() || null,
+        qa_scope_override: qaScope === 'in' ? true : qaScope === 'out' ? false : null,
         identifiers_json: identifiersOverride,
         owner_business: ownerBusiness.trim() || null,
         owner_technical: ownerTechnical.trim() || null,
@@ -736,6 +740,14 @@ function EventEditor({
           <FieldLabel className="text-sm font-medium text-gray-700" hint="dataLayer event name" hintScope="Events">dataLayer event name</FieldLabel>
           <Input value={dlEventName} onChange={(e) => setDlEventName(e.target.value)} placeholder="the site's event, e.g. add_to_wishlist" />
         </div>
+      </div>
+      <div className="space-y-2">
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="QA scope" hintScope="Events">QA scope</FieldLabel>
+        <select value={qaScope} onChange={(e) => setQaScope(e.target.value as 'auto' | 'in' | 'out')} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+          <option value="auto">Automatic</option>
+          <option value="in">In scope</option>
+          <option value="out">Out of scope</option>
+        </select>
       </div>
       <div className="space-y-2">
         <FieldLabel className="text-sm font-medium text-gray-700" hint="Description" hintScope="Events">Description</FieldLabel>

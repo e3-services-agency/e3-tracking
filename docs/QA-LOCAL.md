@@ -225,3 +225,10 @@ The QA sampler extension produces a zip with `manifest.json`, `customer-events-e
 4. The QA runs page shows the sample facts for that run, and QA reports list them for runs that took part.
 
 Masked values (`[redacted]@example.com`, `[redacted:geo]`, `[redacted:ip]`) are kept as received. Comparison 3 counts them as present and skips type, format and enum checks for them. If the archive changes between preview and confirm, the import is refused with 409 `PAYLOAD_CHANGED`.
+
+## Population-aware QA runs (T-5-31)
+
+The extension samples customers per event variant with Bloomreach funnel filters built from the tracking document, and only for events whose `qa_scope` is true (set an event's QA scope in its editor to override the derived value). Its `manifest.json` carries `samples[]`, one entry per event or variant: `{event, variant (name or null), filter_matched, customers_read, events_read}`.
+
+1. Import the archive (Import, QA sample). Valid `samples[]` entries are stored on the run (`qa_runs.samples_json`) and shown as a small table (event, variant, matched, read, events) on the QA run panel and in each QA report's participating-runs section. Malformed entries become preview warnings and are skipped; unknown fields are ignored.
+2. A `missing_event` finding for an event with an entry reads `0 of <matched> matched customers carried <event> (<read> read).` when both numbers are above zero, and carries `actual_json.population = {filter_matched, customers_read, events_read}`. When `filter_matched` is 0 it reads `No customer matched the filter for <event>: either the variant never fires or the discriminator values drifted (see unknown_variant).` Without an entry, if a run carries sampler facts the message reads `Event "X" was not found in a sample of N customers (population not checked).` (N = customers read across those runs); with no sample facts at all the wording is the old `has zero observations in scope`. `missing_event` is event-level: variant entries are stored and displayed only, for future use. Fingerprints do not change, so existing findings are updated, not reopened.

@@ -60,6 +60,7 @@ export const FIELD_HINTS: Record<string, string> = {
   'Identity note': 'How the customer is identified when this event fires (internal). Example: email is known after login.',
   'Agent instructions': 'Instructions for AI agents reading this event through MCP (internal, never shared). Example: always check currency first.',
   'Implementation method': 'How the event reaches Bloomreach: client_web (dataLayer), server_api (Tracking API) or sdk_auto (emitted by the SDK).',
+  'QA scope': 'Whether the QA sampler samples this event. Automatic = yes unless ignored, platform or SDK-emitted. Example: force In scope for a server event.',
   'dataLayer event name': 'The event name pushed to the dataLayer if it differs from the Bloomreach name. Example: br_purchase.',
   'Sources (system via method)': 'Which systems send this event and how. Example: Shopify via GTM data layer.',
   'Derived metrics': 'Values computed from several properties. Example: line total = price x quantity.',
@@ -153,6 +154,11 @@ export const FIELD_HINTS: Record<string, string> = {
   'Identifiers': 'The identity identifiers this event sends in customer_ids; derived unless set by hand. Example: email_id.',
 
   // QA, findings, history
+  'QaRuns.Event': 'The event the QA sampler looked for. Example: cart_update.',
+  'QaRuns.Variant': 'The variant (discriminator values) sampled, or - for the event as a whole. Example: add.',
+  'QaRuns.Matched': 'Customers the Bloomreach filter matched for this event or variant. Example: 120.',
+  'QaRuns.Read': 'Matched customers the sampler actually read events for. Example: 30.',
+  'QaRuns.Events': 'Events of this type read from those customers. Example: 45.',
   'QaRuns.Kind': 'export_paste = pasted Bloomreach export; agent_session = agent submitted; manual = typed by hand.',
   'Actor': 'Who or what made the change. Example: Jan Pan, MCP agent.',
   'Environment': 'Where the data was captured. Example: production, staging.',

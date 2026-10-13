@@ -11,6 +11,7 @@
  * resolution `useCaseCoverage.service.ts` uses -- an observation counts as soon as the definitions
  * catch up, with no need to run a comparison recompute first).
  */
+import { effectiveQaScope } from '../../domain/qaScope';
 import { exampleValuesFor } from '../../domain/examples';
 import { triggerImages } from '../../domain/document/triggerImages';
 import * as EventDAL from '../dal/event.dal';
@@ -757,6 +758,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     class: event.class,
     implementation_method: event.implementation_method,
     dl_event_name: event.dl_event_name,
+    qa_scope: effectiveQaScope(event, event.qa_scope_override),
     sources: (context.sourcesByEventId.get(event.id) ?? []).map((s) => ({ id: s.id, name: s.name, system: s.system, method: s.method, color: s.color })),
     identifiers,
     identifiers_derived: identifiersAreDerived(identifierEvent, context.identityRules, context.identifiers),

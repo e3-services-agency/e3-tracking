@@ -20,7 +20,7 @@ import {
 } from './customerEventsExportImport.service';
 import { previewDataManagerEvents, applyDataManagerEvents } from './dataManagerEventsImport.service';
 import { parseCustomerEventsExport } from '../../domain/import/customerEventsExport';
-import { qaSampleFacts, type QaSampleFacts } from '../../domain/import/qaSampleManifest';
+import { qaSampleFacts, qaSamples, type QaSampleFacts } from '../../domain/import/qaSampleManifest';
 import { parseDataManagerEvents } from '../../domain/import/dataManagerEvents';
 import { payloadHash } from '../../domain/diff/hash';
 import type { DiffItem } from '../../domain/diff/types';
@@ -163,7 +163,7 @@ export function previewQaSample(projectId: string, docs: QaSampleDocs): QaSample
       items: dm.items,
       warnings: dm.warnings,
     },
-    warnings: [...facts.warnings, ...model.warnings],
+    warnings: [...facts.warnings, ...qaSamples(docs.manifest).warnings, ...model.warnings],
     payload_hash: payloadHash(docs),
   };
 }
@@ -201,6 +201,7 @@ export function applyQaSample(
     });
     if (dup) throw new DuplicateQaSampleError(dup.id);
   }
+  const samples = qaSamples(docs.manifest);
   const model = parseCustomerEventsExport(docs.customer_events);
   if (model.events.length === 0) throw new NoObservationsSelectedError('The archive has no events to import.', 'file');
 
@@ -218,6 +219,7 @@ export function applyQaSample(
       source: 'extension',
       notes: runName(facts),
       manifest_json: docs.manifest,
+      samples_json: samples.samples.length > 0 ? samples.samples : null,
       source_meta_json: { note: 'QA sample archive', events_listed: model.events.length },
     });
     const resolve = createEventResolver(projectId);

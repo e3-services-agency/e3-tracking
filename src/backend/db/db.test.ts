@@ -277,6 +277,7 @@ const ALL_MIGRATION_FILES = [
   '0039_comment_targets.sql',
   '0040_qa_reports.sql',
   '0041_qa_run_manifest.sql',
+  '0042_event_qa_scope_override.sql',
 ];
 
 describe('listMigrationFiles', () => {

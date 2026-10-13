@@ -7200,6 +7200,7 @@ exponea.track('Opt_in_proof', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -7714,6 +7715,7 @@ exponea.track('back_in_stock_list', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -10285,6 +10287,7 @@ exponea.track('booking_b', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -10954,6 +10957,7 @@ exponea.track('cart_update', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -11429,6 +11433,7 @@ exponea.track('checkout', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -13379,6 +13384,7 @@ exponea.track('double_opt_in_study_interest', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -13868,6 +13874,7 @@ exponea.track('flyer', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -14175,6 +14182,7 @@ exponea.track('inbound_call', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -14504,6 +14512,7 @@ exponea.track('initialize_event', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -14968,6 +14977,7 @@ exponea.track('installation', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -15280,6 +15290,7 @@ exponea.track('loyalty_update', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -15648,6 +15659,7 @@ exponea.track('monitoring', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -16053,6 +16065,7 @@ exponea.track('newsletter_signup', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -16497,6 +16510,7 @@ exponea.track('optilyz_campaign', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -16804,6 +16818,7 @@ exponea.track('outbound_call', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -17029,6 +17044,7 @@ exponea.track('paper_catalogue', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -18617,6 +18633,7 @@ exponea.track('parcel_insert', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -19700,6 +19717,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -20401,6 +20419,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -21746,6 +21765,7 @@ exponea.track('qbr_metrics', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -23077,6 +23097,7 @@ exponea.track('received_referee_reward', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -24403,6 +24424,7 @@ exponea.track('received_referrer_reward', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -24651,6 +24673,7 @@ exponea.track('received_reward_next_order', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -25683,6 +25706,7 @@ exponea.track('registered_as_referee', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -26666,6 +26690,7 @@ exponea.track('registered_as_referrer', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -27169,6 +27194,7 @@ exponea.track('registration', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -27571,6 +27597,7 @@ exponea.track('return', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -28060,6 +28087,7 @@ exponea.track('sample', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -28827,6 +28855,7 @@ exponea.track('shipment', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -29107,6 +29136,7 @@ exponea.track('store_visit', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -29288,6 +29318,7 @@ exponea.track('submitted_nps_score', {
       "priority": null,
       "properties": [],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -29743,6 +29774,7 @@ exponea.track('survey_all', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -30104,6 +30136,7 @@ exponea.track('survey_all_test', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -30325,6 +30358,7 @@ exponea.track('survey_data', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -30600,6 +30634,7 @@ exponea.track('test', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -31079,6 +31114,7 @@ exponea.track('ticket_order', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -31644,6 +31680,7 @@ exponea.track('ticket_registration', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -31978,6 +32015,7 @@ exponea.track('trigger_push', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -32476,6 +32514,7 @@ exponea.track('user_active', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -32760,6 +32799,7 @@ exponea.track('view_category', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -33303,6 +33343,7 @@ exponea.track('view_item', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -33737,6 +33778,7 @@ exponea.track('voucher_notification', {
         },
       ],
       "purpose": null,
+      "qa_scope": true,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -33859,6 +33901,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       "priority": null,
       "properties": [],
       "purpose": null,
+      "qa_scope": false,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -33961,6 +34004,7 @@ track: {
       "priority": null,
       "properties": [],
       "purpose": null,
+      "qa_scope": false,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -34063,6 +34107,7 @@ track: {
       "priority": null,
       "properties": [],
       "purpose": null,
+      "qa_scope": false,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -34165,6 +34210,7 @@ track: {
       "priority": null,
       "properties": [],
       "purpose": null,
+      "qa_scope": false,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -34267,6 +34313,7 @@ track: {
       "priority": null,
       "properties": [],
       "purpose": null,
+      "qa_scope": false,
       "quality": {
         "acknowledged": {
           "error": 0,
@@ -34369,6 +34416,7 @@ track: {
       "priority": null,
       "properties": [],
       "purpose": null,
+      "qa_scope": false,
       "quality": {
         "acknowledged": {
           "error": 0,

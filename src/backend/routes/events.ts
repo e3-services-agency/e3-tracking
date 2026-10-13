@@ -67,6 +67,7 @@ function inputFromBody(body: Record<string, unknown>): Partial<EventDAL.EventInp
   if (typeof body.implementation_method === 'string') input.implementation_method = body.implementation_method;
   if ('dl_event_name' in body) input.dl_event_name = body.dl_event_name as string | null;
   if ('identifiers_json' in body) input.identifiers_json = body.identifiers_json as string[] | null;
+  if ('qa_scope_override' in body) input.qa_scope_override = body.qa_scope_override as boolean | null;
   if ('owner_business' in body) input.owner_business = body.owner_business as string | null;
   if ('owner_technical' in body) input.owner_technical = body.owner_technical as string | null;
   if ('priority' in body) input.priority = body.priority as string | null;

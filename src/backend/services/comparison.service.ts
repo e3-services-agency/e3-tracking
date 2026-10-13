@@ -1,3 +1,4 @@
+import type { QaSampleEntry } from '../../domain/import/qaSampleManifest';
 import { qaSampleFacts } from '../../domain/import/qaSampleManifest';
 import { getDb } from '../db';
 import * as QaReportDAL from '../dal/qa-report.dal';
@@ -221,6 +222,26 @@ export function buildDefinitionSnapshot(projectId: string): DefinitionSnapshot {
  * (`customerEventsExportImport.service.ts`), which resolves observations before any `QaRun` (and
  * therefore this function) exists.
  */
+/** T-5-31: every non-archived run's validated `samples_json`, flattened for `missing_event` wording. */
+function collectRunSamples(projectId: string): QaSampleEntry[] {
+  return QaRunDAL.listNonArchivedQaRuns(projectId).flatMap((r) => (Array.isArray(r.samples_json) ? (r.samples_json as QaSampleEntry[]) : []));
+}
+
+/** T-5-31: largest customers-read figure over distinct sampler populations (manifest identity), not a sum; null when none do. */
+function collectSampleCustomersRead(projectId: string): number | null {
+  // Runs of one manifest identity (generated_at + build) are the same population imported twice: count once.
+  const groups = new Map<string, number>();
+  for (const r of QaRunDAL.listNonArchivedQaRuns(projectId)) {
+    if (r.manifest_json == null) continue;
+    const f = qaSampleFacts(r.manifest_json);
+    const n = f.read ?? f.customers;
+    if (n === null) continue;
+    const key = f.generated_at ? `${f.generated_at}|${f.build ?? ''}` : `run:${r.id}`;
+    groups.set(key, Math.max(groups.get(key) ?? 0, n));
+  }
+  return groups.size === 0 ? null : Math.max(...groups.values());
+}
+
 export function buildEngineObservations(
   projectId: string,
   resolve: (eventType: string, properties: Record<string, unknown>) => { event_id: string | null; variant_id: string | null }
@@ -563,7 +584,7 @@ export function runComparison(projectId: string, options: {captureReport?: boole
     {
       comparison: 'definition_vs_observations',
       findings: [
-        ...runDefinitionVsObservations(definition, observations),
+        ...runDefinitionVsObservations(definition, observations, { samples: collectRunSamples(projectId), sampleCustomersRead: collectSampleCustomersRead(projectId) }),
         ...runRules(rulesEngineRules, observations, ruleSnapshot),
         ...runItemSchemaChecks(itemSchemaChecks, observations),
         ...runStateListChecks(stateListChecks, observations),
@@ -611,7 +632,7 @@ export function runComparison(projectId: string, options: {captureReport?: boole
   const before=new Map(previous.map(f=>[f.id,f]));
   const items=FindingDAL.listFindings(projectId).flatMap<{finding:FindingDAL.FindingRow;disposition:'produced'|'resolved'}>(f=>fingerprints.has(f.fingerprint)?[{finding:f,disposition:'produced' as const}]:
    before.has(f.id) && (before.get(f.id)!.status==='open'||before.get(f.id)!.resolved_by==='user') && f.status==='resolved' && f.resolved_by===null?[{finding:f,disposition:'resolved' as const}]:[]);
-  const report=QaReportDAL.captureQaReport(projectId,{type:'whole_project',comparison_ids:runs.map(r=>r.comparison),requested_event_id:options.event??null,requested_qa_run_id:options.qa_run_id??null,participating_runs:QaRunDAL.listNonArchivedQaRuns(projectId).map(r=>({id:r.id,environment:r.environment,kind:r.kind,started_at:r.started_at,...(r.source?{source:r.source}:{}),...(r.manifest_json?{sample:qaSampleFacts(r.manifest_json)}:{})}))},summary,items);
+  const report=QaReportDAL.captureQaReport(projectId,{type:'whole_project',comparison_ids:runs.map(r=>r.comparison),requested_event_id:options.event??null,requested_qa_run_id:options.qa_run_id??null,participating_runs:QaRunDAL.listNonArchivedQaRuns(projectId).map(r=>({id:r.id,environment:r.environment,kind:r.kind,started_at:r.started_at,...(r.source?{source:r.source}:{}),...(r.manifest_json?{sample:qaSampleFacts(r.manifest_json)}:{}),...(Array.isArray(r.samples_json)&&r.samples_json.length>0?{samples:r.samples_json}:{})}))},summary,items);
   return {...summary,report_id:report.id,report_sequence:report.report_sequence};
  }).immediate();
 }

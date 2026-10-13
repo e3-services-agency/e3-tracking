@@ -87,6 +87,11 @@ describe('population-aware missing_event', () => {
     expect(missingEventMessage('e', null, s(120, 30))).toBe('0 of 120 matched customers carried e (30 read).');
     expect(missingEventMessage('e', 'add', { ...s(4, 2), variant: 'add' })).toBe('0 of 4 matched customers carried e[add] (2 read).');
     expect(missingEventMessage('e', null, s(0, 0))).toContain('No customer matched the filter for e');
+    expect(qaSamples({ samples: [{ event: 'a', variant: null, filter_matched: 1, customers_read: 1, events_read: 1 }, { event: 'a', filter_matched: 5, customers_read: 2, events_read: 1 }] }).samples).toEqual([{ event: 'a', variant: null, filter_matched: 5, customers_read: 2, events_read: 1 }]);
+    const many = Array.from({ length: 2001 }, (_, i) => ({ event: `e${i}`, variant: null, filter_matched: 1, customers_read: 1, events_read: 1 }));
+    const capped = qaSamples({ samples: many });
+    expect(capped.samples).toHaveLength(2000);
+    expect(capped.warnings[0]).toContain('2000');
     expect(missingEventMessage('e', null, null)).toBe('Event "e" has zero observations in scope.');
     expect(missingEventMessage('e', null, s(5, 0))).toBe('Event "e" has zero observations in scope.');
     expect(missingEventMessage('e', null, null, 25)).toBe('Event "e" was not found in a sample of 25 customers (population not checked).');
@@ -134,5 +139,30 @@ describe('applyQaSample with a samples[] block', () => {
     const msgs = FindingDAL.listFindings(projectId, {}).filter((f) => f.kind === 'missing_event').map((f) => f.message);
     expect(msgs).toContain('0 of 7 matched customers carried never_sent (3 read).');
     expect(msgs).toContain('Event "other_missing" was not found in a sample of 10 customers (population not checked).');
+  });
+});
+
+describe('fallback customers-read is not double counted', () => {
+  const mk = (generated_at: string, read: number, samples?: unknown[]) =>
+    getDb().prepare('UPDATE qa_runs SET manifest_json=?, samples_json=? WHERE id=?').run(
+      JSON.stringify({ generated_at, build: 'b1', sample: { read } }),
+      samples ? JSON.stringify(samples) : null,
+      QaRunDAL.createQaRun(projectId, { kind: 'export_paste' }).id
+    );
+  const msg = () => FindingDAL.listFindings(projectId, {}).find((f) => f.kind === 'missing_event')!.message;
+  it('uses the max across populations and counts a re-imported run once; filter_matched 0 carries population', () => {
+    EventDAL.createEvent(projectId, { name: 'wishlist', class: 'custom' });
+    mk('2026-01-01', 10);
+    mk('2026-01-01', 10);
+    runComparison(projectId);
+    expect(msg()).toContain('sample of 10 customers');
+    mk('2026-01-02', 25);
+    runComparison(projectId);
+    expect(msg()).toContain('sample of 25 customers');
+    mk('2026-01-03', 5, [{ event: 'wishlist', variant: null, filter_matched: 0, customers_read: 0, events_read: 0 }]);
+    runComparison(projectId);
+    const f = FindingDAL.listFindings(projectId, {}).find((x) => x.kind === 'missing_event')!;
+    expect(f.message).toContain('No customer matched');
+    expect((f.actual_json as { population: unknown }).population).toEqual({ filter_matched: 0, customers_read: 0, events_read: 0 });
   });
 });

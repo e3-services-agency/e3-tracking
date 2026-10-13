@@ -160,7 +160,7 @@ export interface RunOptions {
   now?: number;
   /** T-5-31: population numbers from QA sampler runs (`qa_runs.samples_json`), used to phrase `missing_event`. */
   samples?: QaSampleEntry[];
-  /** T-5-31: sum of customers read across runs that carry sampler manifest facts; `null`/absent = no run has any. */
+  /** T-5-31: largest customers-read figure across distinct sampler populations among runs that carry sampler manifest facts; `null`/absent = no run has any. */
   sampleCustomersRead?: number | null;
 }
 
@@ -525,7 +525,7 @@ export function runDefinitionVsObservations(
     }
     const sample = findSample(options.samples, event.name);
     const population =
-      sample && sample.filter_matched > 0 && sample.customers_read > 0
+      sample && (sample.filter_matched === 0 || sample.customers_read > 0)
         ? { filter_matched: sample.filter_matched, customers_read: sample.customers_read, events_read: sample.events_read }
         : null;
     findings.push({

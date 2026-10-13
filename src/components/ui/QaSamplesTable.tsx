@@ -1,3 +1,4 @@
+import { HintTh } from '@/src/components/ui/FieldHint';
 import type { QaSampleEntry } from '@/src/domain/import/qaSampleManifest';
 
 /** T-5-31: the per-event population numbers a QA sampler run carries (QA runs panel and QA report). */
@@ -7,7 +8,7 @@ export function QaSamplesTable({ samples }: { samples: QaSampleEntry[] | null | 
     <table className="text-sm w-full" data-testid="qa-samples-table">
       <thead>
         <tr className="text-left text-gray-600">
-          <th className="pr-3">Event</th><th className="pr-3">Variant</th><th className="pr-3">Matched</th><th className="pr-3">Read</th><th>Events</th>
+          <HintTh hintScope="QaRuns" className="pr-3">Event</HintTh><HintTh hintScope="QaRuns" className="pr-3">Variant</HintTh><HintTh hintScope="QaRuns" className="pr-3">Matched</HintTh><HintTh hintScope="QaRuns" className="pr-3">Read</HintTh><HintTh hintScope="QaRuns">Events</HintTh>
         </tr>
       </thead>
       <tbody>

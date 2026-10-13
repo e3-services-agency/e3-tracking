@@ -66,14 +66,17 @@ export interface QaSampleEntry {
   events_read: number;
 }
 
-/** Validates `manifest.samples[]`: unknown fields are ignored, a malformed entry becomes a warning and is dropped. */
+export const QA_SAMPLES_CAP = 2000;
+
+/** Validates `manifest.samples[]` (at most 2000 entries; duplicate event/variant keys keep the largest `filter_matched`): unknown fields are ignored, a malformed entry becomes a warning and is dropped. */
 export function qaSamples(manifest: unknown): { samples: QaSampleEntry[]; warnings: string[] } {
   const raw = obj(manifest).samples;
   const samples: QaSampleEntry[] = [];
   const warnings: string[] = [];
   if (raw === undefined || raw === null) return { samples, warnings };
   if (!Array.isArray(raw)) return { samples, warnings: ['manifest.samples is not an array; ignored.'] };
-  raw.forEach((item, i) => {
+  if (raw.length > QA_SAMPLES_CAP) warnings.push(`manifest.samples has ${raw.length} entries; only the first ${QA_SAMPLES_CAP} (the cap) are read.`);
+  raw.slice(0, QA_SAMPLES_CAP).forEach((item, i) => {
     const e = obj(item);
     const event = typeof e.event === 'string' && e.event.trim() ? e.event.trim() : null;
     const variant = e.variant === undefined || e.variant === null ? null : typeof e.variant === 'string' ? e.variant : undefined;
@@ -85,7 +88,10 @@ export function qaSamples(manifest: unknown): { samples: QaSampleEntry[]; warnin
       warnings.push(`manifest.samples[${i}] is malformed (needs event, variant name or null, and non-negative whole numbers for filter_matched, customers_read, events_read); skipped.`);
       return;
     }
-    samples.push({ event, variant, filter_matched: matched, customers_read: read, events_read: events });
+    const entry = { event, variant, filter_matched: matched, customers_read: read, events_read: events };
+    const dup = samples.findIndex((s) => s.event === event && s.variant === variant);
+    if (dup < 0) samples.push(entry);
+    else if (entry.filter_matched > samples[dup].filter_matched) samples[dup] = entry;
   });
   return { samples, warnings };
 }

@@ -227,16 +227,19 @@ function collectRunSamples(projectId: string): QaSampleEntry[] {
   return QaRunDAL.listNonArchivedQaRuns(projectId).flatMap((r) => (Array.isArray(r.samples_json) ? (r.samples_json as QaSampleEntry[]) : []));
 }
 
-/** T-5-31: customers read summed over non-archived runs whose manifest carries sampler facts; null when none do. */
+/** T-5-31: largest customers-read figure over distinct sampler populations (manifest identity), not a sum; null when none do. */
 function collectSampleCustomersRead(projectId: string): number | null {
-  let total: number | null = null;
+  // Runs of one manifest identity (generated_at + build) are the same population imported twice: count once.
+  const groups = new Map<string, number>();
   for (const r of QaRunDAL.listNonArchivedQaRuns(projectId)) {
     if (r.manifest_json == null) continue;
     const f = qaSampleFacts(r.manifest_json);
     const n = f.read ?? f.customers;
-    if (n !== null) total = (total ?? 0) + n;
+    if (n === null) continue;
+    const key = f.generated_at ? `${f.generated_at}|${f.build ?? ''}` : `run:${r.id}`;
+    groups.set(key, Math.max(groups.get(key) ?? 0, n));
   }
-  return total;
+  return groups.size === 0 ? null : Math.max(...groups.values());
 }
 
 export function buildEngineObservations(

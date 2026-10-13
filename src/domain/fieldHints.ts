@@ -154,6 +154,11 @@ export const FIELD_HINTS: Record<string, string> = {
   'Identifiers': 'The identity identifiers this event sends in customer_ids; derived unless set by hand. Example: email_id.',
 
   // QA, findings, history
+  'QaRuns.Event': 'The event the QA sampler looked for. Example: cart_update.',
+  'QaRuns.Variant': 'The variant (discriminator values) sampled, or - for the event as a whole. Example: add.',
+  'QaRuns.Matched': 'Customers the Bloomreach filter matched for this event or variant. Example: 120.',
+  'QaRuns.Read': 'Matched customers the sampler actually read events for. Example: 30.',
+  'QaRuns.Events': 'Events of this type read from those customers. Example: 45.',
   'QaRuns.Kind': 'export_paste = pasted Bloomreach export; agent_session = agent submitted; manual = typed by hand.',
   'Actor': 'Who or what made the change. Example: Jan Pan, MCP agent.',
   'Environment': 'Where the data was captured. Example: production, staging.',

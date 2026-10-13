@@ -19,7 +19,7 @@ import {
 import { previewDataManagerEvents, applyDataManagerEvents } from '../services/dataManagerEventsImport.service';
 import multer from 'multer';
 import { previewQaSample, applyQaSample, readQaSampleArchive } from '../services/qaSampleImport.service';
-import { BadRequestError } from '../errors';
+import { BadRequestError, ValidationError } from '../errors';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -155,17 +155,23 @@ router.post('/qa-sample/apply', uploadArchive, async (req: Request, res: Respons
     if (!req.file) throw new BadRequestError('file is required (multipart field "file").', 'file');
     const body = (req.body ?? {}) as Record<string, unknown>;
     const hash = typeof body.payload_hash === 'string' ? body.payload_hash : '';
-    let ids: string[] = [];
+    let parsed: unknown = [];
     if (typeof body.selected_item_ids === 'string') {
       try {
-        const parsed = JSON.parse(body.selected_item_ids);
-        if (Array.isArray(parsed)) ids = parsed.filter((x): x is string => typeof x === 'string');
+        parsed = JSON.parse(body.selected_item_ids);
       } catch {
-        throw new BadRequestError('selected_item_ids must be a JSON array of strings.', 'selected_item_ids');
+        throw new ValidationError('selected_item_ids must be a JSON array of strings.', 'selected_item_ids');
       }
+    } else if (body.selected_item_ids !== undefined) {
+      parsed = body.selected_item_ids;
     }
+    if (!Array.isArray(parsed) || !parsed.every((x) => typeof x === 'string')) {
+      throw new ValidationError('selected_item_ids must be a JSON array of strings.', 'selected_item_ids');
+    }
+    const ids = parsed as string[];
+    const force = body.force === 'true' || body.force === true;
     const docs = await readQaSampleArchive(req.file.buffer);
-    res.status(200).json(applyQaSample(req.projectId!, docs, hash, ids, req.userName ?? null));
+    res.status(200).json(applyQaSample(req.projectId!, docs, hash, ids, req.userName ?? null, force));
   } catch (err) {
     handleRouteError(err, res);
   }

@@ -154,7 +154,7 @@ export function QaRuns() {
                   }}
                   className="hover:bg-gray-50 cursor-pointer"
                 >
-                  <td className="px-6 py-4 font-medium text-gray-900">{run.kind}</td>
+                  <td className="px-6 py-4 font-medium text-gray-900">{run.kind}{run.source && <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700" data-testid="run-source">{run.source}</span>}{run.notes && <div className="text-xs font-normal text-gray-500">{run.notes}</div>}</td>
                   <td className="px-6 py-4 text-gray-500">{run.actor ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{run.environment ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{new Date(run.started_at).toLocaleString()}</td>

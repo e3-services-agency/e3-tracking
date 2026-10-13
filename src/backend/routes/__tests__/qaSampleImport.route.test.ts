@@ -150,4 +150,34 @@ describe('QA sample archive import', () => {
     const bare = buildQaSampleDocs().data_manager_events.events;
     expect(exportDataManagerEvents(project)).toEqual(bare);
   });
+
+  it('apply validates selected_item_ids and refuses a duplicate sample unless forced', async () => {
+    const c = createClient({ key: 'dup', name: 'Dup' });
+    const pid = createProject({ client_id: c.id, key: 'dup', name: 'Dup' }).id;
+    const zip = await zipOf();
+    const send = async (path: string, fields: Record<string, string> = {}) => {
+      const form = new FormData();
+      form.append('file', new Blob([new Uint8Array(zip)]), 'sample.zip');
+      for (const [k, v] of Object.entries(fields)) form.append(k, v);
+      const res = await fetch(`${base}/api/projects/${pid}/import/qa-sample/${path}`, { method: 'POST', body: form });
+      return { status: res.status, data: await res.json() };
+    };
+    const prev = await send('preview');
+    const hash = prev.data.payload_hash;
+    for (const bad of ['{"a":1}', '"x"', '[1]', '["no-such-item"]', 'not json']) {
+      const r = await send('apply', { payload_hash: hash, selected_item_ids: bad });
+      expect(r.status).toBe(400);
+      expect(r.data.code).toBe('VALIDATION_ERROR');
+    }
+    expect(listQaRuns(pid)).toHaveLength(0);
+    const ok = await send('apply', { payload_hash: hash, selected_item_ids: '[]' });
+    expect(ok.status).toBe(200);
+    const again = await send('apply', { payload_hash: hash, selected_item_ids: '[]' });
+    expect(again.status).toBe(409);
+    expect(again.data.code).toBe('DUPLICATE_QA_SAMPLE');
+    expect(again.data.details).toBe(ok.data.run.id);
+    const forced = await send('apply', { payload_hash: hash, selected_item_ids: '[]', force: 'true' });
+    expect(forced.status).toBe(200);
+    expect(listQaRuns(pid)).toHaveLength(2);
+  });
 });

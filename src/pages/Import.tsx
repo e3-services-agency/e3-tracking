@@ -541,6 +541,7 @@ function QaSampleImportBox({ projectId }: { projectId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  const [duplicate, setDuplicate] = useState(false);
   const PAGE_SIZE = 100;
   const url = (path: string) => `${API_BASE}/api/projects/${projectId}/import/qa-sample/${path}`;
 
@@ -568,8 +569,9 @@ function QaSampleImportBox({ projectId }: { projectId: string }) {
     }
   }
 
-  async function runApply() {
+  async function runApply(force = false) {
     if (!file || !preview) return;
+    setDuplicate(false);
     setLoading(true);
     setError(null);
     try {
@@ -577,13 +579,20 @@ function QaSampleImportBox({ projectId }: { projectId: string }) {
       form.append('file', file);
       form.append('payload_hash', preview.payload_hash);
       form.append('selected_item_ids', JSON.stringify([...selected]));
+      if (force) form.append('force', 'true');
       const res = await fetchWithAuth(url('apply'), { method: 'POST', body: form });
       const data = await parseJson(res);
+      if (res.status === 409 && data.code === 'DUPLICATE_QA_SAMPLE') {
+        setDuplicate(true);
+        throw new Error(data.error ?? 'This sample was already imported.');
+      }
       if (!res.ok) throw new Error(data.error ?? 'Apply failed.');
       setDone(
         `Created QA run "${data.run.notes}" with ${data.inserted} observation(s); applied ${data.data_manager.applied.length} Data Manager item(s). Open findings: ${data.comparison.open.error ?? 0} error, ${data.comparison.open.warning ?? 0} warning, ${data.comparison.open.info ?? 0} info.`
       );
       setPreview(null);
+      setSelected(new Set());
+      setPage(0);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Apply failed.');
     } finally {
@@ -614,6 +623,11 @@ function QaSampleImportBox({ projectId }: { projectId: string }) {
         </Button>
       </div>
       {error && <div className="text-sm text-red-600">{error}</div>}
+      {duplicate && preview && (
+        <Button type="button" variant="outline" disabled={loading} onClick={() => runApply(true)}>
+          Import anyway
+        </Button>
+      )}
       {preview && (
         <div className="space-y-3 text-sm">
           <div>
@@ -696,7 +710,7 @@ function QaSampleImportBox({ projectId }: { projectId: string }) {
               Next
             </Button>
           </div>
-          <Button type="button" disabled={loading} onClick={runApply}>
+          <Button type="button" disabled={loading} onClick={() => runApply()}>
             Confirm import
           </Button>
         </div>

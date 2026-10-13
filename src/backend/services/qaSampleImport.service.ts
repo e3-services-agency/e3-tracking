@@ -24,7 +24,7 @@ import { qaSampleFacts, type QaSampleFacts } from '../../domain/import/qaSampleM
 import { parseDataManagerEvents } from '../../domain/import/dataManagerEvents';
 import { payloadHash } from '../../domain/diff/hash';
 import type { DiffItem } from '../../domain/diff/types';
-import { BadRequestError, PayloadChangedError } from '../errors';
+import { BadRequestError, ConflictError, PayloadChangedError, ValidationError } from '../errors';
 
 const MAX_ENTRY_BYTES = 25 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 50 * 1024 * 1024;
@@ -78,6 +78,15 @@ function readEntryText(entry: JSZip.JSZipObject, name: string, usedTotal: number
       })
       .resume();
   });
+}
+
+/** 409: a run of this project already carries a manifest with the same `generated_at` and tool build. `details` is the existing run id. */
+export class DuplicateQaSampleError extends ConflictError {
+  readonly code = 'DUPLICATE_QA_SAMPLE';
+  constructor(public readonly existingRunId: string) {
+    super('This QA sample was already imported (same generated_at and tool build).', existingRunId);
+    this.name = 'DuplicateQaSampleError';
+  }
 }
 
 export interface QaSampleDocs {
@@ -172,12 +181,26 @@ export function applyQaSample(
   docs: QaSampleDocs,
   expectedHash: string,
   selectedDmItemIds: string[],
-  actor: string | null
+  actor: string | null,
+  force = false
 ): QaSampleApplyResult {
   if (payloadHash(docs) !== expectedHash) {
     throw new PayloadChangedError('The archive changed since preview; re-run preview before applying.');
   }
+  const known = new Set(previewDataManagerEvents(projectId, docs.data_manager_events).items.map((i) => i.id));
+  const unknown = selectedDmItemIds.filter((id) => !known.has(id));
+  if (unknown.length > 0) {
+    throw new ValidationError(`selected_item_ids contains unknown item ids: ${unknown.slice(0, 5).join(', ')}.`, 'selected_item_ids');
+  }
   const facts = qaSampleFacts(docs.manifest);
+  if (!force && facts.generated_at) {
+    const dup = QaRunDAL.listQaRuns(projectId).find((r) => {
+      if (r.manifest_json == null) return false;
+      const f = qaSampleFacts(r.manifest_json);
+      return f.generated_at === facts.generated_at && f.build === facts.build;
+    });
+    if (dup) throw new DuplicateQaSampleError(dup.id);
+  }
   const model = parseCustomerEventsExport(docs.customer_events);
   if (model.events.length === 0) throw new NoObservationsSelectedError('The archive has no events to import.', 'file');
 

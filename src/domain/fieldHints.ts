@@ -160,6 +160,7 @@ export const FIELD_HINTS: Record<string, string> = {
   'Finished': 'When the run finished; empty while open.',
   'Archived': 'Archived runs are hidden from the default list.',
   'Resolved': 'Whether the observation was matched to a defined event.',
+  'Shared.Search findings': 'Free text matched against finding titles and details. Example: currency.',
   'Severity': 'error = must fix; warning = should review; info = for awareness.',
   'Findings.Kind': 'What kind of mismatch this is. Example: missing required property.',
   'Rule': 'The rule that produced this finding. Example: money tolerance.',

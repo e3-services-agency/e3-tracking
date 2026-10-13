@@ -251,7 +251,7 @@ describe('applyDataManagerEvents on the default selection', () => {
 });
 
 describe('exportDataManagerEvents round trip', () => {
-  it('deep-equals the fixture (sorted-key serialisation) after applying the two phase 1 fixtures and this one with the default selection, plus "web_exit" (a live sdk event from expiration-settings.json, D-28\'s "every Event row (any class)" — it is not part of this fixture at all, so it is a documented addition, not a round-trip failure)', () => {
+  it('deep-equals the fixture (sorted-key serialisation) after applying the two phase 1 fixtures and this one with the default selection, plus "web_exit" (a live sdk event from expiration-settings.json, D-28\'s "every Event row (any class)" — it is not part of this fixture at all, so it is a documented addition, not a round-trip failure; app-born, so used: true, T-5-32)', () => {
     setUpPhase1Definition();
     const preview = previewDataManagerEvents(projectId, eventsFixture);
     const selected = preview.items.filter((i) => i.default_selected).map((i) => i.id);
@@ -267,7 +267,7 @@ describe('exportDataManagerEvents round trip', () => {
       real_time_analytics: true,
       source: 'user',
       type: 'web_exit',
-      used: false,
+      used: true,
     });
     expect(canonicalize(exported)).toEqual(canonicalize(expected));
   });

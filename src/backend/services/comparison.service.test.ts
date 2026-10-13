@@ -447,3 +447,54 @@ describe('T-4-00 (D-58): per-event allowed values via property definitions', () 
     expect(violations[0].event_id).toBe(cartUpdate.id);
   });
 });
+
+describe('T-5-32 Data Manager declaration findings reach the findings table', () => {
+  it('stores dm_auto_declared, dm_unused, pii_not_declared and pii_not_private, keeps fingerprints stable', () => {
+    const prop = (property: string, type: string, extra: Record<string, unknown> = {}) => ({
+      property, type, description: '', example_values: '', private: false, source: 'user', used: true, deleting: false, ...extra,
+    });
+    const payload = {
+      default_forbidden: false,
+      default_private: false,
+      default_group: {
+        events: [
+          {
+            type: 'signup', description: '', source: 'user', used: true, forbidden: false, deleting: false, real_time_analytics: false,
+            properties: {
+              are_all_used: false,
+              default_group: {
+                properties: [
+                  prop('email_addr', 'string', { private: true }),
+                  prop('auto_prop', 'string', { source: 'data' }),
+                  prop('idle_prop', 'string', { used: false }),
+                  prop('plain_prop', 'string'),
+                ],
+              },
+              groups: [],
+            },
+          },
+        ],
+      },
+      groups: [],
+    };
+    const preview = previewDataManagerEvents(projectId, payload);
+    applyDataManagerEvents(projectId, payload, preview.payload_hash, preview.items.map((i) => i.id));
+    const byName = (n: string) => PropertyDAL.listProperties(projectId, { scope: 'event' }).find((p) => p.name === n)!;
+    // Diverge the plan from Data Manager: PII unset on the private one, PII set on a non-private one, a different type.
+    PropertyDAL.updateProperty(projectId, byName('email_addr').id, { pii: false });
+    PropertyDAL.updateProperty(projectId, byName('plain_prop').id, { pii: true });
+    PropertyDAL.updateProperty(projectId, byName('auto_prop').id, { data_type: 'number' });
+
+    runComparison(projectId);
+    const open = FindingDAL.listFindings(projectId, { comparison: 'data_manager', status: 'open' });
+    const kinds = new Set(open.map((f) => f.kind));
+    expect(kinds.has('pii_not_declared')).toBe(true);
+    expect(kinds.has('pii_not_private')).toBe(true);
+    expect(kinds.has('dm_auto_declared')).toBe(true);
+    expect(kinds.has('dm_unused')).toBe(true);
+    const before = open.map((f) => f.fingerprint).sort();
+    const again = runComparison(projectId);
+    expect(again.by_comparison.data_manager.resolved).toBe(0);
+    expect(FindingDAL.listFindings(projectId, { comparison: 'data_manager', status: 'open' }).map((f) => f.fingerprint).sort()).toEqual(before);
+  });
+});

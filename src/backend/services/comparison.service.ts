@@ -279,7 +279,12 @@ export function buildDataManagerDefinitionSnapshot(projectId: string, definition
     data_formats: Array.isArray(p.data_formats_json) ? (p.data_formats_json as string[]) : [],
   }));
 
-  return toDataManagerDefinitionSnapshot(definition, customer_properties);
+  // T-5-32: carry the PII flag (pii_not_declared / pii_not_private); one batched read of the project's properties.
+  const piiById = new Map(PropertyDAL.listProperties(projectId).map((p) => [p.id, p.pii === true]));
+  for (const p of customer_properties) p.pii = piiById.get(p.property_id) === true;
+  const snapshot = toDataManagerDefinitionSnapshot(definition, customer_properties);
+  for (const e of snapshot.events) for (const p of e.properties) p.pii = piiById.get(p.property_id) === true;
+  return snapshot;
 }
 
 /**

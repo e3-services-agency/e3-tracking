@@ -1,3 +1,4 @@
+import { audit as auditMcp } from '../backend/dal/mcp-oauth.dal';
 /**
  * Registers every MCP tool on a `McpServer` (T-2-10, plan "MCP server", D-11/D-19/D-33). Each tool
  * handler in `src/mcp/tools/*.ts` is a plain async `(input) => JSON-serialisable` function -- this
@@ -19,6 +20,8 @@
  * `submit_observations_batch`, `finish_qa_run`) only touch QA evidence, which D-44 excludes from the
  * log, so this has no visible effect yet, but every future write tool inherits it for free.
  */
+import { httpMcpContext } from './httpContext';
+import { authorizeHttpTool, TOOL_POLICY } from './toolPolicy';
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ZodRawShape } from 'zod';
@@ -49,15 +52,19 @@ function register<Shape extends ZodRawShape>(
   // that TypeScript cannot re-verify against our own `handler`'s inferred input; the runtime shape
   // (an object matching `inputSchema`) is exactly right, so this one cast is narrower and safer
   // than loosening `register`'s own signature for every call site.
+  if (httpMcpContext() && !TOOL_POLICY[name]) throw new Error('HTTP tool policy missing.');
   const callback = async (args: z.infer<z.ZodObject<Shape>>) => {
     try {
+      authorizeHttpTool(name,args);
+      const httpContext=httpMcpContext();
+      if(httpContext)auditMcp(httpContext.owner,'tool_called',httpContext.grantId,name);
       // T-3-02: `agent_name`, when the tool's own input shape carries it, names the actor; every
       // tool call otherwise falls back to the generic 'MCP agent' label rather than 'system' (the
       // context's own default), so a change_log row from an MCP write is always recognisable as one
       // even when the calling agent didn't identify itself.
       const agentName = (args as { agent_name?: unknown }).agent_name;
-      const actor = typeof agentName === 'string' && agentName.trim() ? agentName.trim() : 'MCP agent';
-      const result = await runWithActor({ actor, source: 'mcp' }, () => handler(args));
+      const actor = httpMcpContext()?.owner ?? (typeof agentName === 'string' && agentName.trim() ? agentName.trim() : 'MCP agent');
+      const result = await runWithActor({ actor, source: 'mcp' }, () => handler(httpMcpContext() && typeof args === 'object' && args !== null ? {...args,agent_name:actor} : args));
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     } catch (err) {
       const code = (err as { code?: string })?.code ?? 'INTERNAL_ERROR';
@@ -67,6 +74,7 @@ function register<Shape extends ZodRawShape>(
       if (details !== undefined && details !== null && details !== '') {
         message += ` (details: ${typeof details === 'string' ? details : JSON.stringify(details)})`;
       }
+      if (httpMcpContext()) return {isError:true,content:[{type:'text' as const,text:code === 'INTERNAL_ERROR' ? 'INTERNAL_ERROR: Request failed.' : `${code}: Request could not be completed.`}]};
       if (code === 'INTERNAL_ERROR') log.error(`tool ${name} failed unexpectedly`, err);
       return { isError: true, content: [{ type: 'text' as const, text: `${code}: ${message}` }] };
     }

@@ -248,3 +248,65 @@ describe('runDefinitionVsDataManager', () => {
     expect(unmapped).toHaveLength(1);
   });
 });
+
+describe('T-5-32 declaration findings (dm_auto_declared, dm_unused, pii_not_declared, pii_not_private)', () => {
+  const prop = (property: string, type: string, extra: Record<string, unknown> = {}) => ({
+    property, type, description: '', example_values: '', private: false, source: 'user', used: true, deleting: false, ...extra,
+  });
+  const evt = (type: string, props: unknown[], extra: Record<string, unknown> = {}) => ({
+    type, description: '', source: 'user', used: true, forbidden: false, deleting: false, real_time_analytics: false,
+    properties: { are_all_used: false, default_group: { properties: props }, groups: [] }, ...extra,
+  });
+  const model = (events: unknown[]) =>
+    parseDataManagerEvents({ default_forbidden: false, default_private: false, default_group: { events }, groups: [] });
+  const def = (pii?: boolean, status = 'implemented'): DataManagerDefinitionSnapshot => ({
+    events: [
+      {
+        id: 'e1', name: 'signup', status, class: 'custom',
+        properties: [{ property_id: 'p_email', name: 'email_addr', data_type: 'string', data_formats: [], pii }],
+      },
+    ],
+    customer_properties: [],
+  });
+  const kinds = <T extends { kind: string }>(f: T[], k: string) => f.filter((x) => x.kind === k);
+
+  it('dm_auto_declared: source data and not in plan, or declared differently; stable fingerprints', () => {
+    const dm = model([
+      evt('signup', [prop('email_addr', 'number', { source: 'data' }), prop('ghost', 'string', { source: 'data' })]),
+      evt('stray_event', [], { source: 'data' }),
+    ]);
+    const f = runDefinitionVsDataManager(def(), { events: dm, customers: null });
+    const auto = kinds(f, 'dm_auto_declared');
+    expect(auto).toHaveLength(3);
+    expect(auto.every((x) => x.severity === 'warning' && /descriptive, not designed/.test(x.message))).toBe(true);
+    const again = runDefinitionVsDataManager(def(), { events: dm, customers: null });
+    expect(kinds(again, 'dm_auto_declared').map((x) => x.fingerprint)).toEqual(auto.map((x) => x.fingerprint));
+  });
+
+  it('dm_auto_declared negative: source data but declared correctly in the plan', () => {
+    const dm = model([evt('signup', [prop('email_addr', 'string', { source: 'data' })])]);
+    expect(kinds(runDefinitionVsDataManager(def(), { events: dm, customers: null }), 'dm_auto_declared')).toEqual([]);
+  });
+
+  it('dm_unused: used false on an implemented event and a linked property (info); none for planned events', () => {
+    const dm = model([evt('signup', [prop('email_addr', 'string', { used: false })], { used: false })]);
+    const f = kinds(runDefinitionVsDataManager(def(), { events: dm, customers: null }), 'dm_unused');
+    expect(f).toHaveLength(2);
+    expect(f.every((x) => x.severity === 'info')).toBe(true);
+    const planned = kinds(runDefinitionVsDataManager(def(undefined, 'planned'), { events: dm, customers: null }), 'dm_unused');
+    expect(planned).toHaveLength(1); // the linked property only
+  });
+
+  it('pii_not_declared (error) when private but plan pii unset/false; none when declared; pii_not_private (warning) reverse', () => {
+    const priv = model([evt('signup', [prop('email_addr', 'string', { private: true })])]);
+    const nd = kinds(runDefinitionVsDataManager(def(), { events: priv, customers: null }), 'pii_not_declared');
+    expect(nd).toHaveLength(1);
+    expect(nd[0].severity).toBe('error');
+    expect(kinds(runDefinitionVsDataManager(def(true), { events: priv, customers: null }), 'pii_not_declared')).toEqual([]);
+    const open = model([evt('signup', [prop('email_addr', 'string')])]);
+    const np = kinds(runDefinitionVsDataManager(def(true), { events: open, customers: null }), 'pii_not_private');
+    expect(np).toHaveLength(1);
+    expect(np[0].severity).toBe('warning');
+    expect(kinds(runDefinitionVsDataManager(def(false), { events: open, customers: null }), 'pii_not_private')).toEqual([]);
+  });
+});

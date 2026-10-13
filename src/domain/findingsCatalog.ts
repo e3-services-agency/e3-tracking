@@ -144,6 +144,34 @@ export const KIND_INFO: Record<FindingKind, KindInfo> = {
     'A property is sent (or exists in Bloomreach) that the definition does not list for this event.',
     'Remove it from the tracking code, or add it to the definition.'
   ),
+  dm_auto_declared: k(
+    'dm_auto_declared',
+    'data_manager',
+    'Declared by Bloomreach, not designed',
+    'Bloomreach created this Data Manager event or property itself when unrecognised data arrived (source: data), and the tracking plan does not declare it, or declares it with a different type. The Data Manager entry is descriptive, not designed.',
+    'Decide whether the data should exist: add it to the tracking plan (and fix the type if it differs), or stop sending it.'
+  ),
+  dm_unused: k(
+    'dm_unused',
+    'data_manager',
+    'Declared in Bloomreach but marked unused',
+    'The tracking plan has this event as implemented, or links this property, but Bloomreach Data Manager marks it as unused.',
+    'Check that the data is really sent, or mark it used in Data Manager, or update the status in the plan.'
+  ),
+  pii_not_declared: k(
+    'pii_not_declared',
+    'data_manager',
+    'Private in Bloomreach, not marked PII in the plan',
+    'Data Manager marks this property private, but the tracking plan does not flag it as personal data (PII).',
+    'Mark the property as PII in the plan, or make it non-private in Data Manager if it holds no personal data.'
+  ),
+  pii_not_private: k(
+    'pii_not_private',
+    'data_manager',
+    'PII in the plan, not private in Bloomreach',
+    'The tracking plan flags this property as personal data (PII), but Data Manager does not mark it private.',
+    'Mark the property private in Data Manager, or remove the PII flag in the plan.'
+  ),
   unmapped_property: k(
     'unmapped_property',
     'coverage',

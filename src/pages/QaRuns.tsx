@@ -18,6 +18,7 @@ import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { parseQaRunsResponse } from '@/src/domain/qaRunsResponse';
 import { showEmptyState, showLoadingPlaceholder } from '@/src/domain/loadingState';
+import { qaSampleFacts, qaSampleSummaryLine } from '@/src/domain/import/qaSampleManifest';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 
 interface QaRunRow {
@@ -30,6 +31,8 @@ interface QaRunRow {
   notes: string | null;
   archived: boolean;
   customer_id: string | null;
+  source?: string | null;
+  manifest_json?: unknown;
 }
 
 interface ObservationRow {
@@ -151,7 +154,7 @@ export function QaRuns() {
                   }}
                   className="hover:bg-gray-50 cursor-pointer"
                 >
-                  <td className="px-6 py-4 font-medium text-gray-900">{run.kind}</td>
+                  <td className="px-6 py-4 font-medium text-gray-900">{run.kind}{run.source && <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700" data-testid="run-source">{run.source}</span>}{run.notes && <div className="text-xs font-normal text-gray-500">{run.notes}</div>}</td>
                   <td className="px-6 py-4 text-gray-500">{run.actor ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{run.environment ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{new Date(run.started_at).toLocaleString()}</td>
@@ -437,6 +440,17 @@ function QaRunDetail({
           <div className="font-medium text-gray-900">{new Date(run.started_at).toLocaleString()}</div>
         </div>
       </div>
+      {run.manifest_json != null && (() => {
+        const f = qaSampleFacts(run.manifest_json);
+        return (
+          <div className="text-sm space-y-1 rounded border p-3" data-testid="qa-sample-facts">
+            <div className="font-medium text-gray-900">Extension sample ({run.source ?? 'extension'})</div>
+            <div>Sample: {qaSampleSummaryLine(f) || '-'}</div>
+            <div>Tool build: {f.tool ?? '-'} {f.build ?? ''}</div>
+            {f.redacted && <div>Redaction: {f.values_masked ?? '?'} values masked. {f.redaction_note ?? ''}</div>}
+          </div>
+        );
+      })()}
 
       <div className="space-y-2">
         <FieldLabel className="text-sm font-medium text-gray-700" hint="Notes" hintScope="QaRuns">Notes</FieldLabel>

@@ -22,6 +22,7 @@ import { KNOWN_SYSTEM_EVENT_TYPES, SDK_DEFAULT_PROPERTIES } from '../bloomreach'
 import type { VariantCondition } from '../variants';
 import type { ComparisonId, EventClass, FindingKind, FindingSeverity } from '../enums';
 import { jsType, matchesDataType, FORMAT_CHECKS } from './valueChecks';
+import { isMaskedValue } from '../redaction';
 
 export interface ExpirationBlock {
   enabled: boolean;
@@ -235,6 +236,9 @@ export function runDefinitionVsObservations(
           if (prop.required && !missingObs) missingObs = obs;
           continue;
         }
+
+        // T-5-30: a masked value (`[redacted:geo]`) is present but unverifiable; skip type/format/enum.
+        if (isMaskedValue(raw)) continue;
 
         if (!matchesDataType(prop.data_type, raw)) {
           const mkey = `${eventId}|${prop.property_id}`;

@@ -1,3 +1,4 @@
+import { qaSampleFacts } from '../../domain/import/qaSampleManifest';
 import { getDb } from '../db';
 import * as QaReportDAL from '../dal/qa-report.dal';
 import { NotFoundError,ValidationError } from '../errors';
@@ -610,7 +611,7 @@ export function runComparison(projectId: string, options: {captureReport?: boole
   const before=new Map(previous.map(f=>[f.id,f]));
   const items=FindingDAL.listFindings(projectId).flatMap<{finding:FindingDAL.FindingRow;disposition:'produced'|'resolved'}>(f=>fingerprints.has(f.fingerprint)?[{finding:f,disposition:'produced' as const}]:
    before.has(f.id) && (before.get(f.id)!.status==='open'||before.get(f.id)!.resolved_by==='user') && f.status==='resolved' && f.resolved_by===null?[{finding:f,disposition:'resolved' as const}]:[]);
-  const report=QaReportDAL.captureQaReport(projectId,{type:'whole_project',comparison_ids:runs.map(r=>r.comparison),requested_event_id:options.event??null,requested_qa_run_id:options.qa_run_id??null,participating_runs:QaRunDAL.listNonArchivedQaRuns(projectId).map(r=>({id:r.id,environment:r.environment,kind:r.kind,started_at:r.started_at}))},summary,items);
+  const report=QaReportDAL.captureQaReport(projectId,{type:'whole_project',comparison_ids:runs.map(r=>r.comparison),requested_event_id:options.event??null,requested_qa_run_id:options.qa_run_id??null,participating_runs:QaRunDAL.listNonArchivedQaRuns(projectId).map(r=>({id:r.id,environment:r.environment,kind:r.kind,started_at:r.started_at,...(r.source?{source:r.source}:{}),...(r.manifest_json?{sample:qaSampleFacts(r.manifest_json)}:{})}))},summary,items);
   return {...summary,report_id:report.id,report_sequence:report.report_sequence};
  }).immediate();
 }

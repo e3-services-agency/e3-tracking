@@ -29,6 +29,7 @@ import * as PropertyDAL from '../dal/property.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import {
   parseDataManagerCustomers,
+  unwrapSchemasCustomers,
   type DataManagerCustomerProperty,
   type DataManagerCustomersModel,
 } from '../../domain/import/dataManagerCustomers';
@@ -335,7 +336,7 @@ function buildPlan(projectId: string, model: DataManagerCustomersModel, rawJson:
 
 export function previewDataManagerCustomers(projectId: string, rawJson: unknown): DataManagerCustomersPreviewResult {
   const model = parseDataManagerCustomers(rawJson);
-  const { items, warnings } = buildPlan(projectId, model, rawJson);
+  const { items, warnings } = buildPlan(projectId, model, unwrapSchemasCustomers(rawJson));
   return { items, warnings, payload_hash: payloadHash(rawJson) };
 }
 
@@ -355,7 +356,7 @@ export function applyDataManagerCustomers(
 
   const db = getDb();
   const run = db.transaction(() => {
-    const { items, steps } = buildPlan(projectId, model, rawJson);
+    const { items, steps } = buildPlan(projectId, model, unwrapSchemasCustomers(rawJson));
     for (const item of items) {
       // The snapshot item is always selected (D-35): it is not deselectable, so `apply` runs it
       // unconditionally instead of trusting the caller's `selected_item_ids`.
@@ -368,6 +369,6 @@ export function applyDataManagerCustomers(
   });
   const { batchId } = runWithImportBatch('data-manager-customers', run);
 
-  const finalPlan = buildPlan(projectId, model, rawJson);
+  const finalPlan = buildPlan(projectId, model, unwrapSchemasCustomers(rawJson));
   return { applied, skipped, warnings: finalPlan.warnings, batch_id: batchId };
 }

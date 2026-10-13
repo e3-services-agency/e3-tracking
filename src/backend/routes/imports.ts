@@ -17,6 +17,9 @@ import {
   applyDataManagerCustomers,
 } from '../services/dataManagerCustomersImport.service';
 import { previewDataManagerEvents, applyDataManagerEvents } from '../services/dataManagerEventsImport.service';
+import multer from 'multer';
+import { previewQaSample, applyQaSample, readQaSampleArchive } from '../services/qaSampleImport.service';
+import { BadRequestError, ValidationError } from '../errors';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -120,6 +123,55 @@ router.post('/data-manager-events/apply', (req: Request, res: Response) => {
   try {
     const { payload, payload_hash, selected_item_ids } = parseApplyBody(req);
     res.status(200).json(applyDataManagerEvents(req.projectId!, payload, payload_hash, selected_item_ids));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+// T-5-30: QA sample archive (zip from the extension), multipart field `file`.
+const archiveUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024, files: 1 } }).single('file');
+function uploadArchive(req: Request, res: Response, next: (e?: unknown) => void): void {
+  archiveUpload(req, res, (err: unknown) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError) {
+      res.status(400).json({ error: err.message, code: 'UPLOAD_ERROR', field: 'file' });
+      return;
+    }
+    next(err);
+  });
+}
+
+router.post('/qa-sample/preview', uploadArchive, async (req: Request, res: Response) => {
+  try {
+    if (!req.file) throw new BadRequestError('file is required (multipart field "file").', 'file');
+    res.status(200).json(previewQaSample(req.projectId!, await readQaSampleArchive(req.file.buffer)));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.post('/qa-sample/apply', uploadArchive, async (req: Request, res: Response) => {
+  try {
+    if (!req.file) throw new BadRequestError('file is required (multipart field "file").', 'file');
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const hash = typeof body.payload_hash === 'string' ? body.payload_hash : '';
+    let parsed: unknown = [];
+    if (typeof body.selected_item_ids === 'string') {
+      try {
+        parsed = JSON.parse(body.selected_item_ids);
+      } catch {
+        throw new ValidationError('selected_item_ids must be a JSON array of strings.', 'selected_item_ids');
+      }
+    } else if (body.selected_item_ids !== undefined) {
+      parsed = body.selected_item_ids;
+    }
+    if (!Array.isArray(parsed) || !parsed.every((x) => typeof x === 'string')) {
+      throw new ValidationError('selected_item_ids must be a JSON array of strings.', 'selected_item_ids');
+    }
+    const ids = parsed as string[];
+    const force = body.force === 'true' || body.force === true;
+    const docs = await readQaSampleArchive(req.file.buffer);
+    res.status(200).json(applyQaSample(req.projectId!, docs, hash, ids, req.userName ?? null, force));
   } catch (err) {
     handleRouteError(err, res);
   }

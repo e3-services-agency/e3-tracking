@@ -540,6 +540,8 @@ function QaSampleImportBox({ projectId }: { projectId: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 100;
   const url = (path: string) => `${API_BASE}/api/projects/${projectId}/import/qa-sample/${path}`;
 
   async function runPreview() {
@@ -554,6 +556,7 @@ function QaSampleImportBox({ projectId }: { projectId: string }) {
       const data = await parseJson(res);
       if (!res.ok) throw new Error(data.error ?? 'Preview failed.');
       setPreview(data);
+      setPage(0);
       setSelected(
         new Set((data.data_manager.items as DiffItem[]).filter((i) => i.default_selected || i.locked).map((i) => i.id))
       );
@@ -648,7 +651,7 @@ function QaSampleImportBox({ projectId }: { projectId: string }) {
               </tr>
             </thead>
             <tbody>
-              {preview.data_manager.items.map((item) => (
+              {preview.data_manager.items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((item) => (
                 <tr key={item.id} className="border-t">
                   <td>
                     <input
@@ -676,6 +679,23 @@ function QaSampleImportBox({ projectId }: { projectId: string }) {
               ))}
             </tbody>
           </table>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" disabled={page === 0} onClick={() => setPage(page - 1)}>
+              Previous
+            </Button>
+            <span>
+              Page {page + 1} of {Math.max(1, Math.ceil(preview.data_manager.items.length / PAGE_SIZE))}; {selected.size} of{' '}
+              {preview.data_manager.items.length} selected
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={(page + 1) * PAGE_SIZE >= preview.data_manager.items.length}
+              onClick={() => setPage(page + 1)}
+            >
+              Next
+            </Button>
+          </div>
           <Button type="button" disabled={loading} onClick={runApply}>
             Confirm import
           </Button>

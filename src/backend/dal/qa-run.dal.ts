@@ -9,7 +9,7 @@
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn, toSqliteBool, fromSqliteBool } from '../db/util';
 import { NotFoundError, ValidationError } from '../errors';
-import { QA_RUN_KINDS, QA_RUN_ENVIRONMENTS } from '../../domain/enums';
+import { QA_RUN_KINDS, QA_RUN_ENVIRONMENTS, QA_RUN_SOURCES } from '../../domain/enums';
 
 export interface QaRunRow {
   id: string;
@@ -89,6 +89,9 @@ export function getQaRunOrThrow(projectId: string, id: string): QaRunRow {
 
 export function createQaRun(projectId: string, input: QaRunInput): QaRunRow {
   validateKindAndEnvironment(input.kind, input.environment ?? null);
+  if (input.source != null && !(QA_RUN_SOURCES as readonly string[]).includes(input.source)) {
+    throw new ValidationError(`source must be one of: ${QA_RUN_SOURCES.join(', ')}.`, 'source');
+  }
   const db = getDb();
   const id = newId();
   const now = nowIso();

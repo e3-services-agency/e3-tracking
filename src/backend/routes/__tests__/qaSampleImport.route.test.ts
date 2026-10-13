@@ -1,4 +1,4 @@
-import { beforeAll, afterAll, describe, it, expect } from 'vitest';
+import { beforeAll, afterAll, describe, it, expect, vi } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import JSZip from 'jszip';
@@ -7,6 +7,8 @@ import { closeDb, getDb } from '../../db';
 import { createClient } from '../../dal/client.dal';
 import { createProject } from '../../dal/project.dal';
 import { listQaRuns } from '../../dal/qa-run.dal';
+import * as ObservationDAL from '../../dal/observation.dal';
+import { exportDataManagerEvents } from '../../services/bloomreachExport.service';
 import { buildQaSampleDocs } from '../../../domain/import/__fixtures__/qa-sample/build';
 
 let server: http.Server, base: string, project: string;
@@ -91,5 +93,61 @@ describe('QA sample archive import', () => {
     zip.file('manifest.json', '{}');
     const res = await post('preview', await zip.generateAsync({ type: 'nodebuffer' }));
     expect(res.status).toBe(400);
+  });
+
+  it('refuses a zip bomb (declared size lies) and an honest oversize with 400 ARCHIVE_TOO_LARGE', async () => {
+    const big = 'x'.repeat(26 * 1024 * 1024);
+    const honest = new JSZip();
+    honest.file('manifest.json', JSON.stringify({ pad: big }));
+    honest.file('customer-events-export.json', '[]');
+    honest.file('data-manager-events.json', '{}');
+    const r1 = await post('preview', await honest.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }));
+    expect(r1.status).toBe(400);
+    expect(r1.data.code).toBe('ARCHIVE_TOO_LARGE');
+
+    // bomb: patch the declared uncompressed size in the central directory and local header to 100
+    const z = new JSZip();
+    z.file('manifest.json', JSON.stringify({ pad: 'y'.repeat(60 * 1024 * 1024) }));
+    z.file('customer-events-export.json', '[]');
+    z.file('data-manager-events.json', '{}');
+    const buf = Buffer.from(await z.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }));
+    const cd = buf.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+    buf.writeUInt32LE(100, cd + 24);
+    const lh = buf.indexOf(Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+    buf.writeUInt32LE(100, lh + 22);
+    const r2 = await post('preview', buf);
+    expect(r2.status).toBe(400);
+    expect(r2.data.code).toBe('ARCHIVE_TOO_LARGE');
+  });
+
+  it('apply is all-or-nothing: a failing observation insert leaves no Data Manager change and no run', async () => {
+    const c = createClient({ key: 'atomic', name: 'Atomic' });
+    const other = createProject({ client_id: c.id, key: 'atomic', name: 'Atomic' }).id;
+    const docs = buildQaSampleDocs();
+    const zip = await zipOf(docs);
+    const form = new FormData();
+    form.append('file', new Blob([new Uint8Array(zip)]), 'sample.zip');
+    const prevRes = await fetch(`${base}/api/projects/${other}/import/qa-sample/preview`, { method: 'POST', body: form });
+    const prev = await prevRes.json();
+    const ids = prev.data_manager.items.map((i: { id: string }) => i.id);
+    expect(ids.length).toBeGreaterThan(0);
+    const spy = vi.spyOn(ObservationDAL, 'createObservation').mockImplementation(() => {
+      throw new Error('boom');
+    });
+    const form2 = new FormData();
+    form2.append('file', new Blob([new Uint8Array(zip)]), 'sample.zip');
+    form2.append('payload_hash', prev.payload_hash);
+    form2.append('selected_item_ids', JSON.stringify(ids));
+    const res = await fetch(`${base}/api/projects/${other}/import/qa-sample/apply`, { method: 'POST', body: form2 });
+    spy.mockRestore();
+    expect(res.status).toBeGreaterThanOrEqual(500);
+    expect(listQaRuns(other)).toHaveLength(0);
+    expect((getDb().prepare('SELECT COUNT(*) n FROM events WHERE project_id=?').get(other) as { n: number }).n).toBe(0);
+    expect((getDb().prepare('SELECT COUNT(*) n FROM change_log WHERE project_id=?').get(other) as { n: number }).n).toBe(0);
+  });
+
+  it('after a wrapper import the exported data-manager-events.json equals the bare payload', () => {
+    const bare = buildQaSampleDocs().data_manager_events.events;
+    expect(exportDataManagerEvents(project)).toEqual(bare);
   });
 });

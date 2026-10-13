@@ -26,8 +26,59 @@ import { payloadHash } from '../../domain/diff/hash';
 import type { DiffItem } from '../../domain/diff/types';
 import { BadRequestError, PayloadChangedError } from '../errors';
 
-const MAX_ENTRY_BYTES = 100 * 1024 * 1024;
+const MAX_ENTRY_BYTES = 25 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 50 * 1024 * 1024;
 const FILES = ['manifest.json', 'customer-events-export.json', 'data-manager-events.json'] as const;
+
+
+export class ArchiveTooLargeError extends BadRequestError {
+  readonly code = 'ARCHIVE_TOO_LARGE';
+  constructor(message: string) {
+    super(message, 'file');
+    this.name = 'ArchiveTooLargeError';
+  }
+}
+
+interface StreamHelper {
+  on(ev: 'data', fn: (c: Uint8Array) => void): StreamHelper;
+  on(ev: 'error', fn: (e: Error) => void): StreamHelper;
+  on(ev: 'end', fn: () => void): StreamHelper;
+  pause(): StreamHelper;
+  resume(): StreamHelper;
+}
+
+/** Streams one entry, counting real inflated bytes (the declared size is never trusted) and aborting past the caps. */
+function readEntryText(entry: JSZip.JSZipObject, name: string, usedTotal: number): Promise<{ text: string; bytes: number }> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let bytes = 0;
+    let failed = false;
+    // `internalStream` is public in JSZip but missing from its typings.
+    const helper = (entry as unknown as { internalStream(t: 'uint8array'): StreamHelper }).internalStream('uint8array');
+    helper
+      .on('data', (chunk: Uint8Array) => {
+        if (failed) return;
+        bytes += chunk.length;
+        if (bytes > MAX_ENTRY_BYTES || usedTotal + bytes > MAX_TOTAL_BYTES) {
+          failed = true;
+          helper.pause();
+          reject(new ArchiveTooLargeError(`${name} is too large (limit ${MAX_ENTRY_BYTES / 1024 / 1024} MB per file, ${MAX_TOTAL_BYTES / 1024 / 1024} MB in total).`));
+          return;
+        }
+        chunks.push(Buffer.from(chunk));
+      })
+      .on('error', (e: Error) => {
+        if (!failed) {
+          failed = true;
+          reject(new BadRequestError(`${name} could not be read: ${e.message}`, 'file'));
+        }
+      })
+      .on('end', () => {
+        if (!failed) resolve({ text: Buffer.concat(chunks).toString('utf8'), bytes });
+      })
+      .resume();
+  });
+}
 
 export interface QaSampleDocs {
   manifest: unknown;
@@ -44,12 +95,12 @@ export async function readQaSampleArchive(buffer: Buffer): Promise<QaSampleDocs>
     throw new BadRequestError('The file is not a readable zip archive.', 'file');
   }
   const out: Record<string, unknown> = {};
+  let total = 0;
   for (const name of FILES) {
     const entry = Object.values(zip.files).find((f) => !f.dir && f.name.split('/').pop() === name);
     if (!entry) throw new BadRequestError(`The archive has no ${name}.`, 'file');
-    const size = (entry as unknown as { _data?: { uncompressedSize?: number } })._data?.uncompressedSize;
-    if (typeof size === 'number' && size > MAX_ENTRY_BYTES) throw new BadRequestError(`${name} is too large.`, 'file');
-    const text = await entry.async('string');
+    const { text, bytes } = await readEntryText(entry, name, total);
+    total += bytes;
     try {
       out[name] = JSON.parse(text);
     } catch {
@@ -130,18 +181,14 @@ export function applyQaSample(
   const model = parseCustomerEventsExport(docs.customer_events);
   if (model.events.length === 0) throw new NoObservationsSelectedError('The archive has no events to import.', 'file');
 
-  // Data Manager first (own transaction and change_log batch; same planner and diff as the file import).
-  const dm = applyDataManagerEvents(
-    projectId,
-    docs.data_manager_events,
-    payloadHash(docs.data_manager_events),
-    selectedDmItemIds
-  );
-
+  // One outer transaction: Data Manager changes (their own transaction becomes a savepoint, change_log
+  // rows included), the run and the observations commit together or not at all. Comparison runs after commit.
+  let dm!: ReturnType<typeof applyDataManagerEvents>;
   let run!: QaRunDAL.QaRunRow;
   let inserted = 0;
   let skipped = 0;
   getDb().transaction(() => {
+    dm = applyDataManagerEvents(projectId, docs.data_manager_events, payloadHash(docs.data_manager_events), selectedDmItemIds);
     run = QaRunDAL.createQaRun(projectId, {
       kind: 'export_paste',
       actor,

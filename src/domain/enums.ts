@@ -172,6 +172,8 @@ export type ExpirationUnit = (typeof EXPIRATION_UNITS)[number];
 
 // ----- QaRun kind -----
 export const QA_RUN_KINDS = ['export_paste', 'agent_session', 'manual'] as const;
+export const QA_RUN_SOURCES = ['manual', 'export_paste', 'extension', 'mcp'] as const;
+export type QaRunSource = (typeof QA_RUN_SOURCES)[number];
 export type QaRunKind = (typeof QA_RUN_KINDS)[number];
 
 // ----- Comparison id -----

@@ -223,6 +223,11 @@ export const FINDING_KINDS = [
   'catalog_schema_drift',
   'catalog_type_mismatch',
   'catalog_link_missing',
+  // T-5-32: Data Manager declarations (source/used/private) vs the plan (comparison 4).
+  'dm_auto_declared',
+  'dm_unused',
+  'pii_not_declared',
+  'pii_not_private',
 ] as const;
 export type FindingKind = (typeof FINDING_KINDS)[number];
 

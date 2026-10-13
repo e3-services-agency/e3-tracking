@@ -270,7 +270,7 @@ describe('exportDataManagerCustomers round trip', () => {
     );
     expect(row).toMatchObject({
       source: 'user',
-      used: false,
+      used: true,
       deleting: false,
       locked_for_contact_migration: false,
       private: false,

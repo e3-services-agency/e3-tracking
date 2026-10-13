@@ -138,3 +138,11 @@ export function groupPropertiesByCategory<T extends PropertyGroupItem>(items: re
 export function formatDisplayName(format: string): string {
   return format === 'title_case' ? 'Title Case (recommended)' : format;
 }
+
+/** System customer properties that are personal data by nature (T-5-32): treated as PII even when the flag is unset. */
+const IMPLIED_PII_NAMES: ReadonlyArray<string> = ['email', 'phone', 'first_name', 'last_name'];
+
+/** True when the property is a (non-overridden) system customer property that is PII by nature. */
+export function isImpliedPii(property: ClassifiablePropertyInput): boolean {
+  return classifyProperty(property) === 'system_customer' && IMPLIED_PII_NAMES.includes(property.name);
+}

@@ -104,10 +104,12 @@ describe('D-25 required values', () => {
       'catalog_type_mismatch',
       'catalog_link_missing',
     ];
-    for (const kind of [...skillKinds, ...additions, ...ruleAdditions, ...stateListAdditions, ...namingAdditions, ...catalogAdditions]) {
+    // T-5-32: Data Manager declaration checks.
+    const dmAdditions = ['dm_auto_declared', 'dm_unused', 'pii_not_declared', 'pii_not_private'];
+    for (const kind of [...skillKinds, ...additions, ...ruleAdditions, ...stateListAdditions, ...namingAdditions, ...catalogAdditions, ...dmAdditions]) {
       expect(FINDING_KINDS).toContain(kind);
     }
-    expect(FINDING_KINDS).toHaveLength(skillKinds.length + additions.length + ruleAdditions.length + stateListAdditions.length + namingAdditions.length + catalogAdditions.length);
+    expect(FINDING_KINDS).toHaveLength(skillKinds.length + additions.length + ruleAdditions.length + stateListAdditions.length + namingAdditions.length + catalogAdditions.length + dmAdditions.length);
   });
 
   it('severities are error, warning, info', () => {

@@ -33,7 +33,8 @@
  * import produces zero comparison-4 findings, not a false "everything is missing".
  */
 import { toDataManagerType, KNOWN_DATA_MANAGER_TYPES } from '../bloomreach/dataManagerTypes';
-import { SDK_DEFAULT_PROPERTIES } from '../bloomreach';
+import { isImpliedPii } from '../propertyCategory';
+import { SDK_DEFAULT_PROPERTIES, KNOWN_SYSTEM_EVENT_TYPES } from '../bloomreach';
 import type { DataManagerEventsModel } from '../import/dataManagerEvents';
 import type { DataManagerCustomersModel } from '../import/dataManagerCustomers';
 import type { ComparisonId, EventClass, FindingSeverity } from '../enums';
@@ -44,6 +45,8 @@ export interface DmDefEventProperty {
   name: string;
   data_type: string;
   data_formats: string[];
+  /** T-5-32: the property's PII flag; absent = unset. */
+  pii?: boolean;
 }
 
 export interface DmDefEvent {
@@ -60,6 +63,7 @@ export interface DmDefCustomerProperty {
   name: string;
   data_type: string;
   data_formats: string[];
+  pii?: boolean;
 }
 
 export interface DataManagerDefinitionSnapshot {
@@ -87,6 +91,157 @@ function defDmType(prop: { data_type: string; data_formats: string[] }): string 
 /** True for the eight Bloomreach types this module actually knows how to compare (D-37, T-2-05 delta). */
 function isKnownDmType(dmType: string): boolean {
   return (KNOWN_DATA_MANAGER_TYPES as readonly string[]).includes(dmType);
+}
+
+
+function mk(
+  kind: EngineFinding['kind'],
+  severity: FindingSeverity,
+  eventId: string | null,
+  propertyId: string | null,
+  detail: string,
+  message: string,
+  expected: Record<string, unknown> | null,
+  actual: Record<string, unknown> | null
+): EngineFinding {
+  return {
+    comparison: COMPARISON,
+    kind,
+    severity,
+    event_id: eventId,
+    variant_id: null,
+    property_id: propertyId,
+    observation_id: null,
+    expected_json: expected,
+    actual_json: actual,
+    message,
+    fingerprint: fp(kind, eventId, propertyId, detail),
+  };
+}
+
+const AUTO_NOTE =
+  'Bloomreach wrote this entry itself when unrecognised data arrived (source: data); the Data Manager declaration is descriptive, not designed.';
+
+function pushPii(
+  findings: EngineFinding[],
+  eventId: string | null,
+  eventName: string | null,
+  prop: { property_id: string; name: string; pii?: boolean },
+  dmPrivate: boolean
+): void {
+  const where = eventName ? ` on event "${eventName}"` : '';
+  const label = eventName ? 'Property' : 'Customer property';
+  const pii = prop.pii === true;
+  // Implied PII (email, phone, first_name, last_name customer properties) satisfies a private flag but never triggers the reverse.
+  const implied = !eventName && isImpliedPii({ scope: 'customer', name: prop.name });
+  if (dmPrivate && !pii && !implied) {
+    findings.push(
+      mk('pii_not_declared', 'error', eventId, prop.property_id, 'private',
+        `${label} "${prop.name}"${where} is private in Data Manager but the plan does not mark it as PII.`,
+        { pii: true }, { pii, private: true })
+    );
+  } else if (!dmPrivate && pii) {
+    findings.push(
+      mk('pii_not_private', 'warning', eventId, prop.property_id, 'not_private',
+        `${label} "${prop.name}"${where} is marked PII in the plan but is not private in Data Manager.`,
+        { private: true }, { pii: true, private: false })
+    );
+  }
+}
+
+/**
+ * T-5-32: declaration checks, reading only the Data Manager flags `source`/`used`/`private`
+ * (so they work on masked data). `dm_auto_declared` (warning), `dm_unused` (info),
+ * `pii_not_declared` (error), `pii_not_private` (warning).
+ */
+function declarationChecks(
+  definition: DataManagerDefinitionSnapshot,
+  dataManager: DataManagerEvidence,
+  findings: EngineFinding[]
+): void {
+  if (dataManager.events) {
+    const planByName = new Map(definition.events.map((e) => [e.name, e]));
+    for (const dmEvent of dataManager.events.events) {
+      const event = planByName.get(dmEvent.type);
+      if (!event) {
+        if (dmEvent.source === 'data' && !KNOWN_SYSTEM_EVENT_TYPES.includes(dmEvent.type)) {
+          findings.push(
+            mk('dm_auto_declared', 'warning', null, null, `event:${dmEvent.type}`,
+              `Data Manager event "${dmEvent.type}" was declared by Bloomreach from incoming data and is not in the plan. ${AUTO_NOTE}`,
+              null, { event: dmEvent.type, source: 'data' })
+          );
+        }
+        continue;
+      }
+      if (event.class !== 'custom') continue;
+      if (!dmEvent.used && event.status === 'implemented') {
+        findings.push(
+          mk('dm_unused', 'info', event.id, null, 'event',
+            `Event "${event.name}" is declared in Bloomreach but marked unused (the plan has it as implemented).`,
+            { status: 'implemented' }, { used: false })
+        );
+      }
+      const planProps = new Map(event.properties.map((p) => [p.name, p]));
+      for (const dmProp of dmEvent.properties) {
+        if (SDK_DEFAULT_PROPERTIES.includes(dmProp.property)) continue;
+        const prop = planProps.get(dmProp.property);
+        if (dmProp.source === 'data') {
+          if (!prop) {
+            findings.push(
+              mk('dm_auto_declared', 'warning', event.id, null, dmProp.property,
+                `Property "${dmProp.property}" on event "${event.name}" was declared by Bloomreach from incoming data and is not in the plan. ${AUTO_NOTE}`,
+                null, { property: dmProp.property, source: 'data', data_manager_type: dmProp.type })
+            );
+          } else if (dmProp.type !== defDmType(prop)) {
+            findings.push(
+              mk('dm_auto_declared', 'warning', event.id, prop.property_id, dmProp.property,
+                `Property "${dmProp.property}" on event "${event.name}" was declared by Bloomreach from incoming data as "${dmProp.type}", differing from the plan ("${defDmType(prop)}"). ${AUTO_NOTE}`,
+                { data_manager_type: defDmType(prop) }, { source: 'data', data_manager_type: dmProp.type })
+            );
+          }
+        }
+        if (!prop) continue;
+        if (!dmProp.used) {
+          findings.push(
+            mk('dm_unused', 'info', event.id, prop.property_id, 'property',
+              `Property "${dmProp.property}" on event "${event.name}" is declared in Bloomreach but marked unused (the plan links it).`,
+              { linked: true }, { used: false })
+          );
+        }
+        pushPii(findings, event.id, event.name, prop, dmProp.private);
+      }
+    }
+  }
+  if (dataManager.customers) {
+    const planProps = new Map(definition.customer_properties.map((p) => [p.name, p]));
+    for (const dmProp of dataManager.customers.properties) {
+      const prop = planProps.get(dmProp.property);
+      if (dmProp.source === 'data') {
+        if (!prop) {
+          findings.push(
+            mk('dm_auto_declared', 'warning', null, null, dmProp.property,
+              `Customer property "${dmProp.property}" was declared by Bloomreach from incoming data and is not in the plan. ${AUTO_NOTE}`,
+              null, { property: dmProp.property, source: 'data', data_manager_type: dmProp.type })
+          );
+        } else if (dmProp.type !== defDmType(prop)) {
+          findings.push(
+            mk('dm_auto_declared', 'warning', null, prop.property_id, dmProp.property,
+              `Customer property "${dmProp.property}" was declared by Bloomreach from incoming data as "${dmProp.type}", differing from the plan ("${defDmType(prop)}"). ${AUTO_NOTE}`,
+              { data_manager_type: defDmType(prop) }, { source: 'data', data_manager_type: dmProp.type })
+          );
+        }
+      }
+      if (!prop) continue;
+      if (!dmProp.used) {
+        findings.push(
+          mk('dm_unused', 'info', null, prop.property_id, 'property',
+            `Customer property "${dmProp.property}" is declared in Bloomreach but marked unused (the plan has it).`,
+            { linked: true }, { used: false })
+        );
+      }
+      pushPii(findings, null, null, prop, dmProp.private);
+    }
+  }
 }
 
 export function runDefinitionVsDataManager(
@@ -264,5 +419,6 @@ export function runDefinitionVsDataManager(
     }
   }
 
+  declarationChecks(definition, dataManager, findings);
   return findings;
 }

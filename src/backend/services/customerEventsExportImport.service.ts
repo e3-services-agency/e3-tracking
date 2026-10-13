@@ -55,7 +55,7 @@ export interface CustomerEventsPreviewResult {
   run_header: { kind: 'export_paste'; customer_id: string | null; source_meta: unknown };
 }
 
-function itemId(index: number, evt: CustomerEventsExportEvent): string {
+export function itemId(index: number, evt: CustomerEventsExportEvent): string {
   return `observation:${index}:${evt.type}:${evt.timestamp}`;
 }
 
@@ -67,7 +67,7 @@ function existingHashesForProject(projectId: string): Set<string> {
   return new Set(rows.map((r) => r.raw_hash));
 }
 
-function buildItemsAndSummary(
+export function buildItemsAndSummary(
   projectId: string,
   model: CustomerEventsExportModel
 ): { items: DiffItem[]; type_summary: CustomerEventsTypeSummary[]; duplicate_count: number } {

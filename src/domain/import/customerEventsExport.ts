@@ -13,6 +13,8 @@ export interface CustomerEventsExportEvent {
   /** Unix seconds, kept as the source gave it (may carry sub-second precision, e.g. `1778232949.3897672`). */
   timestamp: number;
   properties: Record<string, unknown>;
+  /** Set when the event came from an array-form export (`[{customer_id, events}]`, T-5-30). */
+  customer_id?: string;
 }
 
 export interface CustomerEventsExportModel {
@@ -22,6 +24,8 @@ export interface CustomerEventsExportModel {
   events_listed: number | null;
   note: string | null;
   events: CustomerEventsExportEvent[];
+  /** Distinct customers in an array-form export (T-5-30); 0 for the single-object form. */
+  customer_count: number;
   warnings: string[];
 }
 
@@ -50,7 +54,35 @@ function parseEvent(index: number, raw: unknown, warnings: string[]): CustomerEv
   return { type: raw.type.trim(), timestamp: raw.timestamp, properties };
 }
 
+function parseArrayForm(list: unknown[]): CustomerEventsExportModel {
+  const warnings: string[] = [];
+  const events: CustomerEventsExportEvent[] = [];
+  const customers = new Set<string>();
+  list.forEach((el, i) => {
+    if (!isPlainObject(el)) {
+      warnings.push(`[${i}] must be an object; skipped.`);
+      return;
+    }
+    const sub = parseCustomerEventsExport(el);
+    for (const w of sub.warnings) warnings.push(`[${i}] ${w}`);
+    const cid = sub.customer_id;
+    if (cid) customers.add(cid);
+    for (const e of sub.events) events.push(cid ? { ...e, customer_id: cid } : e);
+  });
+  return {
+    customer_id: customers.size === 1 ? [...customers][0] : null,
+    project: null,
+    url: null,
+    events_listed: null,
+    note: null,
+    events,
+    customer_count: customers.size,
+    warnings,
+  };
+}
+
 export function parseCustomerEventsExport(json: unknown): CustomerEventsExportModel {
+  if (Array.isArray(json)) return parseArrayForm(json);
   const warnings: string[] = [];
   if (!isPlainObject(json)) {
     return {
@@ -60,7 +92,8 @@ export function parseCustomerEventsExport(json: unknown): CustomerEventsExportMo
       events_listed: null,
       note: null,
       events: [],
-      warnings: ['customer-events-export JSON must be an object.'],
+      customer_count: 0,
+      warnings: ['customer-events-export JSON must be an object or an array of {customer_id, events}.'],
     };
   }
 
@@ -80,6 +113,7 @@ export function parseCustomerEventsExport(json: unknown): CustomerEventsExportMo
     events_listed: typeof json.events_listed === 'number' ? json.events_listed : null,
     note: typeof json.note === 'string' ? json.note : null,
     events,
+    customer_count: 0,
     warnings,
   };
 }

@@ -23,6 +23,10 @@ export interface QaRunRow {
   archived: boolean;
   customer_id: string | null;
   source_meta_json: unknown;
+  /** T-5-30: where the run came from ('extension' = QA sampler archive); null for older runs. */
+  source: string | null;
+  manifest_json: unknown;
+  samples_json: unknown;
 }
 
 export interface QaRunInput {
@@ -32,9 +36,11 @@ export interface QaRunInput {
   notes?: string | null;
   customer_id?: string | null;
   source_meta_json?: unknown;
+  source?: string | null;
+  manifest_json?: unknown;
 }
 
-type QaRunDbRow = Omit<QaRunRow, 'archived' | 'source_meta_json'>;
+type QaRunDbRow = Omit<QaRunRow, 'archived' | 'source_meta_json' | 'manifest_json' | 'samples_json'>;
 
 function mapRow(row: QaRunDbRow): QaRunRow {
   const raw = row as unknown as Record<string, unknown>;
@@ -42,6 +48,8 @@ function mapRow(row: QaRunDbRow): QaRunRow {
     ...row,
     archived: fromSqliteBool(raw.archived),
     source_meta_json: parseJsonColumn(raw.source_meta_json, null),
+    manifest_json: parseJsonColumn(raw.manifest_json, null),
+    samples_json: parseJsonColumn(raw.samples_json, null),
   };
 }
 
@@ -85,8 +93,8 @@ export function createQaRun(projectId: string, input: QaRunInput): QaRunRow {
   const id = newId();
   const now = nowIso();
   db.prepare(
-    `INSERT INTO qa_runs (id, project_id, kind, actor, environment, started_at, finished_at, notes, archived, customer_id, source_meta_json)
-     VALUES (@id, @project_id, @kind, @actor, @environment, @started_at, NULL, @notes, 0, @customer_id, @source_meta_json)`
+    `INSERT INTO qa_runs (id, project_id, kind, actor, environment, started_at, finished_at, notes, archived, customer_id, source_meta_json, source, manifest_json)
+     VALUES (@id, @project_id, @kind, @actor, @environment, @started_at, NULL, @notes, 0, @customer_id, @source_meta_json, @source, @manifest_json)`
   ).run({
     id,
     project_id: projectId,
@@ -97,6 +105,8 @@ export function createQaRun(projectId: string, input: QaRunInput): QaRunRow {
     notes: input.notes?.trim() || null,
     customer_id: input.customer_id?.trim() || null,
     source_meta_json: toJsonColumn(input.source_meta_json ?? null),
+    source: input.source ?? null,
+    manifest_json: toJsonColumn(input.manifest_json ?? null),
   });
   return getQaRunOrThrow(projectId, id);
 }

@@ -48,6 +48,7 @@ import * as PropertyDefinitionDAL from '../dal/property-definition.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import {
   parseDataManagerEvents,
+  unwrapSchemasEvents,
   type DataManagerEvent,
   type DataManagerEventProperty,
   type DataManagerEventsModel,
@@ -686,7 +687,7 @@ function buildPlan(projectId: string, model: DataManagerEventsModel, rawJson: un
 
 export function previewDataManagerEvents(projectId: string, rawJson: unknown): DataManagerEventsPreviewResult {
   const model = parseDataManagerEvents(rawJson);
-  const { items, warnings } = buildPlan(projectId, model, rawJson);
+  const { items, warnings } = buildPlan(projectId, model, unwrapSchemasEvents(rawJson));
   return { items, warnings, payload_hash: payloadHash(rawJson) };
 }
 
@@ -707,7 +708,7 @@ export function applyDataManagerEvents(
   const db = getDb();
   const runtimeWarnings: string[] = [];
   const run = db.transaction(() => {
-    const { items, steps, warnings: planWarnings } = buildPlan(projectId, model, rawJson);
+    const { items, steps, warnings: planWarnings } = buildPlan(projectId, model, unwrapSchemasEvents(rawJson));
     const stepById = new Map(steps.map((s) => [s.id, s]));
 
     // Same dependency-respecting execution as `dataMappingImport.service.ts`'s `apply`: a step only
@@ -780,7 +781,7 @@ export function applyDataManagerEvents(
   });
   const { batchId } = runWithImportBatch('data-manager-events', run);
 
-  const finalPlan = buildPlan(projectId, model, rawJson);
+  const finalPlan = buildPlan(projectId, model, unwrapSchemasEvents(rawJson));
   const warnings = Array.from(new Set([...finalPlan.warnings, ...runtimeWarnings]));
   return { applied, skipped, warnings, batch_id: batchId };
 }

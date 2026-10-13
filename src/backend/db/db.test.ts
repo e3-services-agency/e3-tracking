@@ -276,6 +276,7 @@ const ALL_MIGRATION_FILES = [
   '0038_comment_auth_sessions.sql',
   '0039_comment_targets.sql',
   '0040_qa_reports.sql',
+  '0041_qa_run_manifest.sql',
 ];
 
 describe('listMigrationFiles', () => {

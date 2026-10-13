@@ -192,7 +192,17 @@ function parseEvent(raw: unknown, group: string | null, index: number, warnings:
   };
 }
 
-export function parseDataManagerEvents(json: unknown): DataManagerEventsModel {
+/** The raw Bloomreach `project/schemas` wrapper (T-5-30): `{_id, customer_properties, events: {default_group, groups, ...}}`; unwrap `events`. */
+export function unwrapSchemasEvents(json: unknown): unknown {
+  if (isPlainObject(json) && isPlainObject(json.events) && !Array.isArray(json.events)) {
+    const e = json.events;
+    if ('default_group' in e || 'groups' in e || 'default_forbidden' in e) return e;
+  }
+  return json;
+}
+
+export function parseDataManagerEvents(rawJson: unknown): DataManagerEventsModel {
+  const json = unwrapSchemasEvents(rawJson);
   const warnings: string[] = [];
 
   if (!isPlainObject(json)) {

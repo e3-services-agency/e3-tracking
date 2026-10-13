@@ -93,7 +93,16 @@ function parseProperty(
   };
 }
 
-export function parseDataManagerCustomers(json: unknown): DataManagerCustomersModel {
+/** The raw Bloomreach `project/schemas` wrapper (T-5-30): unwrap `customer_properties`. */
+export function unwrapSchemasCustomers(json: unknown): unknown {
+  if (isPlainObject(json) && isPlainObject(json.customer_properties) && !('default_group' in json) && !('groups' in json)) {
+    return json.customer_properties;
+  }
+  return json;
+}
+
+export function parseDataManagerCustomers(rawJson: unknown): DataManagerCustomersModel {
+  const json = unwrapSchemasCustomers(rawJson);
   const warnings: string[] = [];
 
   if (!isPlainObject(json)) {

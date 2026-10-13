@@ -214,3 +214,14 @@ The `qa-roundtrip` skill's scenario 4 text must state both chains with their cou
 3. "Copy as Markdown" on a Help page copies that page's Markdown source; the button shows "Copied" for two seconds.
 4. Event card page: "Copy as Markdown" copies a text with the header, certification, a properties table, variants, triggers with page URLs, an expected payload JSON block and a findings summary.
 5. Use case page: "Copy as Markdown" copies the narrative and a requirements table with level and status.
+
+## Import a QA sample from the extension
+
+The QA sampler extension produces a zip with `manifest.json`, `customer-events-export.json` (an array of `{customer_id, events}`) and `data-manager-events.json` (the raw `project/schemas` response).
+
+1. Open Import, find "Import QA sample archive", choose the zip and press Preview.
+2. The preview shows customers, events, event types, Data Manager events and properties, the sample method, requested/read/matched counts, the redaction note and any warnings, plus the Data Manager diff. Nothing is written yet.
+3. Untick any Data Manager change you do not want, then Confirm import. One QA run named `QA sample <generated_at>` is created (source `extension`, manifest stored on the run), the observations go into it, the selected Data Manager changes are applied, and the comparison runs.
+4. The QA runs page shows the sample facts for that run, and QA reports list them for runs that took part.
+
+Masked values (`[redacted]@example.com`, `[redacted:geo]`, `[redacted:ip]`) are kept as received. Comparison 3 counts them as present and skips type, format and enum checks for them. If the archive changes between preview and confirm, the import is refused with 409 `PAYLOAD_CHANGED`.

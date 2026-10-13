@@ -511,6 +511,181 @@ function CustomerEventsImportBox({ projectId }: { projectId: string }) {
   );
 }
 
+interface QaSamplePreview {
+  facts: {
+    sample_method: string | null;
+    requested: number | null;
+    read: number | null;
+    matched: number | null;
+    redacted: boolean;
+    values_masked: number | null;
+    redaction_note: string | null;
+    build: string | null;
+  };
+  run_name: string;
+  customers: number;
+  events: number;
+  event_types: number;
+  duplicate_count: number;
+  data_manager: { events: number; properties: number; items: DiffItem[]; warnings: string[] };
+  warnings: string[];
+  payload_hash: string;
+}
+
+/** T-5-30: one zip from the QA sampler extension: preview, then one confirm (D-04, D-22). */
+function QaSampleImportBox({ projectId }: { projectId: string }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<QaSamplePreview | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const url = (path: string) => `${API_BASE}/api/projects/${projectId}/import/qa-sample/${path}`;
+
+  async function runPreview() {
+    if (!file) return;
+    setLoading(true);
+    setError(null);
+    setDone(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetchWithAuth(url('preview'), { method: 'POST', body: form });
+      const data = await parseJson(res);
+      if (!res.ok) throw new Error(data.error ?? 'Preview failed.');
+      setPreview(data);
+      setSelected(
+        new Set((data.data_manager.items as DiffItem[]).filter((i) => i.default_selected || i.locked).map((i) => i.id))
+      );
+    } catch (e) {
+      setPreview(null);
+      setError(e instanceof Error ? e.message : 'Preview failed.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function runApply() {
+    if (!file || !preview) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('payload_hash', preview.payload_hash);
+      form.append('selected_item_ids', JSON.stringify([...selected]));
+      const res = await fetchWithAuth(url('apply'), { method: 'POST', body: form });
+      const data = await parseJson(res);
+      if (!res.ok) throw new Error(data.error ?? 'Apply failed.');
+      setDone(
+        `Created QA run "${data.run.notes}" with ${data.inserted} observation(s); applied ${data.data_manager.applied.length} Data Manager item(s). Open findings: ${data.comparison.open.error ?? 0} error, ${data.comparison.open.warning ?? 0} warning, ${data.comparison.open.info ?? 0} info.`
+      );
+      setPreview(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Apply failed.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-lg border shadow-sm p-4 space-y-3" data-testid="qa-sample-import">
+      <h2 className="text-base font-semibold text-gray-900">Import QA sample archive</h2>
+      <p className="text-sm text-gray-500">
+        Upload the zip from the QA sampler extension. It creates one QA run from the sampled events and updates the Data
+        Manager schema after you confirm the diff.
+      </p>
+      <div className="flex gap-2 items-center">
+        <input
+          type="file"
+          accept=".zip,application/zip"
+          aria-label="QA sample archive"
+          onChange={(e) => {
+            setFile(e.target.files?.[0] ?? null);
+            setPreview(null);
+            setDone(null);
+          }}
+        />
+        <Button type="button" variant="outline" disabled={!file || loading} onClick={runPreview}>
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Preview'}
+        </Button>
+      </div>
+      {error && <div className="text-sm text-red-600">{error}</div>}
+      {preview && (
+        <div className="space-y-3 text-sm">
+          <div>
+            <strong>{preview.run_name}</strong>: {preview.customers} customer(s), {preview.events} event(s),{' '}
+            {preview.event_types} event type(s); Data Manager: {preview.data_manager.events} event(s),{' '}
+            {preview.data_manager.properties} property(ies).
+          </div>
+          <div>
+            Sample: {preview.facts.sample_method ?? 'unknown method'}, read {preview.facts.read ?? '?'} of{' '}
+            {preview.facts.requested ?? '?'} requested, {preview.facts.matched ?? '?'} matched
+            {preview.facts.build ? ` (${preview.facts.build})` : ''}.
+          </div>
+          {preview.facts.redacted && (
+            <div>
+              Redaction: {preview.facts.values_masked ?? '?'} value(s) masked. {preview.facts.redaction_note}
+            </div>
+          )}
+          {preview.duplicate_count > 0 && (
+            <div>{preview.duplicate_count} event(s) already present elsewhere in this project.</div>
+          )}
+          {[...preview.warnings, ...preview.data_manager.warnings].map((w, i) => (
+            <div key={i} className="text-amber-700">
+              {w}
+            </div>
+          ))}
+          <div className="font-medium">Data Manager changes</div>
+          <table className="w-full text-left">
+            <thead>
+              <tr>
+                <th className="w-8" />
+                <HintTh hintScope="Import">Op</HintTh>
+                <HintTh hintScope="Import">Entity</HintTh>
+                <HintTh hintScope="Import">Key</HintTh>
+                <HintTh hintScope="Import">Changes</HintTh>
+              </tr>
+            </thead>
+            <tbody>
+              {preview.data_manager.items.map((item) => (
+                <tr key={item.id} className="border-t">
+                  <td>
+                    <input
+                      type="checkbox"
+                      aria-label={`Apply ${item.entity_key}`}
+                      checked={selected.has(item.id)}
+                      disabled={item.locked}
+                      onChange={() => {
+                        const next = new Set(selected);
+                        if (next.has(item.id)) next.delete(item.id);
+                        else next.add(item.id);
+                        setSelected(next);
+                      }}
+                    />
+                  </td>
+                  <td>{item.op}</td>
+                  <td>{item.entity_type}</td>
+                  <td>{item.entity_key}</td>
+                  <td>
+                    {item.changes
+                      .map((c) => `${c.field}: ${formatChangeValue(c.before)} -> ${formatChangeValue(c.after)}`)
+                      .join('; ')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Button type="button" disabled={loading} onClick={runApply}>
+            Confirm import
+          </Button>
+        </div>
+      )}
+      {done && <div className="text-sm text-green-700">{done}</div>}
+    </div>
+  );
+}
+
 export function Import() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
 
@@ -540,6 +715,7 @@ export function Import() {
           showClassColumn
         />
         <CustomerEventsImportBox projectId={activeProjectId} />
+        <QaSampleImportBox projectId={activeProjectId} />
 
         <div className="bg-white rounded-lg border shadow-sm p-4 space-y-3">
           <h2 className="text-base font-semibold text-gray-900">Export</h2>

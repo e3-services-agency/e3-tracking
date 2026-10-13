@@ -16,6 +16,38 @@
 		}
 	}
 
+	# Dedicated machine endpoint: E3 bearer only; never forward browser/Google identity.
+	handle /mcp {
+		reverse_proxy app:3001 {
+			header_up -Cookie
+			header_up -X-Forwarded-Email
+			header_up -X-Forwarded-User
+			header_up -X-Forwarded-Preferred-Username
+			header_up -X-Auth-Request-Access-Token
+			header_up -X-Forwarded-Access-Token
+			header_down -Set-Cookie
+			header_down -Authorization
+			header_down -X-Auth-Request-Access-Token
+			header_down -X-Forwarded-Access-Token
+		}
+	}
+	@mcp_public path /.well-known/oauth-protected-resource /.well-known/oauth-protected-resource/mcp /.well-known/oauth-authorization-server /mcp/oauth/register /mcp/oauth/token /mcp/oauth/revoke
+	handle @mcp_public {
+		reverse_proxy app:3001 {
+			header_up -Authorization
+			header_up -Cookie
+			header_up -X-Forwarded-Email
+			header_up -X-Forwarded-User
+			header_up -X-Forwarded-Preferred-Username
+			header_up -X-Auth-Request-Access-Token
+			header_up -X-Forwarded-Access-Token
+			header_down -Set-Cookie
+			header_down -Authorization
+			header_down -X-Auth-Request-Access-Token
+			header_down -X-Forwarded-Access-Token
+		}
+	}
+
 	# Public: the shared documentation page, its API, health, and the static assets it needs.
 	# Client-supplied identity headers are stripped here too.
 	@public path /tracking-plan/shared/* /api/shared/* /tracking-plan/api/shared/* /api/health /tracking-plan/api/health /tracking-plan/assets/* /tracking-plan/favicon*

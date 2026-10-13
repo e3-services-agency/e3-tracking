@@ -2,10 +2,40 @@
   "mcpServers": {
     "e3-tracking": {
       "command": "cmd",
-      "args": ["/c", "npx", "tsx", "src/mcp/server.ts"],
+      "args": [
+        "/c",
+        "npx",
+        "tsx",
+        "src/mcp/server.ts"
+      ],
       "env": {
         "E3_DB_PATH": "./data/e3-tracking.sqlite",
         "E3_PROJECT_KEY": ""
+      }
+    },
+    "e3-tracking-gcp": {
+      "command": "C:\\Users\\JNPAN~1\\AppData\\Local\\Programs\\Python\\PYTHON~1\\python.exe",
+      "args": [
+        "-S",
+        "C:\\Users\\JNPAN~1\\AppData\\Local\\Google\\CLOUDS~1\\GOOGLE~1\\lib\\gcloud.py",
+        "compute",
+        "ssh",
+        "e3-tracking",
+        "--tunnel-through-iap",
+        "--zone",
+        "europe-west1-b",
+        "--project",
+        "e3-tracking",
+        "--quiet",
+        "--command",
+        "cd /opt/e3-tracking && sudo docker compose --env-file .env -f docker-compose.yml -f docker-compose.gcp.yml run --rm -T -e E3_PROJECT_KEY= mcp",
+        "--",
+        "-T"
+      ],
+      "env": {
+        "CLOUDSDK_PYTHON": "C:\\Users\\JNPAN~1\\AppData\\Local\\Programs\\Python\\PYTHON~1\\python.exe",
+        "CLOUDSDK_SSH_PUTTY_FORCE_CONNECT": "false",
+        "CLOUDSDK_CORE_DISABLE_PROMPTS": "1"
       }
     }
   }

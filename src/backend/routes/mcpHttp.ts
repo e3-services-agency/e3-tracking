@@ -98,7 +98,7 @@ export function createMcpHttpRouter(testConfig?: McpHttpConfig) {
         return router;
     const provider = oauthProvider(config);
     const resourceMetadata = config.origin + '/.well-known/oauth-protected-resource/mcp';
-    router.get(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp'], (_req, res) => res.json({ resource: config.resource, authorization_servers: [config.origin], scopes_supported: ['projects:read'], bearer_methods_supported: ['header'] }));
+    router.get(['/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp'], (_req, res) => res.json({ resource: config.resource, authorization_servers: [config.origin], scopes_supported: [...MCP_SCOPES], bearer_methods_supported: ['header'] }));
     router.get('/.well-known/oauth-authorization-server', (_req, res) => res.json({ issuer: config.origin, authorization_endpoint: config.origin + '/mcp/oauth/authorize', token_endpoint: config.origin + '/mcp/oauth/token', registration_endpoint: config.origin + '/mcp/oauth/register', revocation_endpoint: config.origin + '/mcp/oauth/revoke', response_types_supported: ['code'], grant_types_supported: ['authorization_code', 'refresh_token'], token_endpoint_auth_methods_supported: ['none'], code_challenge_methods_supported: ['S256'], scopes_supported: MCP_SCOPES }));
     router.use('/mcp/oauth/register', express.json({ limit: '8kb' }), clientRegistrationHandler({ clientsStore: provider.clientsStore, rateLimit: false }));
     router.use('/mcp/oauth/token', express.urlencoded({ extended: false, limit: '8kb', parameterLimit: 20 }), tokenHandler({ provider, rateLimit: false }));

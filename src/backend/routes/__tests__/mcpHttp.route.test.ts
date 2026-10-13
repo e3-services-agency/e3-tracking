@@ -168,4 +168,22 @@ describe('authenticated stateless HTTPS MCP', () => {
         expect((await fetch(base + '/mcp/connections', { headers: h })).status).toBe(200);
         expect(n()).toBe(before);
     });
+    it('accepts a null Origin only with Sec-Fetch-Site same-origin on the canonical host (consent and connections)', async () => {
+        const owner = 'one@example.com';
+        const params = new URLSearchParams({ client_id: sharedClient, response_type: 'code', redirect_uri: CLAUDE_CALLBACK, code_challenge: challenge, code_challenge_method: 'S256', resource, scope: 'projects:read', state: 's' });
+        const page = async () => { const res = await fetch(base + '/mcp/oauth/authorize?' + params, { headers: headers({ 'X-Forwarded-Email': owner }) }); expect(res.headers.get('referrer-policy')).toBe('same-origin'); return { csrf: /name="csrf" value="([^"]+)"/.exec(await res.text())![1], cookie: res.headers.get('set-cookie')!.split(';')[0] }; };
+        const post = async (extra: Record<string, string>) => { const p = await page(); return fetch(base + '/mcp/oauth/consent', { method: 'POST', headers: headers({ 'X-Forwarded-Email': owner, Cookie: p.cookie, 'Content-Type': 'application/x-www-form-urlencoded', ...extra }), body: new URLSearchParams({ csrf: p.csrf, decision: 'approve', project }), redirect: 'manual' }); };
+        const ok = await post({ Origin: 'null', 'Sec-Fetch-Site': 'same-origin' });
+        expect(ok.status).toBe(302);
+        expect(new URL(ok.headers.get('location')!).searchParams.get('code')).toBeTruthy();
+        expect((await post({ Origin: 'null' })).status).toBe(403);
+        expect((await post({ Origin: 'null', 'Sec-Fetch-Site': 'cross-site' })).status).toBe(403);
+        expect((await post({ Origin: 'null', 'Sec-Fetch-Site': 'none' })).status).toBe(403);
+        expect((await post({ Origin: 'https://evil.example', 'Sec-Fetch-Site': 'same-origin' })).status).toBe(403);
+        const conn = (extra: Record<string, string>) => fetch(base + '/mcp/connections', { method: 'POST', headers: headers({ 'X-Forwarded-Email': owner, 'Content-Type': 'application/x-www-form-urlencoded', ...extra }), body: new URLSearchParams({ id: 'x', csrf: 'y' }), redirect: 'manual' });
+        expect((await conn({ Origin: 'null' })).status).toBe(403);
+        expect((await conn({ Origin: 'https://evil.example', 'Sec-Fetch-Site': 'same-origin' })).status).toBe(403);
+        // passes the origin gate, then fails on the bad csrf token (still 403 from the handler), so assert via the page header instead
+        expect((await fetch(base + '/mcp/connections', { headers: headers({ 'X-Forwarded-Email': owner }) })).headers.get('referrer-policy')).toBe('same-origin');
+    });
 });

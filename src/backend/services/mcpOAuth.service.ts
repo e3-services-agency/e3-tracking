@@ -1,4 +1,4 @@
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import type { OAuthServerProvider, AuthorizationParams } from '@modelcontextprotocol/sdk/server/auth/provider.js';
 import type { OAuthClientInformationFull } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { InvalidClientMetadataError, InvalidRequestError, InvalidScopeError, TooManyRequestsError } from '@modelcontextprotocol/sdk/server/auth/errors.js';
@@ -35,7 +35,9 @@ export function mcpConfig(): McpHttpConfig | null {
 }
 export const escapeHtml = (v: unknown) => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 export function staffPage(title: string, body: string) { return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)} | E3 Tracking</title><style>body{font:16px system-ui;max-width:850px;margin:3rem auto;padding:1rem;color:#172038;background:#f8fafc}main{background:white;border:1px solid #cbd5e1;border-radius:12px;padding:2rem}label{display:block;margin:.8rem 0}button{padding:.6rem 1rem;margin:.4rem}a{color:#006bda}fieldset{margin:1rem 0}small{color:#475569}</style></head><body><main><a href="/tracking-plan/">E3 Tracking</a><h1>${escapeHtml(title)}</h1>${body}</main></body></html>`; }
-export function browserHeaders(res: Response) { res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://claude.ai/api/mcp/auth_callback; frame-ancestors 'none'; base-uri 'none'"); res.setHeader('X-Frame-Options', 'DENY'); res.setHeader('Referrer-Policy', 'no-referrer'); }
+/** Same-origin browser request: exact canonical Origin, or an absent/`null` Origin vouched for by Sec-Fetch-Site on the canonical Host (Chrome sends `null` on same-origin form posts under some referrer policies). */
+export function sameOriginRequest(req: Request, config: McpHttpConfig) { const origin = req.headers.origin; if (origin === config.origin) return req.headers.host === new URL(config.origin).host; return (origin === undefined || origin === 'null') && req.headers['sec-fetch-site'] === 'same-origin' && req.headers.host === new URL(config.origin).host; }
+export function browserHeaders(res: Response) { res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://claude.ai/api/mcp/auth_callback; frame-ancestors 'none'; base-uri 'none'"); res.setHeader('X-Frame-Options', 'DENY'); res.setHeader('Referrer-Policy', 'same-origin'); }
 export function oauthProvider(config: McpHttpConfig): OAuthServerProvider {
     const clientsStore = {
         getClient(id: string) { const row = getDb().prepare('SELECT metadata_json FROM mcp_oauth_clients WHERE id=?').get(id) as {

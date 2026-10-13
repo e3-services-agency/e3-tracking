@@ -310,3 +310,29 @@ describe('T-5-32 declaration findings (dm_auto_declared, dm_unused, pii_not_decl
     expect(kinds(runDefinitionVsDataManager(def(false), { events: open, customers: null }), 'pii_not_private')).toEqual([]);
   });
 });
+
+describe('T-5-32 implied PII for system customer properties', () => {
+  const cust = (name: string, pii?: boolean) => ({ property_id: `c_${name}`, name, data_type: 'string', data_formats: [], pii });
+  const dm = (props: { property: string; private: boolean }[]) =>
+    parseDataManagerCustomers({
+      are_all_used: false,
+      default_private: false,
+      default_group: {
+        properties: props.map((p) => ({ property: p.property, type: 'string', description: '', example_values: '', private: p.private, source: 'user', used: true, deleting: false })),
+      },
+      groups: [],
+    });
+  const run = (customers: ReturnType<typeof cust>[], model: ReturnType<typeof dm>) =>
+    runDefinitionVsDataManager({ events: [], customer_properties: customers }, { events: null, customers: model });
+
+  it('private email with PII unset: no pii_not_declared; private non-system property with PII unset: error', () => {
+    const f = run([cust('email'), cust('shoe_size')], dm([{ property: 'email', private: true }, { property: 'shoe_size', private: true }]));
+    const nd = f.filter((x) => x.kind === 'pii_not_declared');
+    expect(nd.map((x) => x.property_id)).toEqual(['c_shoe_size']);
+  });
+
+  it('non-private email with PII unset: no pii_not_private; explicit PII on a non-private email still warns', () => {
+    expect(run([cust('phone')], dm([{ property: 'phone', private: false }])).filter((x) => x.kind === 'pii_not_private')).toEqual([]);
+    expect(run([cust('phone', true)], dm([{ property: 'phone', private: false }])).filter((x) => x.kind === 'pii_not_private')).toHaveLength(1);
+  });
+});

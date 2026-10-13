@@ -33,6 +33,7 @@
  * import produces zero comparison-4 findings, not a false "everything is missing".
  */
 import { toDataManagerType, KNOWN_DATA_MANAGER_TYPES } from '../bloomreach/dataManagerTypes';
+import { isImpliedPii } from '../propertyCategory';
 import { SDK_DEFAULT_PROPERTIES, KNOWN_SYSTEM_EVENT_TYPES } from '../bloomreach';
 import type { DataManagerEventsModel } from '../import/dataManagerEvents';
 import type { DataManagerCustomersModel } from '../import/dataManagerCustomers';
@@ -131,7 +132,9 @@ function pushPii(
   const where = eventName ? ` on event "${eventName}"` : '';
   const label = eventName ? 'Property' : 'Customer property';
   const pii = prop.pii === true;
-  if (dmPrivate && !pii) {
+  // Implied PII (email, phone, first_name, last_name customer properties) satisfies a private flag but never triggers the reverse.
+  const implied = !eventName && isImpliedPii({ scope: 'customer', name: prop.name });
+  if (dmPrivate && !pii && !implied) {
     findings.push(
       mk('pii_not_declared', 'error', eventId, prop.property_id, 'private',
         `${label} "${prop.name}"${where} is private in Data Manager but the plan does not mark it as PII.`,

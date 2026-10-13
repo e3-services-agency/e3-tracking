@@ -300,3 +300,5 @@ A normal restart preserves durable grants. A **full snapshot restore** of a data
 - Reusing an authorization code revokes the grant and every token issued from it. `GET` on the connections page and API create no stored state; the revoke CSRF token is an HMAC of the owner under a per-process secret.
 
 Local testing of the HTTPS connector: `E3_PUBLIC_ORIGIN` must be an HTTPS origin, so a local run uses the production origin value with a matching `Host` header on each request (as QA did); there is no plain-HTTP mode.
+
+Staff form posts (consent, connection revoke) are accepted as same-origin when `Origin` equals the canonical origin, or when `Origin` is absent or the literal `null` (Chrome's behavior on some same-origin form posts) and `Sec-Fetch-Site` is `same-origin` on the canonical `Host`. Anything else, including `null` without `Sec-Fetch-Site`, is rejected; the staff pages are served with `Referrer-Policy: same-origin`.

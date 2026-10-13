@@ -1,3 +1,4 @@
+import { currentHttpRights } from '../httpContext';
 /**
  * `list_projects` (T-2-10, plan MCP table): projects grouped by client, `[{client, projects:
  * [{key, name}]}]`. No `project_key` input -- this is how an agent discovers the key to pass to
@@ -11,7 +12,8 @@ export interface ListProjectsGroup {
 }
 
 export async function listProjects(): Promise<ListProjectsGroup[]> {
-  const projects = ProjectDAL.listProjects();
+  const rights=currentHttpRights();
+  const projects = ProjectDAL.listProjects().filter(p=>!rights||rights.projectIds.includes(p.id));
   const byClient = new Map<string, ListProjectsGroup>();
   for (const project of projects) {
     const clientName = project.client?.name ?? project.client_name ?? '(no client)';

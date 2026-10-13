@@ -441,3 +441,12 @@ e2-micro about 6 to 7 EUR (upgrade to e2-small, about 13 EUR, if memory is tight
 
 ## Shared Google commenters
 See [SHARED-GOOGLE-AUTH.md](SHARED-GOOGLE-AUTH.md) for the separate External client and app environment. Existing Internal staff OAuth remains unchanged.
+
+
+### Optional HTTPS MCP release
+
+The connector stays disabled unless `E3_MCP_HTTP_ENABLED=1` is explicitly configured. Reuse the existing exact HTTPS `E3_PUBLIC_ORIGIN` and `WORKSPACE_DOMAIN`; staff/shared OAuth settings and their secrets stay unchanged. Production requires proxy authentication and the direct-peer trusted network. Apply the narrow reviewed Caddy machine routes together with the app image; validate Caddy and recreate only the necessary edge service. Migration `0043_mcp_oauth.sql` follows 0041 (qa_runs manifest) and 0042 (events.qa_scope_override) and upgrades from any of 0040-0042.
+
+Before deployment, verify a fresh build/type/lint and the independent OAuth/security/stdio tests, restore both actual portable backups, cache the prior and exact candidate image digests, and take a quiescent full data/config/edge snapshot. After deployment require exact 0043 schema, integrity/FK checks, preserved project data and sequence counts, TLS metadata and Bearer challenges, the configured consent/management UI and the real hosted Claude read-to-write consent gate. Public smoke must not edit production definitions or run comparison. Verify final offsite uploads and downloaded restores.
+
+Normal restarts retain connector state. Full database recovery must invalidate all `mcp_oauth_grants`, access/refresh families, pending consent and authorization codes before exposing the endpoint, using the reviewed recovery helper. Portable backups intentionally exclude these operational tables. Rollback to the pre-connector0040 complete snapshot returns to the previous image/config/edge and removes connector state; never overlay only the SQLite file over a live WAL.

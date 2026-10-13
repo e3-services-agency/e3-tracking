@@ -278,6 +278,7 @@ const ALL_MIGRATION_FILES = [
   '0040_qa_reports.sql',
   '0041_qa_run_manifest.sql',
   '0042_event_qa_scope_override.sql',
+  '0043_mcp_oauth.sql',
 ];
 
 describe('listMigrationFiles', () => {

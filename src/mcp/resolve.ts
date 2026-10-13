@@ -5,6 +5,7 @@
  * so an agent that only has the human-readable name from a previous call never has to look up the
  * id first.
  */
+import { remoteProject } from './toolPolicy';
 import * as ProjectDAL from '../backend/dal/project.dal';
 import * as EventDAL from '../backend/dal/event.dal';
 import * as UseCaseDAL from '../backend/dal/use-case.dal';
@@ -16,6 +17,8 @@ import { McpToolError, ProjectNotFoundError } from './errors';
 
 /** Resolves `project_key`, defaulting to `E3_PROJECT_KEY` (D-25 Q7); throws `PROJECT_NOT_FOUND` when neither resolves. */
 export function resolveProject(projectKey: string | undefined): ProjectWithClient {
+  const authorized = remoteProject(projectKey);
+  if (authorized) return authorized;
   const key = projectKey?.trim() || process.env.E3_PROJECT_KEY?.trim() || '';
   if (!key) {
     throw new ProjectNotFoundError(

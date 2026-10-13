@@ -1,3 +1,5 @@
+import {createMcpHttpRouter} from './routes/mcpHttp';
+import type {McpHttpConfig} from './services/mcpOAuth.service';
 import qaReportsRouter from './routes/qa-reports';
 /**
  * Express app: single entry point for all API routes (D-15: Project replaces the pre-D-15 scope entity).
@@ -59,6 +61,8 @@ export interface CreateAppOptions {
   /** Force static serving on/off (tests); default: `shouldServeStatic()` (D-66). */
   serveStatic?: boolean;
   sharedAuth?: SharedAuthOptions;
+  /** Isolated test-only origin configuration; production always uses validated environment. */
+  mcpHttp?: McpHttpConfig;
   /** Directory holding the Vite build; default `<root>/dist` or `E3_DIST_PATH`. */
   distDir?: string;
 }
@@ -72,6 +76,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   const app = express();
   if ((process.env.AUTH_MODE ?? '').trim().toLowerCase() === 'proxy') app.set('trust proxy', getTrustedProxyCidrs());
 
+  app.use(createMcpHttpRouter(options.mcpHttp));
   app.use(
     cors({
       origin: getCorsOrigin(),

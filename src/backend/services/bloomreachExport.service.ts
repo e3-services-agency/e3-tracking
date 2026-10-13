@@ -148,7 +148,7 @@ interface CustomerPropertyMeta {
 }
 
 /** App-born defaults for a customer property never touched by a Data Manager import (D-40 Q2). */
-const APP_BORN_CUSTOMER_DEFAULTS = { source: 'user', used: false, deleting: false, locked_for_contact_migration: false };
+const APP_BORN_CUSTOMER_DEFAULTS = { source: 'user', used: true, deleting: false, locked_for_contact_migration: false };
 
 /**
  * Reconstructs `data-manager-customers.json` from the current `Property` rows (scope `customer`)
@@ -295,7 +295,7 @@ function propertyUnchangedSinceImport(lm: EventPropertyLinkMeta | null, property
 }
 
 /** App-born defaults for an event never touched by a Data Manager import (D-40 Q2). */
-const APP_BORN_EVENT_DEFAULTS = { source: 'user', used: false, deleting: false, forbidden: false, real_time_analytics: true };
+const APP_BORN_EVENT_DEFAULTS = { source: 'user', used: true, deleting: false, forbidden: false, real_time_analytics: true };
 
 /** First entry of an `example_values_json`-shaped array, stringified, else `null`. */
 function firstExampleValue(arr: unknown): string | null {

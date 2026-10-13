@@ -1,0 +1,48 @@
+2 PRM 200 {"resource":"https://tracking.e3-services.com/mcp","authorization_servers":["https://tracking.e3-services.com"],"scopes_supported":["projects:read"],"bearer_methods_supported":["header"]}
+2 ASM 200 {"issuer":"https://tracking.e3-services.com","authorization_endpoint":"https://tracking.e3-services.com/mcp/oauth/authorize","token_endpoint":"https://tracking.e3-services.com/mcp/oauth/token","registration_endpoint":"https://tracking.e3-services.com/mcp/oauth/register","revocation_endpoint":"https://tracking.e3-services.com/mcp/oauth/revoke","response_types_supported":["code"],"grant_types_supported":["authorization_code","refresh_token"],"token_endpoint_auth_methods_supported":["none"],"code_challenge_methods_supported":["S256"],"scopes_supported":["projects:read","projects:write","templates:read"]}
+2 PRM/mcp 200
+3 unauth /mcp 401 Bearer scope="projects:read", resource_metadata="https://tracking.e3-services.com/.well-known/oauth-protected-resource/mcp"
+4 DCR ok {"client_id":"211295cf-ec00-485b-acac-189f67993aa9","client_id_issued_at":1791890615,"client_name":"Claude hosted connector","redirect_uris":["https://claude.ai/api/mcp/auth_callback"],"grant_types":["authorization_code","refresh_token"],"response_types":["code"],"token_endpoint_auth_method":"none"}
+4 DCR bad redirect 400 {"error":"invalid_client_metadata","error_description":"Only public Claude hosted clients are supported."}
+5 authorize 200 cookie [ '__Secure-e3-mcp-consent=8ikrnZEdg0KL4asNGWBTQ4YcuEVv1xBmX0WZ' ] csrf? true projects 2
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Connect Claude to E3 Tracking | E3 Tracking</title><style>body{font:16px system-ui;max-width:850px;margin:3rem auto;padding:1rem;color:#172038;background:#f8fafc}main{background:white;border:1px solid #cbd5e1;border-radius:12px;padding:2rem}label{display:block;margin:.8rem 0}button{padding:.6rem 1rem;margin:.4rem}a{color:#006bda}fieldset{margin:1rem 0}small{color:#475569}</style></head><body><main><a href="/tracking-plan/">E3 Tracking</a><h1>Connect Claude to E3 Tracking</h1><p>Signed in as <strong>qa@e3-services.com</strong>. This request uses the hosted Claude callback at <strong>claude.ai/api/mcp/auth_callback</strong>.</p><p>Choose the projects this connection may read. New projects are never added automatically. You can revoke this connection later.</p><form method="post" action="/mcp/oauth/consent"><input type="hidden" name="csrf" value=<..>><fieldset><legend>Projects</legend><label><input type="checkbox" name="project" value=<..>> QA Client / QA Acme</label><label><input type="checkbox" name="project" value=<..>> QA Client / QA Other</label></fieldset><p>This request is read-only. Changes require a new request and your explicit approval.</p><button type="submit" name="decision" value="approve">Approve connection</button><button type="submit
+5 plain challenge 302 https://claude.ai/api/mcp/auth_callback?error=invalid_request&error_description=%5B%0A++%7B%0A++++%22code%22%3A+%22invalid_value%22%2C%0A++++%22values%22%3A+%5B%0A++++++%22S256%22%0A++++%5D%2C%0A++++%22path%22%3A+%5B%0A++++++%22code_challenge_method%22%0A++++%5D%2C%0A++++%22message%22%3A+%22Invalid+input%3A+expected+%5C%22S256%5C%22%22%0A++%7D%0A%5D Found. Redirecting to https://claude.ai/api/mcp/auth_callback?error=invalid_request&error_description=%5B%0A++%7B%0A++++%22code%22%3A+%22invalid_value%22%2C%0A++++%22values%22%3A+%5B%0A++++++%22S256%2
+5 GET consent 405
+5 consent wrong origin 403
+5 consent claude.ai origin 403
+5 authorize no staff 401
+5 approve 302 https://claude.ai/api/mcp/auth_callback?state=st123&code=d-cWvRKWAPIfnLKHxmrFpij1xhiJqBWQvnqIZ_UoVzw
+6 token 200 {"access_token":"<redacted>","refresh_token":"<redacted>","token_type":"Bearer","expires_in":900,"scope":"projects:read"}
+6 replay code 400 {"error":"invalid_grant","error_description":"Invalid authorization code."}
+6 old access after replay 401
+6 fresh token 200
+7 initialize 200 {"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":true}},"serverInfo":{"name":"e3-tracking","version":"0.5.0"}},"jsonrpc":"2.0","id":1}
+7 tools/list 200 10 list_projects,list_events,get_event_card,get_expected_payload,list_use_cases,get_use_case,list_findings,get_coverage_grid,get_tracking_document,get_history
+7 list_projects 200 {"result":{"content":[{"type":"text","text":"[\n  {\n    \"client\": \"QA Client\",\n    \"projects\": [\n      {\n        \"key\": \"qa-acme\",\n        \"name\": \"QA Acme\"\n      }\n    ]\n  }\n]"}]},"jsonrpc":"2.0","id":3}
+7 get_tracking_document 200 285003 {"result":{"content":[{"type":"text","text":"{\n  \"format\": \"e3-tracking-document\",\n  \"version\": 1,\n  \"generated_at\": \"2026-10-13T11:23:35.
+7 get_tracking_document ungranted 403 {"error":"access_denied"}
+7 create_event read-grant 403 Bearer error="insufficient_scope", scope="projects:read projects:write", resource_metadata="https://tracking.e3-services.com/.well-known/oauth-protected-resource/mcp" {"error":"access_denied"}
+7 submit_observation read-grant 403 Bearer error="insufficient_scope", scope="projects:read projects:write", resource_metadata="https://tracking.e3-services.com/.well-known/oauth-protected-resource/mcp" {"error":"access_denied"}
+7w token 200 scope projects:read projects:write
+7w tools/list 200 27
+7w create dry 200 {"result":{"content":[{"type":"text","text":"{\n  \"dry_run\": true,\n  \"action\": \"create\",\n  \"entity_type\": \"event\",\n  \"entity_id\": null,\n  \"label\": \"qa_dry_event\",\n  \"before\": null,\n  \"after\": {\n    \"id\": \"73abf42a-e81f-461a-a845-6d9d44f6ff65\",\n    \"project_id\": \"879c434c-f4ba-4cb0-bf7d-4bd159af3616\",\n    \"name\": \"qa_dry_event\",\n    \"business_name\": null,
+7w create real 200 {"result":{"content":[{"type":"text","text":"{\n  \"dry_run\": false,\n  \"action\": \"create\",\n  \"entity_type\": \"event\",\n  \"entity_id\": \"5e9706ea-e654-4126-b3b4-9b6259f4094b\",\n  \"label\": \"qa_real_event\",\n  \"before\": null,\n  \"after\": {\n    \"id\": \"5e9706ea-e654-4126-b3b4-9b6259f4094b\",\n    \"project_id\": \"879c434c-f4ba-4cb0-bf7d-4bd159af3616\",\n    \"name\": \"qa_real_event\",\n    \"business_name\": null,\n    \"description\": null,\n    \"purpose\": null,\n    \"p
+7w create ungranted project 403 {"error":"access_denied"}
+7w get_history 200 {"result":{"content":[{"type":"text","text":"MCP error -32602: Input validation error: Invalid arguments for tool get_history: Invalid input: expected string, received undefined at entity_type\nInvalid input: expected string, received undefined at entity_id"}],"isError":true},"jsonrpc":"2.0","id":10}
+8 refresh 200
+8 replay old refresh 400 {"error":"invalid_grant","error_description":"Invalid refresh grant."}
+8 new access after replay 401
+8 original access after replay 401
+8 newer refresh after replay 400
+9 list 200 {"connections":[{"id":"93703cf8-56f9-4dca-88cf-667776d34fdf","client_name":"Claude hosted connector","scopes":["projects:read"],"created_at":1791890615,"expires_at":1794482615,"revoked":true,"projects":[{"id":"879c434c-f4ba-4cb0-bf7d-4bd159af3616","name":"QA Acme"}]},{"id":"e75cca03-1777-4cd1-945b-6328628ac79e","client_name":"Claude hosted connector","scopes":["projects:read"],"created_at":1791890615,"expires_at":1794482615,"revoked":false,"projects":[{"id":"879c434c-f4ba-4cb0-bf7d-4bd159af3616","name":"QA Acme"}]},{"id":"96a8615a-22bf-4a0d-9588-f1886bef943d","client_name":"Claude hosted connector","scopes":["projects:read","projects:write"],"created_at":1791890615,"expires_at":1794482615,"r
+9 live count 2
+9 revoke bad csrf 403
+9 revoke bad origin 403
+9 access before revoke 200
+9 revoke 200 {"revoked":true}
+9 access after revoke 401 Bearer error="invalid_token", error_description="Invalid authorization.", resource_metadata="https://tracking.e3-services.com/.well-known/oauth-protected-resource/mcp"
+9 page 200
+10 /MCP/oauth/register 404
+10 /Mcp 404
+10 wellknown case 404
+x host mismatch 403

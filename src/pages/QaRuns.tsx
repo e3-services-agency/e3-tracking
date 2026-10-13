@@ -18,7 +18,8 @@ import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { parseQaRunsResponse } from '@/src/domain/qaRunsResponse';
 import { showEmptyState, showLoadingPlaceholder } from '@/src/domain/loadingState';
-import { qaSampleFacts, qaSampleSummaryLine } from '@/src/domain/import/qaSampleManifest';
+import { QaSamplesTable } from '@/src/components/ui/QaSamplesTable';
+import { qaSampleFacts, qaSampleSummaryLine, type QaSampleEntry } from '@/src/domain/import/qaSampleManifest';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 
 interface QaRunRow {
@@ -33,6 +34,7 @@ interface QaRunRow {
   customer_id: string | null;
   source?: string | null;
   manifest_json?: unknown;
+  samples_json?: QaSampleEntry[] | null;
 }
 
 interface ObservationRow {
@@ -448,6 +450,7 @@ function QaRunDetail({
             <div>Sample: {qaSampleSummaryLine(f) || '-'}</div>
             <div>Tool build: {f.tool ?? '-'} {f.build ?? ''}</div>
             {f.redacted && <div>Redaction: {f.values_masked ?? '?'} values masked. {f.redaction_note ?? ''}</div>}
+            <QaSamplesTable samples={run.samples_json} />
           </div>
         );
       })()}

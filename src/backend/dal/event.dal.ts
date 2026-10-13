@@ -273,6 +273,8 @@ export interface EventRow {
   dl_event_name: string | null;
   /** D-67 (T-4-28): identity-rule identifier names the event sends in `customer_ids`; `null` = derived default. */
   identifiers_json: string[] | null;
+  /** T-5-31: `null` = Automatic (derived), true/false = forced in/out of QA scope. */
+  qa_scope_override: boolean | null;
   /** Data Manager group name (T-2-02/T-2-03, D-28); `null` = default group, symmetrical with `Property.category`. */
   category: string | null;
   owner_business: string | null;
@@ -301,6 +303,7 @@ type EventDbRow = Omit<
   | 'codegen_event_name_overrides_json'
   | 'bloomreach_meta_json'
   | 'identifiers_json'
+  | 'qa_scope_override'
 >;
 
 /** D-67 amendment 2: null = derived, a list = explicit, `[]` = carries no identifier. */
@@ -330,6 +333,12 @@ function validateIdentifiers(projectId: string, value: unknown): string[] | null
   return names;
 }
 
+function qaScopeColumn(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v !== 'boolean') throw new BadRequestError('qa_scope_override must be true, false or null.', 'qa_scope_override');
+  return v ? 1 : 0;
+}
+
 function mapEventRow(row: EventDbRow): EventRow {
   const raw = row as unknown as Record<string, unknown>;
   return {
@@ -341,6 +350,7 @@ function mapEventRow(row: EventDbRow): EventRow {
     codegen_event_name_overrides_json: parseJsonColumn(raw.codegen_event_name_overrides_json, null),
     bloomreach_meta_json: parseJsonColumn(raw.bloomreach_meta_json, null),
     identifiers_json: normalizeIdentifiers(parseJsonColumn(raw.identifiers_json, null)),
+    qa_scope_override: raw.qa_scope_override === 1 ? true : raw.qa_scope_override === 0 ? false : null,
   };
 }
 
@@ -358,6 +368,7 @@ export interface EventInput {
   implementation_method?: string;
   dl_event_name?: string | null;
   identifiers_json?: string[] | null;
+  qa_scope_override?: boolean | null;
   category?: string | null;
   owner_business?: string | null;
   owner_technical?: string | null;
@@ -516,14 +527,14 @@ export function createEvent(projectId: string, input: EventInput, opts: { applyD
       db.prepare(
         `INSERT INTO events (
           id, project_id, name, business_name, description, purpose, page, trigger_text, grain,
-          identity_note, triggers_json, class, implementation_method, dl_event_name, identifiers_json, category, owner_business,
+          identity_note, triggers_json, class, implementation_method, dl_event_name, identifiers_json, qa_scope_override, category, owner_business,
           owner_technical, priority,
           status, expiration_json, not_suitable_for, agent_instructions, derived_metrics_json,
           tags_json, codegen_event_name_overrides_json, bloomreach_meta_json, created_at, updated_at,
           deleted_at
         ) VALUES (
           @id, @project_id, @name, @business_name, @description, @purpose, @page, @trigger_text, @grain,
-          @identity_note, @triggers_json, @class, @implementation_method, @dl_event_name, @identifiers_json, @category, @owner_business,
+          @identity_note, @triggers_json, @class, @implementation_method, @dl_event_name, @identifiers_json, @qa_scope_override, @category, @owner_business,
           @owner_technical, @priority,
           @status, @expiration_json, @not_suitable_for, @agent_instructions, @derived_metrics_json,
           @tags_json, NULL, @bloomreach_meta_json, @created_at, @updated_at, NULL
@@ -545,6 +556,7 @@ export function createEvent(projectId: string, input: EventInput, opts: { applyD
           input.implementation_method || defaultImplementationMethod(name, input.class || DEFAULT_EVENT_CLASS),
         dl_event_name: input.dl_event_name?.trim() || null,
         identifiers_json: identifiersJson,
+        qa_scope_override: qaScopeColumn(input.qa_scope_override),
         category: input.category?.trim() || null,
         owner_business: input.owner_business?.trim() || null,
         owner_technical: input.owner_technical?.trim() || null,
@@ -634,6 +646,7 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
     const v = validateIdentifiers(projectId, input.identifiers_json);
     patch.identifiers_json = v === null ? null : JSON.stringify(v);
   }
+  if (input.qa_scope_override !== undefined) patch.qa_scope_override = qaScopeColumn(input.qa_scope_override);
   if (input.category !== undefined) patch.category = input.category?.trim() || null;
   if (input.owner_business !== undefined) patch.owner_business = input.owner_business?.trim() || null;
   if (input.owner_technical !== undefined) patch.owner_technical = input.owner_technical?.trim() || null;

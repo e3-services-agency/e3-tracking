@@ -60,6 +60,7 @@ export const FIELD_HINTS: Record<string, string> = {
   'Identity note': 'How the customer is identified when this event fires (internal). Example: email is known after login.',
   'Agent instructions': 'Instructions for AI agents reading this event through MCP (internal, never shared). Example: always check currency first.',
   'Implementation method': 'How the event reaches Bloomreach: client_web (dataLayer), server_api (Tracking API) or sdk_auto (emitted by the SDK).',
+  'QA scope': 'Whether the QA sampler samples this event. Automatic = yes unless ignored, platform or SDK-emitted. Example: force In scope for a server event.',
   'dataLayer event name': 'The event name pushed to the dataLayer if it differs from the Bloomreach name. Example: br_purchase.',
   'Sources (system via method)': 'Which systems send this event and how. Example: Shopify via GTM data layer.',
   'Derived metrics': 'Values computed from several properties. Example: line total = price x quantity.',

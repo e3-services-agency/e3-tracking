@@ -38,6 +38,8 @@ export interface QaRunInput {
   source_meta_json?: unknown;
   source?: string | null;
   manifest_json?: unknown;
+  /** T-5-31: validated `manifest.samples[]` (QaSampleEntry[]). */
+  samples_json?: unknown;
 }
 
 type QaRunDbRow = Omit<QaRunRow, 'archived' | 'source_meta_json' | 'manifest_json' | 'samples_json'>;
@@ -96,8 +98,8 @@ export function createQaRun(projectId: string, input: QaRunInput): QaRunRow {
   const id = newId();
   const now = nowIso();
   db.prepare(
-    `INSERT INTO qa_runs (id, project_id, kind, actor, environment, started_at, finished_at, notes, archived, customer_id, source_meta_json, source, manifest_json)
-     VALUES (@id, @project_id, @kind, @actor, @environment, @started_at, NULL, @notes, 0, @customer_id, @source_meta_json, @source, @manifest_json)`
+    `INSERT INTO qa_runs (id, project_id, kind, actor, environment, started_at, finished_at, notes, archived, customer_id, source_meta_json, source, manifest_json, samples_json)
+     VALUES (@id, @project_id, @kind, @actor, @environment, @started_at, NULL, @notes, 0, @customer_id, @source_meta_json, @source, @manifest_json, @samples_json)`
   ).run({
     id,
     project_id: projectId,
@@ -110,6 +112,7 @@ export function createQaRun(projectId: string, input: QaRunInput): QaRunRow {
     source_meta_json: toJsonColumn(input.source_meta_json ?? null),
     source: input.source ?? null,
     manifest_json: toJsonColumn(input.manifest_json ?? null),
+    samples_json: toJsonColumn(input.samples_json ?? null),
   });
   return getQaRunOrThrow(projectId, id);
 }

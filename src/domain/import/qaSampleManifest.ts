@@ -55,3 +55,37 @@ export function qaSampleSummaryLine(f: QaSampleFacts): string {
   if (f.matched !== null) parts.push(`${f.matched} matched`);
   return parts.join(', ');
 }
+
+/** T-5-31: one per-event (per-variant) population entry from the sampler's `manifest.samples[]`. */
+export interface QaSampleEntry {
+  event: string;
+  /** Variant name, `null` for an event-level entry. */
+  variant: string | null;
+  filter_matched: number;
+  customers_read: number;
+  events_read: number;
+}
+
+/** Validates `manifest.samples[]`: unknown fields are ignored, a malformed entry becomes a warning and is dropped. */
+export function qaSamples(manifest: unknown): { samples: QaSampleEntry[]; warnings: string[] } {
+  const raw = obj(manifest).samples;
+  const samples: QaSampleEntry[] = [];
+  const warnings: string[] = [];
+  if (raw === undefined || raw === null) return { samples, warnings };
+  if (!Array.isArray(raw)) return { samples, warnings: ['manifest.samples is not an array; ignored.'] };
+  raw.forEach((item, i) => {
+    const e = obj(item);
+    const event = typeof e.event === 'string' && e.event.trim() ? e.event.trim() : null;
+    const variant = e.variant === undefined || e.variant === null ? null : typeof e.variant === 'string' ? e.variant : undefined;
+    const count = (v: unknown): number | null => (typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : null);
+    const matched = count(e.filter_matched);
+    const read = count(e.customers_read);
+    const events = count(e.events_read);
+    if (!event || variant === undefined || matched === null || read === null || events === null) {
+      warnings.push(`manifest.samples[${i}] is malformed (needs event, variant name or null, and non-negative whole numbers for filter_matched, customers_read, events_read); skipped.`);
+      return;
+    }
+    samples.push({ event, variant, filter_matched: matched, customers_read: read, events_read: events });
+  });
+  return { samples, warnings };
+}

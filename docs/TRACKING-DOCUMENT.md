@@ -69,6 +69,7 @@ field list is present:
 
 | Field | Notes |
 |---|---|
+| `qa_scope` | T-5-31, additive: whether the QA sampler (Chrome extension) should sample this event. Derived: true unless the status is `ignored`, the class is `platform` or the `implementation_method` is `sdk_auto`; the event's `qa_scope_override` (Automatic / In scope / Out of scope in the event editor, migration 0042) wins when set. Kept in the public projection. |
 | `implementation_method`, `dl_event_name` | D-63 (T-4-17), additive: how the event reaches Bloomreach (`client_web` | `server_api` | `sdk_auto`; absent on an older document means `client_web`) and the site's dataLayer event that carries it (`null` when not recorded). Kept in the public projection. |
 | `name`, `business_name`, `class`, `description`, `purpose`, `page`, `trigger`, `grain`, `identity_note` | Straight from the `Event` row. |
 | `identifiers`, `identifiers_derived` | D-67, additive: the identity-rule identifier names the event sends in `customer_ids` (its own list, else the derived default) and whether that list is derived. Kept in the public projection. |

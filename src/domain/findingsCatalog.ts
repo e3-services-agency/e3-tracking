@@ -323,7 +323,7 @@ export const KIND_INFO: Record<FindingKind, KindInfo> = {
     'missing_event',
     'coverage',
     'Event not seen',
-    'A defined event has no observations in scope (or is absent from the Data Manager).',
+    'A defined event has no observations in scope (or is absent from the Data Manager). When a QA sampler run reports the population, the message says how many matched customers were read and carried none of it, or that no customer matched the filter at all.',
     'Send or import events of this type, or set the event to ignored if it is retired.'
   ),
   unexpected_event: k(

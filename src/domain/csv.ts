@@ -31,6 +31,7 @@ export const CSV_ENTITIES = {
       'implementation_method',
       'dl_event_name',
       'identifiers_json',
+      'qa_scope_override',
       'category',
       'status',
       'certified',

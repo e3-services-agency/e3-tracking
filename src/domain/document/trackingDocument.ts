@@ -257,6 +257,8 @@ export interface EventCard {
   implementation_method?: ImplementationMethod;
   /** D-63: the site's dataLayer event carrying this Bloomreach event, `null` when not recorded. */
   dl_event_name?: string | null;
+  /** T-5-31, additive: whether the QA sampler should sample this event (derived, or the event's override). */
+  qa_scope?: boolean;
   /** D-62 (T-4-11B), additive: the sources the event is collected from (system and method). */
   sources?: EventCardSource[];
   /** D-67 (T-4-28), additive: the identity-rule identifier names this event sends in `customer_ids`

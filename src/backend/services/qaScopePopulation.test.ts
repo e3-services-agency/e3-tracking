@@ -1,0 +1,109 @@
+/** T-5-31: qa_scope, manifest samples[], population-aware missing_event, backup/CSV carry the column. */
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { closeDb, getDb } from '../db';
+import * as ClientDAL from '../dal/client.dal';
+import * as ProjectDAL from '../dal/project.dal';
+import * as EventDAL from '../dal/event.dal';
+import * as QaRunDAL from '../dal/qa-run.dal';
+import * as FindingDAL from '../dal/finding.dal';
+import { runComparison } from './comparison.service';
+import { buildTrackingDocument, toPublicTrackingDocument } from './document.service';
+import { buildCsvRows } from './csvExport.service';
+import { tableColumns } from './backup.service';
+import { deriveQaScope, effectiveQaScope } from '../../domain/qaScope';
+import { qaSamples } from '../../domain/import/qaSampleManifest';
+import { missingEventMessage, findSample } from '../../domain/comparison/definitionVsObservations';
+
+let projectId: string;
+beforeEach(() => {
+  process.env.E3_DB_PATH = ':memory:';
+  closeDb();
+  const client = ClientDAL.createClient({ key: 'acme', name: 'Acme' });
+  projectId = ProjectDAL.createProject({ client_id: client.id, key: 'acme-eu', name: 'Acme EU' }).id;
+});
+afterEach(() => {
+  closeDb();
+  delete process.env.E3_DB_PATH;
+});
+
+describe('qa_scope', () => {
+  it('derives from status, class and implementation method; override wins', () => {
+    expect(deriveQaScope({ status: 'active', class: 'custom', implementation_method: 'client_web' })).toBe(true);
+    expect(deriveQaScope({ status: 'ignored', class: 'custom', implementation_method: 'client_web' })).toBe(false);
+    expect(deriveQaScope({ status: 'active', class: 'platform', implementation_method: 'client_web' })).toBe(false);
+    expect(deriveQaScope({ status: 'active', class: 'custom', implementation_method: 'sdk_auto' })).toBe(false);
+    expect(effectiveQaScope({ status: 'ignored', class: 'custom', implementation_method: 'client_web' }, true)).toBe(true);
+    expect(effectiveQaScope({ status: 'active', class: 'custom', implementation_method: 'client_web' }, false)).toBe(false);
+  });
+
+  it('is in the tracking document and its public projection, with the override applied', () => {
+    EventDAL.createEvent(projectId, { name: 'cart_update', class: 'custom' });
+    const sdk = EventDAL.createEvent(projectId, { name: 'session_start', class: 'sdk' });
+    const forced = EventDAL.createEvent(projectId, { name: 'forced', class: 'custom', qa_scope_override: false });
+    const doc = buildTrackingDocument(projectId);
+    const by = (n: string) => doc.events.find((e) => e.name === n)!;
+    expect(by('cart_update').qa_scope).toBe(true);
+    expect(by('session_start').qa_scope).toBe(false);
+    expect(by('forced').qa_scope).toBe(false);
+    expect(toPublicTrackingDocument(doc).events.find((e) => e.name === 'forced')!.qa_scope).toBe(false);
+    EventDAL.updateEvent(projectId, sdk.id, { qa_scope_override: true });
+    expect(buildTrackingDocument(projectId).events.find((e) => e.name === 'session_start')!.qa_scope).toBe(true);
+    EventDAL.updateEvent(projectId, sdk.id, { qa_scope_override: null });
+    expect(buildTrackingDocument(projectId).events.find((e) => e.name === 'session_start')!.qa_scope).toBe(false);
+    expect(() => EventDAL.updateEvent(projectId, sdk.id, { qa_scope_override: 'yes' as unknown as boolean })).toThrow();
+  });
+
+  it('is carried by backup (live columns) and CSV', () => {
+    expect(tableColumns('events')).toContain('qa_scope_override');
+    EventDAL.createEvent(projectId, { name: 'a', class: 'custom', qa_scope_override: true });
+    const rows = buildCsvRows(projectId, 'events');
+    expect(rows[0].qa_scope_override).toBe('true');
+  });
+});
+
+describe('manifest samples[]', () => {
+  it('keeps valid entries, ignores unknown fields, warns on malformed ones', () => {
+    const { samples, warnings } = qaSamples({
+      samples: [
+        { event: 'cart_update', variant: 'add', filter_matched: 10, customers_read: 5, events_read: 7, extra: 1 },
+        { event: 'purchase', filter_matched: 0, customers_read: 0, events_read: 0 },
+        { event: 'bad', variant: null, filter_matched: -1, customers_read: 1, events_read: 1 },
+        'nope',
+      ],
+    });
+    expect(samples).toEqual([
+      { event: 'cart_update', variant: 'add', filter_matched: 10, customers_read: 5, events_read: 7 },
+      { event: 'purchase', variant: null, filter_matched: 0, customers_read: 0, events_read: 0 },
+    ]);
+    expect(warnings).toHaveLength(2);
+    expect(qaSamples({}).samples).toEqual([]);
+    expect(qaSamples({ samples: 3 }).warnings).toHaveLength(1);
+  });
+});
+
+describe('population-aware missing_event', () => {
+  const s = (m: number, r: number) => ({ event: 'e', variant: null, filter_matched: m, customers_read: r, events_read: 0 });
+  it('has three wordings', () => {
+    expect(missingEventMessage('e', null, s(120, 30))).toBe('0 of 120 matched customers carried e (30 read).');
+    expect(missingEventMessage('e', 'add', { ...s(4, 2), variant: 'add' })).toBe('0 of 4 matched customers carried e[add] (2 read).');
+    expect(missingEventMessage('e', null, s(0, 0))).toContain('No customer matched the filter for e');
+    expect(missingEventMessage('e', null, null)).toBe('Event "e" has zero observations in scope.');
+    expect(missingEventMessage('e', null, s(5, 0))).toBe('Event "e" has zero observations in scope.');
+    expect(findSample([s(1, 1), s(9, 3)], 'e')!.filter_matched).toBe(9);
+  });
+
+  it('end to end: message and population on the finding, same fingerprint', () => {
+    EventDAL.createEvent(projectId, { name: 'wishlist', class: 'custom' });
+    const run = QaRunDAL.createQaRun(projectId, { kind: 'export_paste' });
+    runComparison(projectId);
+    const find = () => FindingDAL.listFindings(projectId, {}).find((f) => f.kind === 'missing_event')!;
+    const before = find();
+    expect(before.message).toContain('zero observations');
+    getDb().prepare('UPDATE qa_runs SET samples_json=? WHERE id=?').run(JSON.stringify([{ event: 'wishlist', variant: null, filter_matched: 50, customers_read: 20, events_read: 0 }]), run.id);
+    runComparison(projectId);
+    const after = find();
+    expect(after.id).toBe(before.id);
+    expect(after.message).toBe('0 of 50 matched customers carried wishlist (20 read).');
+    expect((after.actual_json as { population: { filter_matched: number } }).population.filter_matched).toBe(50);
+  });
+});

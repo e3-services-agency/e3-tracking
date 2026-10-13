@@ -227,6 +227,18 @@ function collectRunSamples(projectId: string): QaSampleEntry[] {
   return QaRunDAL.listNonArchivedQaRuns(projectId).flatMap((r) => (Array.isArray(r.samples_json) ? (r.samples_json as QaSampleEntry[]) : []));
 }
 
+/** T-5-31: customers read summed over non-archived runs whose manifest carries sampler facts; null when none do. */
+function collectSampleCustomersRead(projectId: string): number | null {
+  let total: number | null = null;
+  for (const r of QaRunDAL.listNonArchivedQaRuns(projectId)) {
+    if (r.manifest_json == null) continue;
+    const f = qaSampleFacts(r.manifest_json);
+    const n = f.read ?? f.customers;
+    if (n !== null) total = (total ?? 0) + n;
+  }
+  return total;
+}
+
 export function buildEngineObservations(
   projectId: string,
   resolve: (eventType: string, properties: Record<string, unknown>) => { event_id: string | null; variant_id: string | null }
@@ -569,7 +581,7 @@ export function runComparison(projectId: string, options: {captureReport?: boole
     {
       comparison: 'definition_vs_observations',
       findings: [
-        ...runDefinitionVsObservations(definition, observations, { samples: collectRunSamples(projectId) }),
+        ...runDefinitionVsObservations(definition, observations, { samples: collectRunSamples(projectId), sampleCustomersRead: collectSampleCustomersRead(projectId) }),
         ...runRules(rulesEngineRules, observations, ruleSnapshot),
         ...runItemSchemaChecks(itemSchemaChecks, observations),
         ...runStateListChecks(stateListChecks, observations),

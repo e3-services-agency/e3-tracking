@@ -160,6 +160,8 @@ export interface RunOptions {
   now?: number;
   /** T-5-31: population numbers from QA sampler runs (`qa_runs.samples_json`), used to phrase `missing_event`. */
   samples?: QaSampleEntry[];
+  /** T-5-31: sum of customers read across runs that carry sampler manifest facts; `null`/absent = no run has any. */
+  sampleCustomersRead?: number | null;
 }
 
 /** Best (largest `filter_matched`) sample entry for an event, and variant name when the finding is variant-scoped. */
@@ -173,13 +175,16 @@ export function findSample(samples: QaSampleEntry[] | undefined, event: string, 
 }
 
 /** The `missing_event` message for an event (or event[variant]) given the optional sampler population. */
-export function missingEventMessage(event: string, variant: string | null, sample: QaSampleEntry | null): string {
+export function missingEventMessage(event: string, variant: string | null, sample: QaSampleEntry | null, customersRead: number | null = null): string {
   const label = variant ? `${event}[${variant}]` : event;
   if (sample && sample.filter_matched === 0) {
     return `No customer matched the filter for ${label}: either the variant never fires or the discriminator values drifted (see unknown_variant).`;
   }
   if (sample && sample.filter_matched > 0 && sample.customers_read > 0) {
     return `0 of ${sample.filter_matched} matched customers carried ${label} (${sample.customers_read} read).`;
+  }
+  if (customersRead !== null && customersRead > 0) {
+    return `Event "${event}" was not found in a sample of ${customersRead} customers (population not checked).`;
   }
   return `Event "${event}" has zero observations in scope.`;
 }
@@ -533,7 +538,7 @@ export function runDefinitionVsObservations(
       observation_id: null,
       expected_json: { event: event.name },
       actual_json: population ? { population } : null,
-      message: missingEventMessage(event.name, null, sample),
+      message: missingEventMessage(event.name, null, sample, options.sampleCustomersRead ?? null),
       fingerprint: fp('missing_event', event.id, null, null, 'missing'),
     });
   }

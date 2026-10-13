@@ -89,6 +89,8 @@ describe('population-aware missing_event', () => {
     expect(missingEventMessage('e', null, s(0, 0))).toContain('No customer matched the filter for e');
     expect(missingEventMessage('e', null, null)).toBe('Event "e" has zero observations in scope.');
     expect(missingEventMessage('e', null, s(5, 0))).toBe('Event "e" has zero observations in scope.');
+    expect(missingEventMessage('e', null, null, 25)).toBe('Event "e" was not found in a sample of 25 customers (population not checked).');
+    expect(missingEventMessage('e', null, null, null)).toBe('Event "e" has zero observations in scope.');
     expect(findSample([s(1, 1), s(9, 3)], 'e')!.filter_matched).toBe(9);
   });
 
@@ -105,5 +107,32 @@ describe('population-aware missing_event', () => {
     expect(after.id).toBe(before.id);
     expect(after.message).toBe('0 of 50 matched customers carried wishlist (20 read).');
     expect((after.actual_json as { population: { filter_matched: number } }).population.filter_matched).toBe(50);
+  });
+});
+
+describe('applyQaSample with a samples[] block', () => {
+  it('stores samples_json, returns it on the run, warns on a malformed entry, and uses facts for the fallback wording', async () => {
+    const { buildQaSampleDocs } = await import('../../domain/import/__fixtures__/qa-sample/build');
+    const { previewQaSample, applyQaSample } = await import('./qaSampleImport.service');
+    const base = buildQaSampleDocs();
+    const manifest = {
+      ...(base.manifest as Record<string, unknown>),
+      sample: { method: 'spaced_clusters', requested: 10, read: 10 },
+      samples: [
+        { event: 'never_sent', variant: null, filter_matched: 7, customers_read: 3, events_read: 0 },
+        { event: 'broken', filter_matched: 'x' },
+      ],
+    };
+    const docs = { ...base, manifest };
+    const preview = previewQaSample(projectId, docs);
+    expect(preview.warnings.some((w) => w.includes('manifest.samples[1]'))).toBe(true);
+    EventDAL.createEvent(projectId, { name: 'never_sent', class: 'custom' });
+    EventDAL.createEvent(projectId, { name: 'other_missing', class: 'custom' });
+    const res = applyQaSample(projectId, docs, preview.payload_hash, [], 'tester');
+    const stored = QaRunDAL.listQaRuns(projectId).find((r) => r.id === res.run.id)!;
+    expect(stored.samples_json).toEqual([{ event: 'never_sent', variant: null, filter_matched: 7, customers_read: 3, events_read: 0 }]);
+    const msgs = FindingDAL.listFindings(projectId, {}).filter((f) => f.kind === 'missing_event').map((f) => f.message);
+    expect(msgs).toContain('0 of 7 matched customers carried never_sent (3 read).');
+    expect(msgs).toContain('Event "other_missing" was not found in a sample of 10 customers (population not checked).');
   });
 });

@@ -79,7 +79,10 @@ function register<Shape extends ZodRawShape>(
       return { isError: true, content: [{ type: 'text' as const, text: `${code}: ${message}` }] };
     }
   };
-  server.registerTool(name, { description, inputSchema }, callback as Parameters<McpServer['registerTool']>[2]);
+  const registered = server.registerTool(name, { description, inputSchema }, callback as Parameters<McpServer['registerTool']>[2]);
+  // A remote grant only sees the tools its scopes allow (tools/list); calls are still preauthorized.
+  const http = httpMcpContext();
+  if (http && !(TOOL_POLICY[name] ?? []).every((s) => http.scopes.includes(s))) registered?.disable?.();
 }
 
 const projectKeyShape = { project_key: z.string().optional() };

@@ -290,3 +290,11 @@ Enable only with `E3_MCP_HTTP_ENABLED=1`, an exact HTTPS `E3_PUBLIC_ORIGIN`, `WO
 ### Full-database recovery
 
 A normal restart preserves durable grants. A **full snapshot restore** of a database containing migration `0043_mcp_oauth.sql` must, before reopening the public connector, revoke every operational grant/token family and remove all pending consent and authorization-code state. Otherwise an older snapshot could resurrect a revoked grant or consumed code. Use the independently reviewed operational recovery procedure, not an image-only rollback or old SQLite/new WAL overlay. Existing rollback to the pre-connector 0040 full data/config snapshot removes all connector state. Project backup restore never imports HTTP connector credentials.
+
+### HTTPS connector: Origin, rate-limit and read-only details (T-5-35)
+
+- `https://claude.ai` is an accepted `Origin` only on `/mcp/oauth/token`, `/mcp/oauth/register` and `/mcp/oauth/revoke`, the endpoints Claude's hosted connector calls itself. The staff pages (`authorize`, `consent`, `connections`) accept only the canonical origin or no `Origin`, and consent and revocation POSTs require the canonical origin exactly.
+- Gated paths (`/mcp*`, `/api/mcp/connections*`, `/.well-known/oauth-*`) are matched case-insensitively for the gate and case-sensitively for routing, so `/MCP/...` answers 404 and never reaches a handler.
+- Rate limits key on the last `X-Forwarded-For` entry only when the socket peer is in `TRUSTED_PROXY_CIDR`, else on the socket address; `/mcp` also keys on the bearer hash.
+- `tools/list` shows only tools the grant's scopes allow (a read-only grant does not see write tools); calls are still preauthorized.
+- Reusing an authorization code revokes the grant and every token issued from it. `GET` on the connections page and API create no stored state; the revoke CSRF token is an HMAC of the owner under a per-process secret.

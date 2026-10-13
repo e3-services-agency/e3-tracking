@@ -66,7 +66,7 @@ describe('authenticated stateless HTTPS MCP', () => {
     it('returns exact metadata and Bearer challenges, never Google redirect/SPA', async () => { const meta = await fetch(base + '/.well-known/oauth-authorization-server', { headers: headers() }); expect(meta.status).toBe(200); const m = await meta.json(); expect(m.authorization_endpoint).toBe(origin + '/mcp/oauth/authorize'); expect(m.registration_endpoint).toBe(origin + '/mcp/oauth/register'); expect(m.client_id_metadata_document_supported).toBeUndefined(); const res = await fetch(base + '/mcp', { headers: headers() }); expect(res.status).toBe(401); expect(res.headers.get('www-authenticate')).toContain('scope="projects:read"'); const protectedMeta = await fetch(base + '/.well-known/oauth-protected-resource/mcp', { headers: headers() }); expect((await protectedMeta.json()).scopes_supported).toEqual(['projects:read']); expect(res.headers.get('www-authenticate')).toContain('/.well-known/oauth-protected-resource/mcp'); expect(res.headers.get('location')).toBeNull(); });
     it('rejects unexpected host/origin, unsupported client/redirect and spoofed staff', async () => { expect((await fetch(base + '/mcp', { headers: headers({ Host: 'evil.example' }) })).status).toBe(403); expect((await register({ redirect_uris: ['http://localhost/callback'] })).status).toBe(400); expect((await register({ token_endpoint_auth_method: 'client_secret_basic' })).status).toBe(400); expect((await register({ client_uri: 'https://evil.example/metadata' })).status).toBe(400); const c = await (await register()).json(); const p = new URLSearchParams({ client_id: c.client_id, response_type: 'code', redirect_uri: CLAUDE_CALLBACK, code_challenge: challenge, code_challenge_method: 'S256', resource }); expect((await fetch(base + '/mcp/oauth/authorize?' + p, { headers: headers({ 'X-Forwarded-Email': 'evil@other.com' }) })).status).toBe(401); });
     it('enforces client, exact resource, PKCE and one-use authorization codes', async () => { const c = await (await register()).json(); const code = await consent(c.client_id); expect((await token(c.client_id, code, { resource: origin + '/other' })).status).toBe(400); expect((await token(c.client_id, code, { code_verifier: 'wrong' })).status).toBe(400); const wrong = await (await register()).json(); expect((await token(wrong.client_id, code)).status).toBe(400); expect((await token(c.client_id, code)).status).toBe(200); expect((await token(c.client_id, code)).status).toBe(400); });
-    it('discovers all29 tools but refuses write/template scope with full step-up challenge', async () => { const g = await grant(); const res = await json('/mcp', { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }, { Authorization: 'Bearer ' + g.access_token, Accept: 'application/json, text/event-stream' }); expect(res.status).toBe(200); expect((await res.json()).result.tools).toHaveLength(29); const write = await mcp(g.access_token, 'create_event', { name: 'denied', dry_run: true }); expect(write.status).toBe(403); expect(write.headers.get('www-authenticate')).toContain('projects:read projects:write'); expect((await mcp(g.access_token, 'list_use_case_templates')).status).toBe(403); expect(listEvents(project).some(e => e.name === 'denied')).toBe(false); });
+    it('discovers the read-scope tools only (all 29 are registered, filtered by scope) and refuses write/template scope with full step-up challenge', async () => { const g = await grant(); const res = await json('/mcp', { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }, { Authorization: 'Bearer ' + g.access_token, Accept: 'application/json, text/event-stream' }); expect(res.status).toBe(200); expect((await res.json()).result.tools).toHaveLength(10); const write = await mcp(g.access_token, 'create_event', { name: 'denied', dry_run: true }); expect(write.status).toBe(403); expect(write.headers.get('www-authenticate')).toContain('projects:read projects:write'); expect((await mcp(g.access_token, 'list_use_case_templates')).status).toBe(403); expect(listEvents(project).some(e => e.name === 'denied')).toBe(false); });
     it('filters project discovery and ignores ambient default/foreign project requests', async () => { const g = await grant(); process.env.E3_PROJECT_KEY = 'mcp-foreign'; const list = await mcp(g.access_token, 'list_projects'); expect(list.status).toBe(200); expect(JSON.stringify(await list.json())).not.toContain('mcp-foreign'); expect((await mcp(g.access_token, 'list_events')).status).toBe(200); const denied = await mcp(g.access_token, 'list_events', { project_key: 'mcp-foreign' }); expect(denied.status).toBe(403); expect(denied.headers.get('www-authenticate')).toBeNull(); });
     it('preauthorizes every transport/nested batch operation before any write', async () => { const g = await grant('projects:read projects:write', 'one@example.com', true); const before = listEvents(project).length; const foreignEvent = createEvent(foreign, { name: 'foreign_alias', class: 'custom' }); const aliasDenied = await mcp(g.access_token, 'batch_apply', { dry_run: false, operations: [{ op: 'create_event', name: 'alias_would_write' }, { op: 'update_event', event: foreignEvent.id, description: 'forbidden' }] }); expect(aliasDenied.status).toBe(403); const foreignBundle = createBundle(foreign, { name: 'foreign_bundle' }); const bundleDenied = await mcp(g.access_token, 'batch_apply', { dry_run: false, operations: [{ op: 'create_event', name: 'bundle_would_write' }, { op: 'create_property', name: 'new', scope: 'event', data_type: 'string', bundle_ids: [foreignBundle.id] }] }); expect(bundleDenied.status).toBe(403); const denied = await mcp(g.access_token, 'batch_apply', { dry_run: false, operations: [{ op: 'create_event', name: 'would_write' }, { op: 'create_event', name: 'foreign', project_key: 'mcp-foreign' }] }); expect(denied.status).toBe(403); const body = [{ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'create_event', arguments: { name: 'transport_write', dry_run: false } } }, { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'unknown' } }]; expect((await json('/mcp', body, { Authorization: 'Bearer ' + g.access_token, Accept: 'application/json, text/event-stream' })).status).toBe(400); expect(listEvents(project)).toHaveLength(before); });
     it('records verified actors and isolates durable automatic QA runs by principal', async () => { const one = await grant('projects:read projects:write', 'one@example.com', true), two = await grant('projects:read projects:write', 'two@example.com', true); expect((await mcp(one.access_token, 'create_event', { name: 'verified_actor', dry_run: false, agent_name: 'forged' })).status).toBe(200); expect(getDb().prepare("SELECT actor FROM change_log WHERE entity_label='verified_actor' ORDER BY rowid DESC LIMIT 1").get()).toEqual({ actor: 'one@example.com' }); const submit = (g: typeof one, timestamp: number) => mcp(g.access_token, 'submit_observation', { event_type: 'purchase', properties: { total: 1 }, timestamp }); const results = await Promise.all([submit(one, 10), submit(two, 11)]); for (const r of results)
@@ -81,12 +81,12 @@ describe('authenticated stateless HTTPS MCP', () => {
         expect(other.connections.some((c: {
             id: string;
         }) => c.id === info.grant.id)).toBe(false);
-        const wrongCookie = wrong.headers.get('set-cookie')!.split(';')[0];
+        const wrongCookie = 'unused=1';
         expect((await json('/api/mcp/connections', { id: info.grant.id, csrf: other.csrf }, { 'X-Forwarded-Email': 'two@example.com', Origin: origin, Cookie: wrongCookie })).status).toBe(404);
         expect((await mcp(g.access_token, 'list_projects')).status).toBe(200);
         const mine = await fetch(base + '/api/mcp/connections', { headers: headers({ 'X-Forwarded-Email': 'one@example.com' }) });
         const data = await mine.json();
-        const mineCookie = mine.headers.get('set-cookie')!.split(';')[0];
+        const mineCookie = 'unused=1';
         expect((await json('/api/mcp/connections', { id: info.grant.id, csrf: 'wrong' }, { 'X-Forwarded-Email': 'one@example.com', Origin: origin, Cookie: mineCookie })).status).toBe(403);
         expect((await json('/api/mcp/connections', { id: info.grant.id, csrf: data.csrf }, { 'X-Forwarded-Email': 'one@example.com', Origin: 'https://evil.example', Cookie: mineCookie })).status).toBe(403);
         expect((await json('/api/mcp/connections', { id: info.grant.id, csrf: data.csrf }, { 'X-Forwarded-Email': 'one@example.com', Origin: origin, Cookie: mineCookie })).status).toBe(200);
@@ -121,4 +121,51 @@ describe('authenticated stateless HTTPS MCP', () => {
     it('keeps wrong-client revocation terminal without revoking another client family', async () => { const g = await grant(); const c = await (await register()).json(); const revoke = async (client: string) => fetch(base + '/mcp/oauth/revoke', { method: 'POST', headers: headers({ 'Content-Type': 'application/x-www-form-urlencoded' }), body: new URLSearchParams({ client_id: client, token: g.refresh_token }) }); expect((await revoke(c.client_id)).status).toBe(200); expect((await mcp(g.access_token, 'list_projects')).status).toBe(200); expect((await revoke(g.client)).status).toBe(200); expect((await mcp(g.access_token, 'list_projects')).status).toBe(401); });
     it('rejects expired codes/access tokens and exact audience changes', async () => { const code = await consent(sharedClient); getDb().prepare('UPDATE mcp_oauth_codes SET expires_at=? WHERE code_hash=?').run(OAuth.now() - 1, OAuth.hash(code)); expect((await token(sharedClient, code)).status).toBe(400); const expired = await grant(); getDb().prepare('UPDATE mcp_oauth_tokens SET expires_at=? WHERE token_hash=?').run(OAuth.now() - 1, OAuth.hash(expired.access_token)); expect((await mcp(expired.access_token, 'list_projects')).status).toBe(401); const audience = await grant(); const g = OAuth.access(audience.access_token, resource).grant; getDb().prepare('UPDATE mcp_oauth_grants SET resource=? WHERE id=?').run(origin + '/other', g.id); expect((await mcp(audience.access_token, 'list_projects')).status).toBe(401); });
     it('stores only token hashes and excludes all operational tables from portable backups', async () => { const g = await grant(); const rows = getDb().prepare('SELECT token_hash FROM mcp_oauth_tokens').all(); expect(JSON.stringify(rows)).not.toContain(g.access_token); expect(JSON.stringify(rows)).not.toContain(g.refresh_token); const backup = await buildBackup(project); expect(Object.keys(backup).some(k => k.startsWith('mcp_'))).toBe(false); const raw = JSON.stringify(backup); expect(raw).not.toContain(g.access_token); expect(raw).not.toContain(g.refresh_token); });
+    it('never reaches handlers through case-variant gated paths', async () => {
+        const count = () => (getDb().prepare('SELECT COUNT(*) n FROM mcp_oauth_clients').get() as { n: number }).n;
+        const before = count();
+        const reg = await fetch(base + '/MCP/oauth/register', { method: 'POST', headers: headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ redirect_uris: [CLAUDE_CALLBACK], token_endpoint_auth_method: 'none' }) });
+        expect(reg.status).toBe(404);
+        expect((await fetch(base + '/MCP', { method: 'POST', headers: headers({ 'Content-Type': 'application/json' }), body: '{}' })).status).toBe(404);
+        expect((await fetch(base + '/MCP/oauth/authorize?client_id=x', { headers: headers({ 'X-Forwarded-Email': 'one@example.com' }) })).status).toBe(404);
+        expect((await fetch(base + '/Api/MCP/connections', { headers: headers({ 'X-Forwarded-Email': 'one@example.com' }) })).status).toBe(404);
+        expect(count()).toBe(before);
+    });
+    it('rate-limits per forwarded client address from the trusted peer', async () => {
+        const reg = (ip: string) => json('/mcp/oauth/register', { client_name: 'x', redirect_uris: ['https://evil.example/cb'] }, { 'X-Forwarded-For': ip });
+        let last = 0;
+        for (let i = 0; i < 12; i++)
+            last = (await reg('203.0.113.7')).status;
+        expect(last).toBe(429);
+        expect((await reg('203.0.113.8')).status).not.toBe(429);
+    });
+    it('accepts the claude.ai Origin only on token/register/revoke, never on staff paths', async () => {
+        const params = new URLSearchParams({ client_id: sharedClient, response_type: 'code', redirect_uri: CLAUDE_CALLBACK, code_challenge: challenge, code_challenge_method: 'S256', resource, scope: 'projects:read' });
+        expect((await fetch(base + '/mcp/oauth/authorize?' + params, { headers: headers({ 'X-Forwarded-Email': 'one@example.com', Origin: 'https://claude.ai' }) })).status).toBe(403);
+        expect((await fetch(base + '/mcp/oauth/authorize?' + params, { headers: headers({ 'X-Forwarded-Email': 'one@example.com', Origin: origin }) })).status).toBe(200);
+    });
+    it('shows only in-scope tools in tools/list', async () => {
+        const names = async (g: { access_token: string }) => (await (await json('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/list' }, { Authorization: 'Bearer ' + g.access_token, Accept: 'application/json, text/event-stream' })).json()).result.tools.map((t: { name: string }) => t.name);
+        const read = await names(await grant());
+        expect(read).toContain('list_events');
+        expect(read).not.toContain('create_event');
+        expect(read).not.toContain('list_use_case_templates');
+        expect(await names(await grant('projects:read projects:write', 'one@example.com', true))).toContain('create_event');
+    });
+    it('revokes the grant when a consumed authorization code is replayed', async () => {
+        const code = await consent(sharedClient);
+        const first = await token(sharedClient, code);
+        expect(first.status).toBe(200);
+        const issued = await first.json();
+        expect((await token(sharedClient, code)).status).toBe(400);
+        expect((await mcp(issued.access_token, 'list_projects')).status).toBe(401);
+    });
+    it('keeps connection reads free of side effects', async () => {
+        const n = () => (getDb().prepare('SELECT COUNT(*) n FROM mcp_oauth_pending').get() as { n: number }).n;
+        const before = n();
+        const h = headers({ 'X-Forwarded-Email': 'one@example.com' });
+        expect((await fetch(base + '/api/mcp/connections', { headers: h })).status).toBe(200);
+        expect((await fetch(base + '/mcp/connections', { headers: h })).status).toBe(200);
+        expect(n()).toBe(before);
+    });
 });

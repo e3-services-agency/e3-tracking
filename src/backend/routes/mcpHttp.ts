@@ -1,3 +1,4 @@
+import { createHmac, createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -10,16 +11,24 @@ import { isTrustedPeer } from '../middleware/auth';
 import * as OAuth from '../dal/mcp-oauth.dal';
 import { getDb } from '../db';
 import { listProjects } from '../dal/project.dal';
-import { mcpConfig, oauthProvider, staffPage, browserHeaders, escapeHtml, CONSENT_COOKIE, MANAGEMENT_COOKIE, type McpHttpConfig } from '../services/mcpOAuth.service';
+import { mcpConfig, oauthProvider, staffPage, browserHeaders, escapeHtml, CONSENT_COOKIE, type McpHttpConfig } from '../services/mcpOAuth.service';
 import { authorizeHttpTool, McpAuthorizationError, MCP_SCOPES } from '../../mcp/toolPolicy';
 import { withHttpMcpContext, type HttpMcpContext } from '../../mcp/httpContext';
 import { registerTools } from '../../mcp/registerTools';
 const exactPaths = new Set(['/mcp', '/.well-known/oauth-protected-resource', '/.well-known/oauth-protected-resource/mcp', '/.well-known/oauth-authorization-server', '/mcp/oauth/register', '/mcp/oauth/token', '/mcp/oauth/revoke', '/mcp/oauth/authorize', '/mcp/oauth/consent', '/mcp/connections', '/api/mcp/connections']);
+// claude.ai calls these three server-to-server/CORS endpoints; staff pages accept only the canonical origin.
+const claudeOriginPaths = new Set(['/mcp/oauth/token', '/mcp/oauth/register', '/mcp/oauth/revoke']);
 const staffPaths = new Set(['/mcp/oauth/authorize', '/mcp/oauth/consent', '/mcp/connections', '/api/mcp/connections']);
 const cookie = (req: Request, name: string) => { const values = (req.headers.cookie ?? '').split(';').map(s => s.trim()).filter(s => s.startsWith(name + '=')); return values.length === 1 ? values[0].slice(name.length + 1) : ''; };
 function deny(res: Response, status: number, error: string) { res.status(status).json({ error }); }
 export function createMcpHttpRouter(testConfig?: McpHttpConfig) {
-    const router = express.Router();
+    const router = express.Router({ caseSensitive: true, strict: true });
+    const csrfSecret = randomBytes(32);
+    const mgmtCsrf = (owner: string) => createHmac('sha256', csrfSecret).update('mgmt:' + owner).digest('base64url');
+    const csrfOk = (owner: string, given: unknown) => typeof given === 'string' && given.length === 43 && timingSafeEqual(Buffer.from(given), Buffer.from(mgmtCsrf(owner)));
+    // Behind Caddy the socket peer is the proxy: use the forwarded client address only when the peer is trusted.
+    const clientAddress = (req: Request) => { if (isTrustedPeer(req)) { const xff = String(req.headers['x-forwarded-for'] ?? '').split(',').map(v => v.trim()).filter(Boolean); if (xff.length)
+        return xff[xff.length - 1]; } return req.socket.remoteAddress ?? 'unknown'; };
     const config = testConfig ?? mcpConfig();
     if (testConfig && process.env.NODE_ENV !== 'test')
         throw new Error('Test MCP configuration is test-only.');
@@ -28,7 +37,8 @@ export function createMcpHttpRouter(testConfig?: McpHttpConfig) {
         n: number;
     }>();
     router.use((req: Request, res: Response, next: NextFunction) => {
-        if (!req.path.startsWith('/mcp') && !req.path.startsWith('/api/mcp/connections') && !req.path.startsWith('/.well-known/oauth-')) {
+        const lower = req.path.toLowerCase();
+        if (!lower.startsWith('/mcp') && !lower.startsWith('/api/mcp/connections') && !lower.startsWith('/.well-known/oauth-')) {
             next();
             return;
         }
@@ -40,7 +50,7 @@ export function createMcpHttpRouter(testConfig?: McpHttpConfig) {
         }
         const host = req.headers.host;
         const origin = req.headers.origin;
-        if (host !== new URL(config.origin).host || (origin && origin !== config.origin && origin !== 'https://claude.ai')) {
+        if (host !== new URL(config.origin).host || (origin && origin !== config.origin && !(origin === 'https://claude.ai' && claudeOriginPaths.has(req.path)))) {
             deny(res, 403, 'invalid_request');
             return;
         }
@@ -48,7 +58,8 @@ export function createMcpHttpRouter(testConfig?: McpHttpConfig) {
         for (const [key, value] of hits)
             if (time - value.start >= 60)
                 hits.delete(key);
-        const key = (req.socket.remoteAddress ?? 'unknown') + ':' + req.path;
+        const bearer = req.path === '/mcp' && req.headers.authorization ? ':' + createHash('sha256').update(req.headers.authorization).digest('hex').slice(0, 16) : '';
+        const key = clientAddress(req) + ':' + req.path + bearer;
         const entry = hits.get(key) ?? { start: time, n: 0 };
         entry.n++;
         if (hits.size >= 2000 && !hits.has(key) || entry.n > (req.path.endsWith('/register') ? 10 : 120)) {
@@ -160,7 +171,7 @@ export function createMcpHttpRouter(testConfig?: McpHttpConfig) {
         }
     });
     const safeConnections = (owner: string) => OAuth.connections(owner).map(g => ({ id: g.id, client_name: JSON.parse(g.metadata_json).client_name, scopes: JSON.parse(g.scopes_json), created_at: g.created_at, expires_at: g.expires_at, revoked: g.revoked_at !== null, projects: listProjects().filter(p => OAuth.grantProjects(g.id).includes(p.id)).map(p => ({ id: p.id, name: p.name })) }));
-    router.get('/api/mcp/connections', (req, res) => { const owner = res.locals.mcpStaff as string; const pending = OAuth.putPending(owner, null, { kind: 'management' }); res.cookie(MANAGEMENT_COOKIE, pending.cookie, { path: '/api/mcp', secure: true, httpOnly: true, sameSite: 'strict', maxAge: 600000 }); res.json({ connections: safeConnections(owner), csrf: pending.csrf }); });
+    router.get('/api/mcp/connections', (req, res) => { const owner = res.locals.mcpStaff as string; res.json({ connections: safeConnections(owner), csrf: mgmtCsrf(owner) }); });
     router.post('/api/mcp/connections', express.json({ limit: '8kb' }), (req, res) => {
         if (req.headers.origin !== config.origin) {
             deny(res, 403, 'invalid_request');
@@ -169,8 +180,9 @@ export function createMcpHttpRouter(testConfig?: McpHttpConfig) {
         try {
             if (typeof req.body.id !== 'string' || typeof req.body.csrf !== 'string')
                 throw new Error();
-            const result = getDb().transaction(() => { const p = OAuth.consumePending(cookie(req, MANAGEMENT_COOKIE), res.locals.mcpStaff, req.body.csrf); if (JSON.parse(p.request_json).kind !== 'management')
-                throw new Error(); return OAuth.revokeGrant(req.body.id, res.locals.mcpStaff); }).immediate();
+            if (!csrfOk(res.locals.mcpStaff, req.body.csrf))
+                throw new Error();
+            const result = OAuth.revokeGrant(req.body.id, res.locals.mcpStaff);
             if (!result) {
                 deny(res, 404, 'not_found');
                 return;
@@ -183,8 +195,7 @@ export function createMcpHttpRouter(testConfig?: McpHttpConfig) {
     });
     router.get('/mcp/connections', (req, res) => {
         const owner = res.locals.mcpStaff as string;
-        const p = OAuth.putPending(owner, null, { kind: 'management' });
-        res.cookie(MANAGEMENT_COOKIE, p.cookie, { path: '/mcp', secure: true, httpOnly: true, sameSite: 'strict', maxAge: 600000 });
+        const p = { csrf: mgmtCsrf(owner) };
         browserHeaders(res);
         res.type('html').send(staffPage('My Claude connections', `<p>Connections owned by ${escapeHtml(owner)}. Revocation stops every access and refresh token immediately. Project backups never contain connector credentials.</p>${safeConnections(owner).map(g => `<section><h2>${escapeHtml(g.client_name)}</h2><p>${escapeHtml(g.projects.map(p => p.name).join(', '))} / ${escapeHtml(g.scopes.join(', '))}</p><p>${g.revoked ? 'Revoked' : 'Expires ' + new Date(g.expires_at * 1000).toISOString()}</p>${g.revoked ? '' : `<form method="post" action="/mcp/connections"><input type="hidden" name="csrf" value="${p.csrf}"><input type="hidden" name="id" value="${g.id}"><button>Revoke connection</button></form>`}</section>`).join('') || '<p>No connections yet.</p>'}`));
     });
@@ -196,8 +207,8 @@ export function createMcpHttpRouter(testConfig?: McpHttpConfig) {
         try {
             if (typeof req.body.id !== 'string' || typeof req.body.csrf !== 'string')
                 throw new Error();
-            getDb().transaction(() => { const p = OAuth.consumePending(cookie(req, MANAGEMENT_COOKIE), res.locals.mcpStaff, req.body.csrf); if (JSON.parse(p.request_json).kind !== 'management' || !OAuth.revokeGrant(req.body.id, res.locals.mcpStaff))
-                throw new Error(); }).immediate();
+            if (!csrfOk(res.locals.mcpStaff, req.body.csrf) || !OAuth.revokeGrant(req.body.id, res.locals.mcpStaff))
+                throw new Error();
             res.redirect(303, '/mcp/connections');
         }
         catch {

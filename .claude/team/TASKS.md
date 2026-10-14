@@ -122,7 +122,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-5-30 | 5 | Compact shared text toolbar controls to fit section rows | portal-implementer | T-5-29 | DONE | D-86; 32px controls and unchanged icon/filter behavior |
 | T-5-34 | 5 | HTTPS MCP authentication and permission architecture | auth-planner | T-5-29 | DONE | D-87; concrete reviewed OAuth/HTTP/project/tool policy and recovery contract |
 | T-5-35 | 5 | Implement authenticated Claude HTTPS MCP connector | claude-supervisor (taken over from codex 2026-10-13) | T-5-34 | DONE | D-87; approved contract, reused stdio tools, OAuth/grants and meaningful API/security tests |
-| T-5-36 | 5 | HTTPS MCP independent QA and live connector release | claude-supervisor (reviewer + qa-tester) | T-5-35 | TODO | D-87; independent QA, SDK dry runs, backup/snapshot, HTTPS OAuth/SDK and Claude connection gates |
+| T-5-36 | 5 | HTTPS MCP independent QA and live connector release | claude-supervisor (reviewer + qa-tester) | T-5-35 | IN_PROGRESS (released 7a9e3d6; read grant verified live; write re-consent + revoke pending) | D-87; independent QA, SDK dry runs, backup/snapshot, HTTPS OAuth/SDK and Claude connection gates |
 
 Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktrees after T-1-02 merges. Everything else is sequential per the dependency column.
 

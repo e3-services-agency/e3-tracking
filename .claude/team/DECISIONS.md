@@ -613,3 +613,5 @@ D87 task IDs reconciled to T-5-34..36, avoiding existing Claude-supervisor QA/DM
 
 D87 migration correction: use0042 for HTTPS operational authorization, honoring the earlier Claude-supervisor0041 reservation for population QA. This is an independent additive migration valid directly after current0040; no unrelated QA/DM source is required. Permissions/recovery contract unchanged, with actual latest schema0042 used for release audits.
 
+
+D-87 amendment 1 (2026-10-14, user request after the live connector test): a consent may grant "All projects, including future ones". Explicit per-project selection remains the default and the recommended choice; the all-projects option is a deliberate checkbox on the consent page, stored as `mcp_oauth_grants.all_projects` (migration 0044) and resolved at call time against live, non-deleted projects, so a project created later is reachable through that grant without re-consent. The connections page and management API label such grants clearly. Revocation semantics unchanged. Task T-5-38.

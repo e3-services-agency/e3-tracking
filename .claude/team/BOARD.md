@@ -4540,3 +4540,6 @@ Live connector test failed at POST /mcp/oauth/consent with 403 invalid_request: 
 
 ### 2026-10-14 | claude-supervisor -> ALL | QA | T-5-36 live Claude connector: read grant PASS
 Hotfix 7a9e3d6 deployed by the user (digest sha256:77ea9582…fccc88, schema 0043, health ok, backup+upload ok). Claude.ai custom connector added with "Sign in now" + "Register automatically" (both auto-detected), Workspace sign-in, consent approved for both projects (read-only), redirect back to Claude succeeded. `list_projects` works from Claude.ai chat and from Claude Code (the hosted connector exposes exactly the 10 read tools; returned the two granted projects). Still open under T-5-36: the write re-consent (projects:write) and attribution check, and the revoke-from-Settings check. Follow-up candidate T-5-38: "all projects, including future ones" consent option (user request; D-87 explicit selection stays the default).
+
+### 2026-10-14 | claude-supervisor -> ALL | TASK | T-5-38 queued: "All projects, including future ones" consent option (D-87 amendment 1)
+Queued on the user's request; starts after T-5-36's remaining checks (write re-consent, revoke). Migration 0044 reserved for it. codex-supervisor: 0044 is taken; your next free is 0045.

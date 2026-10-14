@@ -4546,3 +4546,6 @@ Queued on the user's request; starts after T-5-36's remaining checks (write re-c
 
 ### 2026-10-14 | claude-supervisor -> ALL | TASK | T-5-39 approved and started (connector write access requestable)
 Finding from the live test: the initial 401 challenge advertises `scope="projects:read"` only, Claude requests exactly that, the consent page only offers the write checkbox when write was requested, and a read grant hides write tools from tools/list, so the documented insufficient_scope step-up can never fire from Claude.ai. Fix: advertise all three scopes in the challenge; consent checkboxes for write/templates stay unticked by default; enforcement unchanged. D-87 amendment 2. T-5-38 follows.
+
+### 2026-10-14 | claude-supervisor -> ALL | MERGE | T-5-39 merged 2a0b1e3 (reviewer PASS), image 2a0b1e3 pushed, release script ready
+Merged tree: build, tsc, lint green, 2281 tests / 240 files. Image digest sha256:846b6ff6…54708. Release via reports/ops/release-T-5-39-scopes.sh (snapshot of 0043 state, deploy, smoke: challenge must list the three scopes); run by the user. After it: reconnect the connector with write ticked, dry-run change, History attribution, revoke — closes T-5-36. Then T-5-38.

@@ -15,12 +15,26 @@ export function SharedEntityTable({ label, columns, children }: {
         <caption className="sr-only">{label}</caption>
         <colgroup>{columns.map((c) => <col key={c.label} style={c.width ? { width: c.width } : undefined} />)}</colgroup>
         <thead className="border-b bg-gray-50 text-sm text-gray-500">
-          <tr>{columns.map((c) => <HintTh key={c.label} scope="col" hintScope="Shared" className="px-4 py-3 font-medium">{c.label}</HintTh>)}</tr>
+          <tr>{columns.map((c) => <HintTh key={c.label} scope="col" hintScope="Shared" className="px-4 py-2 text-xs font-medium">{c.label}</HintTh>)}</tr>
         </thead>
         <tbody className="divide-y">{children}</tbody>
       </table>
     </div>
   );
+}
+
+/** An empty value reads as a faint dash so filled cells stand out (data-ink: the dash is not data). */
+function isEmptyCell(cell: React.ReactNode): boolean {
+  return cell === null || cell === undefined || cell === '' || cell === '—';
+}
+
+function EmptyCell() {
+  return <span className="text-gray-300" aria-label="none">—</span>;
+}
+
+/** Secondary row actions (copy, link, Markdown): shown on row hover/focus/expand, always on touch (`.row-actions`, index.css). */
+export function RowActions({ children }: { children: React.ReactNode }) {
+  return <span className="row-actions inline-flex flex-nowrap items-center gap-1">{children}</span>;
 }
 
 export function SharedEntityRow({ anchor, name, kind, expanded, onToggle, cells, children, badges, nameSuffix, nameIndented = false, scrollMarginTop }: {
@@ -47,7 +61,7 @@ export function SharedEntityRow({ anchor, name, kind, expanded, onToggle, cells,
           if (hasTextSelection()) return;
           onToggle();
         } : undefined}>
-        <th scope="row" className={`${nameIndented ? 'pl-8 pr-4' : 'px-4'} py-3 align-top font-medium text-gray-900`}>
+        <th scope="row" className={`${nameIndented ? 'pl-8 pr-4' : 'px-4'} py-2 align-top font-medium text-gray-900`}>
           {onToggle ? (
             <button id={disclosureId} type="button" onClick={(event) => {
               // Native keyboard activation has detail 0; selecting a name with the pointer must not toggle it.
@@ -60,7 +74,7 @@ export function SharedEntityRow({ anchor, name, kind, expanded, onToggle, cells,
           ) : <span className="flex items-start gap-2">{title}</span>}
           {badges && <div className="mt-2 flex flex-wrap gap-1.5 font-normal">{badges}</div>}
         </th>
-        {cells.map((cell, i) => <td key={i} className="px-4 py-3 align-top text-gray-600 whitespace-pre-wrap [overflow-wrap:anywhere]">{cell ?? '—'}</td>)}
+        {cells.map((cell, i) => <td key={i} className="px-4 py-2 align-top text-gray-600 whitespace-pre-wrap [overflow-wrap:anywhere]">{isEmptyCell(cell) ? <EmptyCell /> : cell}</td>)}
       </tr>
       {expanded && children && <tr><td id={contentId} colSpan={cells.length + 1} className="border-t bg-white p-4">{children}</td></tr>}
     </>

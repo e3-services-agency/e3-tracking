@@ -166,16 +166,20 @@ export function expirationSummary(exp: EventCardData['expiration'] | null): stri
 export function CertificationBadge({ certification, compact = false }: { certification: EventCardData['certification']; compact?: boolean }) {
   const summary = summarizeCertification(certification);
   const label = !certification.applicable ? 'n/a' : certification.certified ? 'certified' : 'not certified';
+  // In a list (compact), "not certified" is the normal state before QA passes: a quiet neutral pill,
+  // so the green "certified" ones stand out instead of a red pill on nearly every row.
   const color = !certification.applicable
     ? 'bg-gray-100 text-gray-600 border-gray-200'
     : certification.certified
       ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-      : 'bg-red-50 text-red-800 border-red-200';
+      : compact
+        ? 'bg-gray-50 text-gray-500 border-gray-200'
+        : 'bg-red-50 text-red-800 border-red-200';
   return (
     <Tooltip content={<div className="space-y-1"><p className="font-semibold">{summary.status}</p>
       {summary.reasons.map(reason => <p key={reason}>{reason}</p>)}
       <p>{summary.change}</p></div>}>
-    <span className={`inline-block rounded-full border px-3 py-1 text-xs font-medium ${color}`}>
+    <span className={`inline-block rounded-full border ${compact ? 'px-2 py-0.5' : 'px-3 py-1'} text-xs font-medium ${color}`}>
       {label}
       {!compact && certification.reasons.length > 0 ? ` (${certification.reasons.map(describeCertificationReason).join(' ')})` : ''}
     </span></Tooltip>

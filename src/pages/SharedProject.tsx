@@ -31,7 +31,6 @@ import {QaReports} from '@/src/features/findings/QaReports';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { enumLabelOr } from '@/src/domain/enumLabels';
 import { HintTh } from '@/src/components/ui/FieldHint';
-import { ClassBadge } from '@/src/components/ui/ClassBadge';
 import { ExampleCell, StandardMappingBlock } from '@/src/features/events/components/EventCardView';
 import { formatExampleValues } from '@/src/domain/examples';
 import type { FindingsSummaryView } from '@/src/domain/document/findingsSummary';
@@ -64,7 +63,7 @@ import { VARIANTS_ANCHOR_PREFIX } from '@/src/features/shared/references';
 import { eventCardToMarkdown, useCaseToMarkdown, propertiesToMarkdown, findingsSummaryToMarkdown } from '@/src/domain/document/markdown';
 import { propertyGroupId, propertyKindGroupId, PROPERTY_CATEGORY_LABELS, formatDisplayName } from '@/src/domain/propertyCategory';
 import { SharedActiveEntitySummary } from '@/src/features/shared/SharedActiveEntitySummary';
-import { SharedEntityTable, SharedEntityRow } from '@/src/features/shared/SharedEntityTable';
+import { SharedEntityTable, SharedEntityRow, RowActions } from '@/src/features/shared/SharedEntityTable';
 import { SharedFindingsTable } from '@/src/features/shared/SharedFindingsTable';
 import { SharedGoogleSignIn } from '@/src/features/shared-auth/SharedGoogleSignIn';
 import { EntityIcon } from '@/src/components/ui/EntityIcon';
@@ -204,6 +203,18 @@ function GroupHeader({ label, actions }: { label: React.ReactNode; actions?: Rea
   );
 }
 
+/** A row's action cell: a comment thread with comments stays visible, everything else (an empty
+ * thread, copy, link, Markdown) only shows on row hover/focus so the list reads as data. */
+function ActionsCell({ comment, commentCount, children }: { comment?: React.ReactNode; commentCount?: number; children: React.ReactNode }) {
+  const pinned = comment && (commentCount ?? 0) > 0;
+  return (
+    <div className="flex min-w-[148px] flex-nowrap items-center gap-1">
+      {pinned && comment}
+      <RowActions>{!pinned && comment}{children}</RowActions>
+    </div>
+  );
+}
+
 function SimpleTable({ head, rows, definitions = false }: { head: string[]; rows: React.ReactNode[][]; definitions?: boolean }) {
   return (
     <div role="region" aria-label="Details table" tabIndex={0} className="overflow-x-auto">
@@ -244,9 +255,11 @@ export function SharedPropertyRow({
   onToggle,
   renderRef,
   commentButton,
+  commentCount = 0,
   comments,
   definitionActions,
 }: {
+  commentCount?: number;
   definitionActions?: (id: string, name: string) => React.ReactNode;
   property: PropertyItem;
   commentButton?: React.ReactNode;
@@ -261,7 +274,7 @@ export function SharedPropertyRow({
     <SharedEntityRow anchor={anchor} name={property.name} kind="property" expanded={expanded} onToggle={onToggle}
       scrollMarginTop={stickyScrollMarginPx('event')} nameIndented nameSuffix={<DefinitionCountBadge count={property.definitions.length} />}
       cells={[property.description ?? '—', <CategoryBadge key="category" category={property.category} />, property.data_type,
-        <div key="actions" className="flex min-w-[148px] flex-nowrap items-center gap-1">{commentButton}<CopyMarkdownButton iconOnly getMarkdown={() => propertiesToMarkdown([property])} label={`Copy property ${property.name} as Markdown`} /><CopyLinkButton anchor={anchor} label={property.name} /><CopyNameButton name={property.name} /></div>]}>
+        <ActionsCell key="actions" comment={commentButton} commentCount={commentCount}><CopyMarkdownButton iconOnly getMarkdown={() => propertiesToMarkdown([property])} label={`Copy property ${property.name} as Markdown`} /><CopyLinkButton anchor={anchor} label={property.name} /><CopyNameButton name={property.name} /></ActionsCell>]}>
       {expanded && (
         <div className="space-y-2">
           {comments}
@@ -785,14 +798,14 @@ export function SharedProject({ token }: { token: string }) {
                       return (
                         <SharedEntityRow key={event.id} anchor={anchor} name={event.name} kind="event"
                           expanded={expanded} onToggle={() => toggle(setOpenEvents, event.id)} scrollMarginTop={stickyScrollMarginPx('event')}
-                          badges={<ClassBadge eventClass={event.class} />} cells={[
+                          cells={[
                             event.description ?? '—',
-                            <div key="sources" className="flex flex-wrap gap-1.5">{(event.sources ?? []).length ? event.sources!.map((s) => (
+                            (event.sources ?? []).length ? <div key="sources" className="flex flex-wrap gap-1.5">{event.sources!.map((s) => (
                               <SourceBadge key={s.id} system={s.system} method={s.method} color={s.color} className="max-w-full !whitespace-normal [overflow-wrap:anywhere]" />
-                            )) : '—'}</div>,
+                            ))}</div> : '—',
                             <CertificationBadge key="certification" certification={event.certification} compact />,
 
-                            <div key="actions" className="flex min-w-[148px] flex-nowrap items-center gap-1"><CommentCountButton key="comments"
+                            <ActionsCell key="actions" commentCount={commentsFor('event', event.id).length} comment={<CommentCountButton key="comments"
                               count={commentsFor('event', event.id).length}
                               open={openThreads.has(`event:${event.id}`)}
                               label={`event ${event.name}`}
@@ -802,7 +815,7 @@ export function SharedProject({ token }: { token: string }) {
                                   setOpenThreads((prev) => new Set(prev).add(`event:${event.id}`));
                                 } else toggleThread(`event:${event.id}`);
                               }}
-                            /><CopyMarkdownButton iconOnly getMarkdown={() => eventCardToMarkdown(event)} label={`Copy event ${event.name} as Markdown`} /><CopyLinkButton anchor={anchor} label={event.name} /><CopyNameButton name={event.name} /></div>,
+                            />}><CopyMarkdownButton iconOnly getMarkdown={() => eventCardToMarkdown(event)} label={`Copy event ${event.name} as Markdown`} /><CopyLinkButton anchor={anchor} label={event.name} /><CopyNameButton name={event.name} /></ActionsCell>,
                           ]}>
                           {expanded && (
                             <div>
@@ -854,6 +867,7 @@ export function SharedProject({ token }: { token: string }) {
                   expanded={openProperties.has(p.property_id)}
                   onToggle={() => toggle(setOpenProperties, p.property_id)}
                   definitionActions={(id, name) => <TargetCollaboration api={api} entityType="property_definition" entityId={id} label={`${p.name}: ${name}`} rows={comments} onChanged={reloadComments} forceOpen={linkedComment?.target.entityId === id} />}
+                  commentCount={commentsFor('property', p.property_id).length}
                   commentButton={<CommentCountButton count={commentsFor('property', p.property_id).length} open={openThreads.has(`property:${p.property_id}`)} label={p.name} onClick={() => {
                     setOpenProperties((previous) => new Set(previous).add(p.property_id));
                     toggleThread(`property:${p.property_id}`);
@@ -939,7 +953,7 @@ export function SharedProject({ token }: { token: string }) {
                         uc.narrative ? useCasePreview(uc.narrative) : '—',
                         enumLabelOr('status', uc.status) || '—',
 
-                        <div key="actions" className="flex flex-wrap items-center gap-2"><CommentCountButton key="comments"
+                        <div key="actions" className="flex flex-wrap items-center gap-2"><ActionsCell commentCount={commentsFor('use_case', uc.id).length} comment={<CommentCountButton key="comments"
                           count={commentsFor('use_case', uc.id).length}
                           open={openThreads.has(`use_case:${uc.id}`)}
                           label={`use case ${uc.name}`}
@@ -949,7 +963,7 @@ export function SharedProject({ token }: { token: string }) {
                               setOpenThreads((prev) => new Set(prev).add(`use_case:${uc.id}`));
                             } else toggleThread(`use_case:${uc.id}`);
                           }}
-                        /><CopyMarkdownButton iconOnly getMarkdown={() => useCaseToMarkdown(uc)} label={`Copy use case ${uc.name} as Markdown`} /><CopyLinkButton anchor={ucAnchor} label={uc.name} /><CopyNameButton name={uc.name} />
+                        />}><CopyMarkdownButton iconOnly getMarkdown={() => useCaseToMarkdown(uc)} label={`Copy use case ${uc.name} as Markdown`} /><CopyLinkButton anchor={ucAnchor} label={uc.name} /><CopyNameButton name={uc.name} /></ActionsCell>
                         {uc.documentation_url && (
                           <a href={uc.documentation_url} target="_blank" rel="noreferrer" className={`text-xs ${linkClass}`}>
                             Documentation
@@ -1129,7 +1143,7 @@ export function SharedProject({ token }: { token: string }) {
                     <SharedEntityRow key={c.id ?? c.name} anchor={anchor} name={c.name} kind="catalog" expanded={expanded}
                       onToggle={() => toggle(setOpenCatalogs, anchor)} scrollMarginTop={stickyScrollMarginPx('event')}
                       cells={[c.description ?? '—', catalogMarketLabel(c.market, c.language) || '—', enumLabelOr('status', c.status) || '—', fields.length,
-                        <div key="actions" className="flex flex-wrap gap-1">{c.id && <TargetCollaboration api={api} entityType="catalog" entityId={c.id} label={c.name} rows={comments} onChanged={reloadComments} forceOpen={linkedComment?.target.entityId === c.id} />}<CopyNameButton name={c.name} /><CopyLinkButton anchor={anchor} label={c.name} /></div>]}>
+                        <div key="actions" className="flex flex-wrap gap-1">{c.id && <TargetCollaboration api={api} entityType="catalog" entityId={c.id} label={c.name} rows={comments} onChanged={reloadComments} forceOpen={linkedComment?.target.entityId === c.id} />}<RowActions><CopyNameButton name={c.name} /><CopyLinkButton anchor={anchor} label={c.name} /></RowActions></div>]}>
                       {meta && <p className="text-xs text-gray-500 [overflow-wrap:anywhere]">{meta}</p>}
                       {fields.length === 0 ? (
                         <p className="mt-2 text-xs text-gray-500">No fields defined.</p>
@@ -1173,7 +1187,7 @@ export function SharedProject({ token }: { token: string }) {
                     expanded={openMappings.has(id)} onToggle={() => toggle(setOpenMappings, id)} scrollMarginTop={stickyScrollMarginPx('event')}
                     cells={[renderRef({ kind: 'event', name: mapping.event_name }, mapping.event_name), mapping.variant_name ?? '—',
                       `${Object.values(mapping.field_map).filter(Boolean).length} / ${Object.keys(mapping.field_map).length}`,
-                      <div key="actions" className="flex flex-wrap gap-1"><CopyNameButton name={mapping.standard_event} /><CopyLinkButton anchor={id} label={mapping.standard_event} /></div>]}>
+                      <RowActions key="actions"><CopyNameButton name={mapping.standard_event} /><CopyLinkButton anchor={id} label={mapping.standard_event} /></RowActions>]}>
                     <StandardMappingBlock mapping={mapping} eventName={mapping.event_name} />
                   </SharedEntityRow>;
                 })}

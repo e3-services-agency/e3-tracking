@@ -75,8 +75,10 @@ describe('Shared property count and hierarchy', () => {
     const markdown = container!.querySelector<HTMLButtonElement>(`button[aria-label="Copy property ${longName} as Markdown"]`)!;
     expect(markdown.title).toBe(`Copy property ${longName} as Markdown`);
     expect(markdown.querySelector('span')!.className).toBe('sr-only');
+    // Secondary actions sit in the hover-revealed group; the cell keeps its width so hovering never shifts columns.
+    expect(markdown.parentElement!.className).toContain('row-actions');
     expect(markdown.parentElement!.className).toContain('flex-nowrap');
-    expect(markdown.parentElement!.className).toContain('min-w-[148px]');
+    expect(markdown.parentElement!.parentElement!.className).toContain('min-w-[148px]');
     expect(container!.querySelector('button button')).toBeNull();
   });
 });

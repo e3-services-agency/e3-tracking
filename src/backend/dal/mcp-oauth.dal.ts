@@ -14,6 +14,7 @@ export interface Grant {
     created_at: number;
     expires_at: number;
     revoked_at: number | null;
+    all_projects: number;
 }
 interface Token {
     token_hash: string;
@@ -56,10 +57,13 @@ export function consumePending(cookie: string, owner: string, csrf: string) { co
     throw new InvalidGrantError('Consent expired or invalid.'); getDb().prepare('DELETE FROM mcp_oauth_pending WHERE cookie_hash=?').run(p.cookie_hash); return p; }
 export function liveGrant(id: string): Grant { const g = getDb().prepare('SELECT * FROM mcp_oauth_grants WHERE id=? AND revoked_at IS NULL AND expires_at>?').get(id, now()) as Grant | undefined; if (!g)
     throw new InvalidTokenError('Invalid authorization.'); return g; }
-export function grantProjects(id: string): string[] { return (getDb().prepare('SELECT p.id FROM mcp_oauth_projects gp JOIN projects p ON p.id=gp.project_id JOIN clients c ON c.id=p.client_id WHERE gp.grant_id=? AND p.deleted_at IS NULL').all(id) as {
+export function grantProjects(id: string): string[] { if (getDb().prepare('SELECT 1 FROM mcp_oauth_grants WHERE id=? AND all_projects=1').get(id))
+    return (getDb().prepare('SELECT p.id FROM projects p JOIN clients c ON c.id=p.client_id WHERE p.deleted_at IS NULL').all() as {
+        id: string;
+    }[]).map(p => p.id); return (getDb().prepare('SELECT p.id FROM mcp_oauth_projects gp JOIN projects p ON p.id=gp.project_id JOIN clients c ON c.id=p.client_id WHERE gp.grant_id=? AND p.deleted_at IS NULL').all(id) as {
     id: string;
 }[]).map(p => p.id); }
-export function createGrant(owner: string, clientId: string, resource: string, scopes: string[], projects: string[], redirect: string, challenge: string) {
+export function createGrant(owner: string, clientId: string, resource: string, scopes: string[], projects: string[], redirect: string, challenge: string, allProjects = false) {
     const id = newId();
     const code = opaque();
     const db = getDb();
@@ -67,9 +71,9 @@ export function createGrant(owner: string, clientId: string, resource: string, s
         n: number;
     }).n >= 5000)
         throw new TooManyRequestsError('Connection limit reached.');
-    db.prepare('INSERT INTO mcp_oauth_grants VALUES(?,?,?,?,?,?,?,NULL)').run(id, owner, clientId, resource, JSON.stringify(scopes), now(), now() + 30 * 86400);
+    db.prepare('INSERT INTO mcp_oauth_grants(id,owner,client_id,resource,scopes_json,created_at,expires_at,revoked_at,all_projects) VALUES(?,?,?,?,?,?,?,NULL,?)').run(id, owner, clientId, resource, JSON.stringify(scopes), now(), now() + 30 * 86400, allProjects ? 1 : 0);
     const ins = db.prepare('INSERT INTO mcp_oauth_projects VALUES(?,?)');
-    for (const p of projects)
+    for (const p of allProjects ? [] : projects)
         ins.run(id, p);
     db.prepare('INSERT INTO mcp_oauth_codes VALUES(?,?,?,?,?,NULL)').run(hash(code), id, redirect, challenge, now() + 300);
     audit(owner, 'approved', id);
@@ -142,13 +146,14 @@ export function revokeToken(clientId: string, token: string) { const row = getDb
     client_id: string;
 } | undefined; if (row?.client_id === clientId)
     revokeGrant(row.id); }
-export function connections(owner: string) { return getDb().prepare('SELECT g.id,c.metadata_json,g.scopes_json,g.created_at,g.expires_at,g.revoked_at FROM mcp_oauth_grants g JOIN mcp_oauth_clients c ON c.id=g.client_id WHERE g.owner=? ORDER BY g.created_at DESC').all(owner) as {
+export function connections(owner: string) { return getDb().prepare('SELECT g.id,c.metadata_json,g.scopes_json,g.created_at,g.expires_at,g.revoked_at,g.all_projects FROM mcp_oauth_grants g JOIN mcp_oauth_clients c ON c.id=g.client_id WHERE g.owner=? ORDER BY g.created_at DESC').all(owner) as {
     id: string;
     metadata_json: string;
     scopes_json: string;
     created_at: number;
     expires_at: number;
     revoked_at: number | null;
+    all_projects: number;
 }[]; }
 export function remoteRun(grantId: string, projectId: string) { liveGrant(grantId); return (getDb().prepare('SELECT m.qa_run_id FROM mcp_oauth_qa_runs m JOIN qa_runs q ON q.id=m.qa_run_id WHERE m.grant_id=? AND m.project_id=? AND q.project_id=m.project_id AND q.archived=0').get(grantId, projectId) as {
     qa_run_id: string;

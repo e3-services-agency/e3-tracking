@@ -68,3 +68,29 @@ describe('0043 operational OAuth migration and restart', () => {
         expect(fresh.pragma('foreign_key_check')).toEqual([]);
     });
 });
+describe('0044 all_projects column', () => {
+    const cols = (db: Database.Database) => (db.prepare("PRAGMA table_info('mcp_oauth_grants')").all() as { name: string; dflt_value: string }[]).find(c => c.name === 'all_projects');
+    it('exists on a fresh DB and after upgrading from 0043, defaulting to 0', () => {
+        scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'e3-mcp-migration-'));
+        const file = path.join(scratch, 'db.sqlite');
+        const db = new Database(file);
+        db.pragma('foreign_keys=OFF');
+        db.exec('CREATE TABLE schema_migrations(id TEXT PRIMARY KEY,applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
+        for (const name of fs.readdirSync(migrations).filter(n => n.endsWith('.sql') && n <= '0043_mcp_oauth.sql').sort()) {
+            db.exec(fs.readFileSync(path.join(migrations, name), 'utf8'));
+            db.prepare('INSERT INTO schema_migrations(id) VALUES(?)').run(name);
+        }
+        expect(cols(db)).toBeUndefined();
+        db.prepare("INSERT INTO mcp_oauth_clients VALUES('c','{}',1)").run();
+        db.prepare("INSERT INTO mcp_oauth_grants VALUES('g','o','c','r','[]',1,2,NULL)").run();
+        db.close();
+        process.env.E3_DB_PATH = file;
+        const up = getDb();
+        expect(cols(up)?.dflt_value).toBe('0');
+        expect(up.prepare("SELECT all_projects FROM mcp_oauth_grants WHERE id='g'").get()).toEqual({ all_projects: 0 });
+        expect(() => up.prepare("UPDATE mcp_oauth_grants SET all_projects=2").run()).toThrow();
+        closeDb();
+        process.env.E3_DB_PATH = ':memory:';
+        expect(cols(getDb())).toBeTruthy();
+    });
+});

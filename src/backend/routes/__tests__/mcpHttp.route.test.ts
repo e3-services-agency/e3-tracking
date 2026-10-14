@@ -212,3 +212,56 @@ describe('authenticated stateless HTTPS MCP', () => {
         expect(OAuth.access(tpl.access_token, resource).scopes).toEqual(['projects:read', 'templates:read']);
     });
 });
+describe('all-projects grant (T-5-38)', () => {
+    const owner = 'one@example.com';
+    async function allGrant(extra: Record<string, string>, fields: Record<string, string> = {}) {
+        const params = new URLSearchParams({ client_id: sharedClient, response_type: 'code', redirect_uri: CLAUDE_CALLBACK, code_challenge: challenge, code_challenge_method: 'S256', resource, scope: 'projects:read', state: 's' });
+        const res = await fetch(base + '/mcp/oauth/authorize?' + params, { headers: headers({ 'X-Forwarded-Email': owner }) });
+        const html = await res.text();
+        expect(html).toMatch(/<input type="checkbox" name="all_projects" value="yes">/);
+        expect(html).toContain('All projects, including ones created later');
+        expect(html).toContain('Explicit selection is recommended.');
+        expect(html).not.toContain('checked');
+        const csrf = /name="csrf" value="([^"]+)"/.exec(html)![1], cookie = res.headers.get('set-cookie')!.split(';')[0];
+        const approved = await fetch(base + '/mcp/oauth/consent', { method: 'POST', headers: headers({ 'X-Forwarded-Email': owner, Cookie: cookie, 'Content-Type': 'application/x-www-form-urlencoded', ...extra }), body: new URLSearchParams({ csrf, decision: 'approve', ...fields }), redirect: 'manual' });
+        expect(approved.status).toBe(302);
+        const code = new URL(approved.headers.get('location')!).searchParams.get('code')!;
+        const issued = await (await token(sharedClient, code)).json() as { access_token: string };
+        return issued.access_token;
+    }
+    const listed = async (a: string) => JSON.stringify(await (await mcp(a, 'list_projects')).json());
+    it('stores the flag with no project rows, sees later projects, and explicit grants do not', async () => {
+        const all = await allGrant({ Origin: origin }, { all_projects: 'yes', project });
+        const explicit = await grant();
+        const g = OAuth.access(all, resource).grant;
+        expect(g.all_projects).toBe(1);
+        expect(getDb().prepare('SELECT COUNT(*) n FROM mcp_oauth_projects WHERE grant_id=?').get(g.id)).toEqual({ n: 0 });
+        const client = createClient({ key: 'mcp-late', name: 'Late' });
+        createProject({ key: 'mcp-later', name: 'Later', client_id: client.id });
+        expect(await listed(all)).toContain('mcp-later');
+        expect(await listed(explicit.access_token)).not.toContain('mcp-later');
+        const doc = await mcp(all, 'get_tracking_document', { project_key: 'mcp-later' });
+        expect(JSON.stringify(await doc.json())).not.toContain('access_denied');
+        expect((await mcp(explicit.access_token, 'get_tracking_document', { project_key: 'mcp-later' })).status).toBe(403);
+        const conns = await (await fetch(base + '/api/mcp/connections', { headers: headers({ 'X-Forwarded-Email': owner }) })).json();
+        const mine = conns.connections.find((c: { id: string }) => c.id === g.id);
+        expect(mine.all_projects).toBe(true);
+        expect(mine.projects).toBe('all');
+        const page = await (await fetch(base + '/mcp/connections', { headers: headers({ 'X-Forwarded-Email': owner }) })).text();
+        expect(page).toContain('All projects (including future ones)');
+        const other = conns.connections.find((c: { all_projects: boolean }) => !c.all_projects);
+        expect(Array.isArray(other.projects)).toBe(true);
+        expect(OAuth.revokeGrant(g.id, owner)).toBe(true);
+        expect((await mcp(all, 'list_projects')).status).toBe(401);
+    });
+    it('works for a browser-style post with Origin null and Sec-Fetch-Site same-origin, and rejects without all_projects or project', async () => {
+        const token1 = await allGrant({ Origin: 'null', 'Sec-Fetch-Site': 'same-origin' }, { all_projects: 'yes' });
+        expect(OAuth.access(token1, resource).grant.all_projects).toBe(1);
+        expect(await listed(token1)).toContain('mcp-selected');
+        const params = new URLSearchParams({ client_id: sharedClient, response_type: 'code', redirect_uri: CLAUDE_CALLBACK, code_challenge: challenge, code_challenge_method: 'S256', resource, scope: 'projects:read' });
+        const res = await fetch(base + '/mcp/oauth/authorize?' + params, { headers: headers({ 'X-Forwarded-Email': owner }) });
+        const csrf = /name="csrf" value="([^"]+)"/.exec(await res.text())![1];
+        const none = await fetch(base + '/mcp/oauth/consent', { method: 'POST', headers: headers({ 'X-Forwarded-Email': owner, Origin: origin, Cookie: res.headers.get('set-cookie')!.split(';')[0], 'Content-Type': 'application/x-www-form-urlencoded' }), body: new URLSearchParams({ csrf, decision: 'approve' }), redirect: 'manual' });
+        expect(none.status).toBe(400);
+    });
+});

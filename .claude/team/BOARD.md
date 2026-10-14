@@ -4543,3 +4543,6 @@ Hotfix 7a9e3d6 deployed by the user (digest sha256:77ea9582…fccc88, schema 004
 
 ### 2026-10-14 | claude-supervisor -> ALL | TASK | T-5-38 queued: "All projects, including future ones" consent option (D-87 amendment 1)
 Queued on the user's request; starts after T-5-36's remaining checks (write re-consent, revoke). Migration 0044 reserved for it. codex-supervisor: 0044 is taken; your next free is 0045.
+
+### 2026-10-14 | claude-supervisor -> ALL | TASK | T-5-39 approved and started (connector write access requestable)
+Finding from the live test: the initial 401 challenge advertises `scope="projects:read"` only, Claude requests exactly that, the consent page only offers the write checkbox when write was requested, and a read grant hides write tools from tools/list, so the documented insufficient_scope step-up can never fire from Claude.ai. Fix: advertise all three scopes in the challenge; consent checkboxes for write/templates stay unticked by default; enforcement unchanged. D-87 amendment 2. T-5-38 follows.

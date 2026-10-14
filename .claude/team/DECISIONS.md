@@ -615,3 +615,5 @@ D87 migration correction: use0042 for HTTPS operational authorization, honoring 
 
 
 D-87 amendment 1 (2026-10-14, user request after the live connector test): a consent may grant "All projects, including future ones". Explicit per-project selection remains the default and the recommended choice; the all-projects option is a deliberate checkbox on the consent page, stored as `mcp_oauth_grants.all_projects` (migration 0044) and resolved at call time against live, non-deleted projects, so a project created later is reachable through that grant without re-consent. The connections page and management API label such grants clearly. Revocation semantics unchanged. Task T-5-38.
+
+D-87 amendment 2 (2026-10-14): the initial `WWW-Authenticate` challenge on `/mcp` advertises every supported scope (`projects:read projects:write templates:read`) so a hosted client requests them up front; the consent page is the one place write or template access is granted, both unticked by default. Rationale: a read-only grant hides write tools, so the insufficient_scope step-up documented earlier cannot be triggered by Claude.ai. Task T-5-39.

@@ -63,7 +63,7 @@ beforeAll(async () => { process.env.NODE_ENV = 'test'; process.env.AUTH_MODE = '
 afterAll(async () => { await new Promise<void>(r => server.close(() => r())); closeDb(); for (const env of ['AUTH_MODE', 'TRUSTED_PROXY_CIDR', 'E3_DB_PATH', 'E3_PROJECT_KEY'])
     delete process.env[env]; });
 describe('authenticated stateless HTTPS MCP', () => {
-    it('returns exact metadata and Bearer challenges, never Google redirect/SPA', async () => { const meta = await fetch(base + '/.well-known/oauth-authorization-server', { headers: headers() }); expect(meta.status).toBe(200); const m = await meta.json(); expect(m.authorization_endpoint).toBe(origin + '/mcp/oauth/authorize'); expect(m.registration_endpoint).toBe(origin + '/mcp/oauth/register'); expect(m.client_id_metadata_document_supported).toBeUndefined(); const res = await fetch(base + '/mcp', { headers: headers() }); expect(res.status).toBe(401); expect(res.headers.get('www-authenticate')).toContain('scope="projects:read"'); const protectedMeta = await fetch(base + '/.well-known/oauth-protected-resource/mcp', { headers: headers() }); expect((await protectedMeta.json()).scopes_supported).toEqual(['projects:read', 'projects:write', 'templates:read']); expect(res.headers.get('www-authenticate')).toContain('/.well-known/oauth-protected-resource/mcp'); expect(res.headers.get('location')).toBeNull(); });
+    it('returns exact metadata and Bearer challenges, never Google redirect/SPA', async () => { const meta = await fetch(base + '/.well-known/oauth-authorization-server', { headers: headers() }); expect(meta.status).toBe(200); const m = await meta.json(); expect(m.authorization_endpoint).toBe(origin + '/mcp/oauth/authorize'); expect(m.registration_endpoint).toBe(origin + '/mcp/oauth/register'); expect(m.client_id_metadata_document_supported).toBeUndefined(); const res = await fetch(base + '/mcp', { headers: headers() }); expect(res.status).toBe(401); expect(res.headers.get('www-authenticate')).toContain('scope="projects:read projects:write templates:read"'); const protectedMeta = await fetch(base + '/.well-known/oauth-protected-resource/mcp', { headers: headers() }); expect((await protectedMeta.json()).scopes_supported).toEqual(['projects:read', 'projects:write', 'templates:read']); expect(res.headers.get('www-authenticate')).toContain('/.well-known/oauth-protected-resource/mcp'); expect(res.headers.get('location')).toBeNull(); });
     it('rejects unexpected host/origin, unsupported client/redirect and spoofed staff', async () => { expect((await fetch(base + '/mcp', { headers: headers({ Host: 'evil.example' }) })).status).toBe(403); expect((await register({ redirect_uris: ['http://localhost/callback'] })).status).toBe(400); expect((await register({ token_endpoint_auth_method: 'client_secret_basic' })).status).toBe(400); expect((await register({ client_uri: 'https://evil.example/metadata' })).status).toBe(400); const c = await (await register()).json(); const p = new URLSearchParams({ client_id: c.client_id, response_type: 'code', redirect_uri: CLAUDE_CALLBACK, code_challenge: challenge, code_challenge_method: 'S256', resource }); expect((await fetch(base + '/mcp/oauth/authorize?' + p, { headers: headers({ 'X-Forwarded-Email': 'evil@other.com' }) })).status).toBe(401); });
     it('enforces client, exact resource, PKCE and one-use authorization codes', async () => { const c = await (await register()).json(); const code = await consent(c.client_id); expect((await token(c.client_id, code, { resource: origin + '/other' })).status).toBe(400); expect((await token(c.client_id, code, { code_verifier: 'wrong' })).status).toBe(400); const wrong = await (await register()).json(); expect((await token(wrong.client_id, code)).status).toBe(400); expect((await token(c.client_id, code)).status).toBe(200); expect((await token(c.client_id, code)).status).toBe(400); });
     it('discovers the read-scope tools only (all 29 are registered, filtered by scope) and refuses write/template scope with full step-up challenge', async () => { const g = await grant(); const res = await json('/mcp', { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }, { Authorization: 'Bearer ' + g.access_token, Accept: 'application/json, text/event-stream' }); expect(res.status).toBe(200); expect((await res.json()).result.tools).toHaveLength(10); const write = await mcp(g.access_token, 'create_event', { name: 'denied', dry_run: true }); expect(write.status).toBe(403); expect(write.headers.get('www-authenticate')).toContain('projects:read projects:write'); expect((await mcp(g.access_token, 'list_use_case_templates')).status).toBe(403); expect(listEvents(project).some(e => e.name === 'denied')).toBe(false); });
@@ -185,5 +185,30 @@ describe('authenticated stateless HTTPS MCP', () => {
         expect((await conn({ Origin: 'https://evil.example', 'Sec-Fetch-Site': 'same-origin' })).status).toBe(403);
         // passes the origin gate, then fails on the bad csrf token (still 403 from the handler), so assert via the page header instead
         expect((await fetch(base + '/mcp/connections', { headers: headers({ 'X-Forwarded-Email': owner }) })).headers.get('referrer-policy')).toBe('same-origin');
+    });
+    it('advertises all scopes up front; write and templates are opt-in and unticked on the consent page', async () => {
+        const g0 = await grant();
+        const first = await fetch(base + '/mcp', { method: 'POST', headers: headers({ 'Content-Type': 'application/json' }), body: '{}' });
+        expect(first.status).toBe(401);
+        expect(first.headers.get('www-authenticate')).toContain('scope="projects:read projects:write templates:read"');
+        const all = 'projects:read projects:write templates:read';
+        const params = new URLSearchParams({ client_id: g0.client, response_type: 'code', redirect_uri: CLAUDE_CALLBACK, code_challenge: challenge, code_challenge_method: 'S256', resource, scope: all });
+        const html = await (await fetch(base + '/mcp/oauth/authorize?' + params, { headers: headers({ 'X-Forwarded-Email': 'one@example.com' }) })).text();
+        expect(html).toMatch(/<input type="checkbox" name="write" value="yes">/);
+        expect(html).toMatch(/<input type="checkbox" name="templates" value="yes">/);
+        expect(html).not.toContain('checked');
+        expect(html).not.toContain('This request is read-only');
+        params.set('scope', 'projects:read');
+        expect(await (await fetch(base + '/mcp/oauth/authorize?' + params, { headers: headers({ 'X-Forwarded-Email': 'one@example.com' }) })).text()).toContain('This request is read-only');
+        params.set('scope', 'projects:read bogus:scope');
+        expect((await fetch(base + '/mcp/oauth/authorize?' + params, { headers: headers({ 'X-Forwarded-Email': 'one@example.com' }), redirect: 'manual' })).status).not.toBe(200);
+        const tools = async (a: string) => (await (await json('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/list' }, { Authorization: 'Bearer ' + a, Accept: 'application/json, text/event-stream' })).json()).result.tools.length;
+        const readOnly = await grant('projects:read projects:write');
+        expect(await tools(readOnly.access_token)).toBe(10);
+        const writer = await grant('projects:read projects:write', 'one@example.com', true);
+        expect(OAuth.access(writer.access_token, resource).scopes).toEqual(['projects:read', 'projects:write']);
+        expect(await tools(writer.access_token)).toBe(27);
+        const tpl = await grant('projects:read templates:read');
+        expect(OAuth.access(tpl.access_token, resource).scopes).toEqual(['projects:read', 'templates:read']);
     });
 });

@@ -216,7 +216,7 @@ export function createMcpHttpRouter(testConfig?: McpHttpConfig) {
         }
     });
     router.all('/mcp', (req, res, next) => { if (!req.headers.authorization) {
-        res.setHeader('WWW-Authenticate', `Bearer scope="projects:read", resource_metadata="${resourceMetadata}"`);
+        res.setHeader('WWW-Authenticate', `Bearer scope="${MCP_SCOPES.join(' ')}", resource_metadata="${resourceMetadata}"`);
         deny(res, 401, 'invalid_token');
         return;
     } next(); }, requireBearerAuth({ verifier: provider, expectedResource: new URL(config.resource), resourceMetadataUrl: resourceMetadata }), express.json({ limit: '256kb' }), async (req: Request, res: Response) => {

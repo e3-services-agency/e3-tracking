@@ -1,4 +1,4 @@
-import { ClassBadge, SourceBadge, StatusBadge } from '@/src/components/ui/badges';
+import { Badge, ClassBadge, SourceBadge, StatusBadge } from '@/src/components/ui/badges';
 import { EntityIcon } from '@/src/components/ui/EntityIcon';
 import { EnumSelect } from '@/src/components/ui/EnumSelect';
 import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
@@ -151,6 +151,7 @@ export function Events() {
           (ev) =>
             !debouncedSearch ||
             ev.name.toLowerCase().includes(debouncedSearch) ||
+            (ev.business_name ?? '').toLowerCase().includes(debouncedSearch) ||
             (ev.description ?? '').toLowerCase().includes(debouncedSearch)
         ),
     [events, classFilter, debouncedSearch]
@@ -306,16 +307,16 @@ export function Events() {
             <thead className="bg-gray-50 border-b">
               <tr>
                 <HintTh className="w-12 px-2 py-3" hintScope="Events"><span className="sr-only">Expand</span></HintTh>
-                <SortableTh sort={sort} column="name" className="px-6 py-3 font-medium text-gray-500" hint="Name" hintScope="Events">Name</SortableTh>
-                <SortableTh sort={sort} column="class" className="px-6 py-3 font-medium text-gray-500" hint="Class" hintScope="Events">Class</SortableTh>
-                <SortableTh sort={sort} column="source" className="px-6 py-3 font-medium text-gray-500" hint="Source" hintScope="Events">Source</SortableTh>
-                <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" hint="Status" hintScope="Events">Status</SortableTh>
-                <SortableTh sort={sort} column="certified" className="px-6 py-3 font-medium text-gray-500" hint="Certified" hintScope="Events">
+                <SortableTh sort={sort} column="name" className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap" hint="Name" hintScope="Events">Name</SortableTh>
+                <SortableTh sort={sort} column="class" className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap" hint="Class" hintScope="Events">Class</SortableTh>
+                <SortableTh sort={sort} column="source" className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap" hint="Source" hintScope="Events">Source</SortableTh>
+                <SortableTh sort={sort} column="status" className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap" hint="Status" hintScope="Events">Status</SortableTh>
+                <SortableTh sort={sort} column="certified" className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap" hint="Certified" hintScope="Events">
                   <GlossaryTerm glossaryKey="certified">Certified</GlossaryTerm>
                 </SortableTh>
-                <SortableTh sort={sort} column="expiration" className="px-6 py-3 font-medium text-gray-500" hint="Expiration" hintScope="Events">Expiration</SortableTh>
-                <SortableTh sort={sort} column="properties" className="px-6 py-3 font-medium text-gray-500" hint="Properties" hintScope="Events">Properties</SortableTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Card" hintScope="Events">Card</HintTh>
+                <SortableTh sort={sort} column="expiration" className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap" hint="Expiration" hintScope="Events">Expiration</SortableTh>
+                <SortableTh sort={sort} column="properties" className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap" hint="Properties" hintScope="Events">Properties</SortableTh>
+                <HintTh className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap" hint="Card" hintScope="Events">Card</HintTh>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -332,24 +333,41 @@ export function Events() {
                         />
                       )}
                     </td>
-                    <td className="px-6 py-4 font-medium text-gray-900">
-                      <span className="inline-flex items-center gap-1.5">
+                    <td className="px-4 py-3 min-w-[18rem] max-w-md">
+                      <span className="inline-flex items-center gap-1.5 font-medium text-gray-900">
                         <EntityIcon kind="event" />{ev.name}<CopyNameButton name={ev.name} />
                       </span>
+                      {ev.business_name && ev.business_name !== ev.name && (
+                        <span className="ml-1.5 text-xs text-gray-500">{ev.business_name}</span>
+                      )}
+                      {/* The description is the first thing a reader needs to tell events apart; clamped to two lines, full text on hover. */}
+                      {ev.description ? (
+                        <p className="mt-0.5 text-xs text-gray-500 line-clamp-2" title={ev.description} data-testid="event-description">
+                          {ev.description}
+                        </p>
+                      ) : (
+                        <p className="mt-0.5 text-xs italic text-gray-400" data-testid="event-description">No description</p>
+                      )}
                     </td>
-                    <td className="px-6 py-4"><ClassBadge eventClass={ev.class} /></td>
-                    <td className="px-6 py-4" data-testid="event-source-cell">
+                    <td className="px-4 py-3"><ClassBadge eventClass={ev.class} /></td>
+                    <td className="px-4 py-3" data-testid="event-source-cell">
                       <span className="flex flex-col gap-0.5">
                         {(ev.sources ?? []).map((s) => <SourceBadge key={s.id} system={s.system} method={s.method} color={s.color} />)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-gray-500"><StatusBadge status={ev.status} /></td>
-                    <td className="px-6 py-4 text-gray-500" title={(ev.certified_reasons ?? []).join(', ') || undefined}>
-                      {ev.certified ?? 'n/a'}
+                    <td className="px-4 py-3 text-gray-500"><StatusBadge status={ev.status} /></td>
+                    <td className="px-4 py-3 text-gray-500">
+                      {ev.certified === 'yes' ? (
+                        <Badge tone="green">Yes</Badge>
+                      ) : ev.certified === 'no' ? (
+                        <Badge title={(ev.certified_reasons ?? []).join(', ') || undefined}>No</Badge>
+                      ) : (
+                        <span className="text-gray-400">n/a</span>
+                      )}
                     </td>
-                    <td className="px-6 py-4 text-gray-500">{expirationSummary(ev.expiration_json)}</td>
-                    <td className="px-6 py-4 text-gray-500">{ev.attached_property_count ?? 0}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{expirationSummary(ev.expiration_json)}</td>
+                    <td className="px-4 py-3 text-gray-500 tabular-nums">{ev.attached_property_count ?? 0}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); openEventCard(ev.id); }}
@@ -363,7 +381,7 @@ export function Events() {
                     (variantsByEventId[ev.id] ?? []).map((v) => (
                       <tr key={v.id} className="bg-gray-50 text-xs text-gray-600">
                         <td className="w-12" />
-                        <td className="px-6 py-2" colSpan={8}>
+                        <td className="px-4 py-2" colSpan={8}>
                           <span className="inline-flex items-center gap-1.5 font-medium text-gray-800"><EntityIcon kind="variant" />{v.name}</span>
                           {v.description && <span className="ml-2 text-gray-500">{v.description}</span>}
                         </td>

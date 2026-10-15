@@ -68,7 +68,7 @@ function SidebarContent({ onPick }: { onPick: () => void }) {
           </a>
         ))}
         <div className="px-3">
-          <SharedGoogleSignIn token={token} />
+          <SharedGoogleSignIn token={token} purpose={header.access === 'comment' ? 'comment' : 'access'} />
         </div>
       </div>
     </div>

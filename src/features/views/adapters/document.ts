@@ -60,8 +60,8 @@ export function eventRowsFromDocument(doc: Pick<TrackingDocument, 'events'>): Ev
   return doc.events.map(eventRowFromCard);
 }
 
-/** T-5-42: an event of the portal's document summary (T-5-41). The summary carries no expiration
- * and only variant names, so the row has no expiration and the variant name doubles as its id. */
+/** T-5-42: an event of the portal's document summary (T-5-41). The summary carries only variant
+ * names, so the variant name doubles as its id; expiration is in the summary since T-5-46. */
 export function eventRowFromSummary(e: TrackingDocumentSummaryEvent): EventViewRow {
   const cert = e.certification;
   return {
@@ -74,7 +74,7 @@ export function eventRowFromSummary(e: TrackingDocumentSummaryEvent): EventViewR
     status: e.status,
     certified: !cert?.applicable ? 'n/a' : cert.certified ? 'yes' : 'no',
     certified_reasons: cert?.reasons ?? [],
-    expiration: null,
+    expiration: expirationFromDocument(e.expiration),
     property_count: e.property_count,
     variants: e.variant_names.map((name) => ({ id: name, name, description: null })),
   };

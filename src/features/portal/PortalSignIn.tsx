@@ -24,7 +24,7 @@ export function PortalSignIn({ token, signedIn }: { token: string; signedIn: boo
           </p>
         )}
         <div className="mt-4">
-          <SharedGoogleSignIn token={token} />
+          <SharedGoogleSignIn token={token} purpose="access" />
         </div>
       </main>
     </div>

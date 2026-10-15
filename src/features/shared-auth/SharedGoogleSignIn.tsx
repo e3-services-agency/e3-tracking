@@ -2,8 +2,15 @@ import { CommentAvatar } from '../comments/CommentIdentity';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { loadGoogleIdentity, notifySharedIdentity, postGoogleAuth, readGoogleConfig, type SharedGoogleConfig } from './googleIdentity';
 
+/**
+ * What the Google identity is for on this page (T-5-46): `comment` names the commenter ("Commenting
+ * as", "Use guest identity"); `access` is for a visitor who cannot comment (a read link, or the
+ * listed-people sign-in screen), where the identity only opens the link ("Signed in as", "Sign out").
+ */
+export type SharedIdentityPurpose = 'comment' | 'access';
+
 /** Mount once per shared page: GIS owns a single browser prompt/configuration. */
-export function SharedGoogleSignIn({ token }: { token: string }) {
+export function SharedGoogleSignIn({ token, purpose = 'comment' }: { token: string; purpose?: SharedIdentityPurpose }) {
   const [config, setConfig] = useState<SharedGoogleConfig | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -49,20 +56,21 @@ export function SharedGoogleSignIn({ token }: { token: string }) {
   };
   if (!config && !error) return null;
   if (!config?.enabled && !config?.identity && !error) return null;
-  return <SharedGoogleIdentityView identity={config?.identity ?? null} busy={busy} error={error} buttonRef={button}
+  return <SharedGoogleIdentityView identity={config?.identity ?? null} busy={busy} error={error} buttonRef={button} purpose={purpose}
     onSignOut={() => void signOut()} onRetry={() => { setError(''); void reload(); }} />;
 }
 
 /** Normal-flow controls: the fixed shared-page bar keeps its original sticky offsets. */
-export function SharedGoogleIdentityView({ identity, busy, error, buttonRef, onSignOut, onRetry }: {
+export function SharedGoogleIdentityView({ identity, busy, error, buttonRef, onSignOut, onRetry, purpose = 'comment' }: {
   identity: SharedGoogleConfig['identity']; busy: boolean; error: string;
-  buttonRef?: React.Ref<HTMLDivElement>; onSignOut: () => void; onRetry: () => void;
+  buttonRef?: React.Ref<HTMLDivElement>; onSignOut: () => void; onRetry: () => void; purpose?: SharedIdentityPurpose;
 }) {
-  return <div className="flex w-full min-w-0 flex-wrap items-center gap-2 py-3 text-sm" aria-label="Comment identity">
+  const forComments = purpose === 'comment';
+  return <div className="flex w-full min-w-0 flex-wrap items-center gap-2 py-3 text-sm" aria-label={forComments ? 'Comment identity' : 'Sign-in identity'}>
     {identity ? <>
       <CommentAvatar name={identity.name} avatarUrl={identity.avatar_url} kind={identity.kind} />
-      <span className="min-w-0 max-w-full break-words [overflow-wrap:anywhere]">Commenting as {identity.name}</span>
-      <button type="button" className="max-w-full rounded border px-2 py-1" disabled={busy} onClick={onSignOut}>Use guest identity</button>
+      <span className="min-w-0 max-w-full break-words [overflow-wrap:anywhere]">{forComments ? 'Commenting as' : 'Signed in as'} {identity.name}</span>
+      <button type="button" className="max-w-full rounded border px-2 py-1" disabled={busy} onClick={onSignOut}>{forComments ? 'Use guest identity' : 'Sign out'}</button>
     </> : <div ref={buttonRef} className="min-w-0 max-w-full" aria-label="Continue with Google" aria-busy={busy} />}
     {busy && <span role="status">Updating identity…</span>}
     {error && <><span role="status" className="min-w-0 max-w-full break-words text-muted-foreground [overflow-wrap:anywhere]">{error}</span><button type="button" className="max-w-full rounded border px-2 py-1" onClick={onRetry}>Retry sign-in</button></>}

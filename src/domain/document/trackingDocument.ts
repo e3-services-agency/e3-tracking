@@ -533,6 +533,9 @@ export interface TrackingDocumentSummaryEvent {
   identifiers?: string[];
   certification: EventCardCertification;
   quality: EventCardQuality;
+  /** T-5-46: `EventCard.expiration` (effective setting and its source), already public in the full
+   * card; restores the portal Events table's Expiration column. */
+  expiration: EventCardExpiration;
   /** `EventCard.variants[].name`, in card order. */
   variant_names: string[];
   /** `EventCard.properties.length`. */

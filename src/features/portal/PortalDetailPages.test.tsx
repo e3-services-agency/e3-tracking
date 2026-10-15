@@ -127,6 +127,18 @@ async function choose(select: HTMLSelectElement, value: string) {
 }
 const cardRequests = () => requested.filter((u) => u.includes('/card.json'));
 
+describe('events list', () => {
+  it('shows the expiration of each event from the summary, without loading any card (T-5-46)', async () => {
+    await mount(`/shared/${TOKEN}/events`);
+    const table = container!.querySelector('table')!;
+    expect([...table.querySelectorAll('th')].map((th) => th.textContent)).toContain('Expiration');
+    const rowText = (name: string) => [...table.querySelectorAll('tbody tr')].find((tr) => tr.textContent?.includes(name))?.textContent ?? '';
+    expect(rowText('cart_update')).toContain('90 days');
+    expect(rowText('purchase')).toContain('project default');
+    expect(cardRequests()).toEqual([]);
+  });
+});
+
 describe('event page', () => {
   it('fetches the card on open only, shows a loading state, then the card with its expiration and no internal values', async () => {
     let release: () => void = () => undefined;

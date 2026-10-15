@@ -110,6 +110,7 @@ beforeAll(async () => {
     owner_technical: SECRETS.owner_technical,
     agent_instructions: SECRETS.agent_instructions,
     not_suitable_for: 'Client-facing guidance t541',
+    expiration_json: { enabled: true, count: 6, units: 'months' },
   });
   cartEventId = cart.id;
   const action = PropertyDAL.createProperty(projectId, {
@@ -219,7 +220,8 @@ describe('GET /api/shared/:token/document-summary.json (T-5-41)', () => {
     expect(Object.keys(cart).sort()).toEqual(
       [
         'id', 'name', 'business_name', 'class', 'implementation_method', 'status', 'priority', 'description',
-        'sources', 'identifiers', 'certification', 'quality', 'variant_names', 'property_count', 'open_finding_count',
+        'sources', 'identifiers', 'certification', 'quality', 'expiration', 'variant_names', 'property_count',
+        'open_finding_count',
       ].sort()
     );
     const fullCart = fullEvents.find((e: { name: string }) => e.name === 'cart_update');
@@ -229,6 +231,11 @@ describe('GET /api/shared/:token/document-summary.json (T-5-41)', () => {
     expect(cart.open_finding_count).toBe(fullCart.findings.length);
     expect(cart.certification).toEqual(fullCart.certification);
     expect(cart.quality).toEqual(fullCart.quality);
+    // T-5-46: the effective expiration and its source, the same value as the public card.
+    expect(cart.expiration).toEqual({ effective: { enabled: true, count: 6, units: 'months' }, source: 'event' });
+    expect(cart.expiration).toEqual(fullCart.expiration);
+    const pageVisit = summaryEvents.find((e: { name: string }) => e.name === 'page_visit');
+    expect(pageVisit.expiration).toEqual(fullEvents.find((e: { name: string }) => e.name === 'page_visit').expiration);
     expect(cart.business_name).toBe('Cart update');
     expect(cart.priority).toBe('high');
   });

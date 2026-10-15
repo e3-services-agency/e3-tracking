@@ -56,7 +56,7 @@ export interface EventViewRow {
   certified: 'yes' | 'no' | 'n/a';
   certified_reasons: string[];
   /** `inherited` = the project default applies (shown muted). `null` when the source does not carry
-   * it (the portal's document summary); the column is left out when no row has one. */
+   * it (the document summary carries it since T-5-46); the column is left out when no row has one. */
   expiration: { label: string; inherited: boolean } | null;
   property_count: number;
   variants: EventVariantRow[];

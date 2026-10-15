@@ -82,15 +82,16 @@ describe('document adapters', () => {
     expect(eventRowFromCard(card({ sources: undefined, variants: [], properties: [] }))).toMatchObject({ sources: [], variants: [], property_count: 0 });
   });
 
-  it('T-5-42: maps a summary event without expiration, with its property count and variant names', () => {
+  it('T-5-42/T-5-46: maps a summary event with its expiration, property count and variant names', () => {
     const row = eventRowFromSummary({
       id: 'e1', name: 'purchase', business_name: 'Purchase', class: 'custom', status: 'implemented', priority: null, description: 'Order placed',
       sources: [{ id: 's1', name: 'Shopify', system: 'shopify', method: 'gtm', color: 'source-2' }],
       certification: { applicable: true, certified: true, reasons: [] },
       quality: { acknowledged: { error: 0, warning: 0, info: 0 } },
+      expiration: { effective: { enabled: true, count: 3, units: 'months' }, source: 'event' },
       variant_names: ['purchase[type=online]'], property_count: 7, open_finding_count: 0,
     } as never);
-    expect(row).toMatchObject({ id: 'e1', certified: 'yes', expiration: null, property_count: 7, variants: [{ id: 'purchase[type=online]', name: 'purchase[type=online]', description: null }] });
+    expect(row).toMatchObject({ id: 'e1', certified: 'yes', expiration: { label: '3 months', inherited: false }, property_count: 7, variants: [{ id: 'purchase[type=online]', name: 'purchase[type=online]', description: null }] });
     expect(row.sources).toEqual([{ id: 's1', name: 'Shopify', system: 'shopify', method: 'gtm', color: 'source-2' }]);
   });
 

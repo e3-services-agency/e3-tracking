@@ -35,13 +35,15 @@ const json = (value: unknown, status = 200) => new Response(JSON.stringify(value
 export interface PortalFetchOptions {
   doc: () => Partial<TrackingDocument>;
   comments?: () => unknown[];
+  /** Rows of the project-wide history (`/history?limit=…`, the overview's recent changes). */
+  history?: () => unknown[];
   access?: 'read' | 'comment';
   /** Status of the share header route (404 = revoked or unknown link). */
   status?: number;
   requested?: string[];
 }
 
-export function portalFetch({ doc, comments = () => [], access = 'read', status = 200, requested = [] }: PortalFetchOptions) {
+export function portalFetch({ doc, comments = () => [], history = () => [], access = 'read', status = 200, requested = [] }: PortalFetchOptions) {
   return async (url: string | URL | Request) => {
     const address = String(url);
     requested.push(address);
@@ -60,6 +62,7 @@ export function portalFetch({ doc, comments = () => [], access = 'read', status 
       return event ? json(event) : json({ error: 'This share link is not valid.', code: 'SHARE_NOT_FOUND' }, 404);
     }
     if (address.endsWith('/comments')) return json(comments());
+    if (/\/history\?limit=\d+$/.test(address)) return json({ rows: history(), next_cursor: null });
     if (address.endsWith('/qa-reports')) return json([]);
     if (address.endsWith('/history')) return json({ current_status: 'open', current_acknowledged: false, appearances: [] });
     if (address.endsWith('/identity')) return json({ name: 'Blue Fox', kind: 'guest', verified: false, avatar_url: null, name_chosen: false });

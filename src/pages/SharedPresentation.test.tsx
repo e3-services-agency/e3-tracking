@@ -87,7 +87,7 @@ describe('Client portal shell', () => {
     expect(nav.querySelector('[data-testid="portal-nav-qa"]')).not.toBeNull();
     // Empty sections are left out, as the single page left them out.
     expect(nav.querySelector('[data-testid="portal-nav-catalogs"]')).toBeNull();
-    expect(requested.map((u) => u.replace(`/api/shared/${TOKEN}`, ''))).toEqual(['', '/document-summary.json', '/comments']);
+    expect(requested.map((u) => u.replace(`/api/shared/${TOKEN}`, ''))).toEqual(['', '/document-summary.json', '/comments', '/history?limit=5']);
   });
 
   it('opens one view at a time by path, with no Expand all, no edit controls and public-only requests', async () => {

@@ -237,6 +237,13 @@ export type FindingKind = (typeof FINDING_KINDS)[number];
 export const FINDING_SEVERITIES = ['error', 'warning', 'info'] as const;
 export type FindingSeverity = (typeof FINDING_SEVERITIES)[number];
 
+// ----- Finding priority (D-89, T-5-47) -----
+// Derived at read time by `src/domain/findingPriority.ts` (severity x business tier), never stored.
+export const FINDING_PRIORITIES = ['P1', 'P2', 'P3', 'P4'] as const;
+export type FindingPriority = (typeof FINDING_PRIORITIES)[number];
+export const FINDING_PRIORITY_TIERS = ['transactional', 'required', 'important', 'normal'] as const;
+export type FindingPriorityTier = (typeof FINDING_PRIORITY_TIERS)[number];
+
 // ----- Finding status -----
 // No manual "mute": resolved only by `runComparison` no longer producing the fingerprint (D-21).
 export const FINDING_STATUSES = ['open', 'resolved'] as const;

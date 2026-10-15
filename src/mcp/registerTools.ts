@@ -127,11 +127,12 @@ export function registerTools(server: McpServer): void {
   register(
     server,
     'list_findings',
-    'Open findings (or another status), optionally filtered by event, severity, comparison, kind, or QA run.',
+    'Open findings (or another status), highest priority first (P1-P4 with reasons; transactional backend events first), optionally filtered by event, severity, priority, comparison, kind, or QA run.',
     {
       ...projectKeyShape,
       event: z.string().optional(),
       severity: z.string().optional(),
+      priority: z.string().optional().describe('Comma-separated priorities to keep, e.g. "P1,P2".'),
       comparison: z.string().optional(),
       kind: z.string().optional(),
       status: z.string().optional(),

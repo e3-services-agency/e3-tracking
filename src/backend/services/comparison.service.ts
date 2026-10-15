@@ -94,6 +94,8 @@ import { parseDataManagerCustomers, type DataManagerCustomersModel } from '../..
 import { mergeStandardEvents, mergeConsentKeys, STANDARD_CUSTOMER_PROPERTIES, type StandardEventSeed } from '../../domain/bloomreach';
 import type { AllowedValue } from '../dal/property.dal';
 import type { ComparisonId, FindingKind } from '../../domain/enums';
+import { loadFindingPriorityContext } from './findingPriority.service';
+import { findingPriorityFields } from '../../domain/findingPriority';
 
 /** Finding kinds that are inherently project-wide, not attributable to a single QaRun (see the module comment). */
 const PROJECT_LEVEL_FINDING_KINDS: ReadonlySet<FindingKind> = new Set(['missing_event', 'shape_inconsistent']);
@@ -632,7 +634,10 @@ export function runComparison(projectId: string, options: {captureReport?: boole
   const before=new Map(previous.map(f=>[f.id,f]));
   const items=FindingDAL.listFindings(projectId).flatMap<{finding:FindingDAL.FindingRow;disposition:'produced'|'resolved'}>(f=>fingerprints.has(f.fingerprint)?[{finding:f,disposition:'produced' as const}]:
    before.has(f.id) && (before.get(f.id)!.status==='open'||before.get(f.id)!.resolved_by==='user') && f.status==='resolved' && f.resolved_by===null?[{finding:f,disposition:'resolved' as const}]:[]);
-  const report=QaReportDAL.captureQaReport(projectId,{type:'whole_project',comparison_ids:runs.map(r=>r.comparison),requested_event_id:options.event??null,requested_qa_run_id:options.qa_run_id??null,participating_runs:QaRunDAL.listNonArchivedQaRuns(projectId).map(r=>({id:r.id,environment:r.environment,kind:r.kind,started_at:r.started_at,...(r.source?{source:r.source}:{}),...(r.manifest_json?{sample:qaSampleFacts(r.manifest_json)}:{}),...(Array.isArray(r.samples_json)&&r.samples_json.length>0?{samples:r.samples_json}:{})}))},summary,items);
+  // D-89 (T-5-47): freeze each item's priority as it is now (one batched context for every item).
+  const priorityContext=loadFindingPriorityContext(projectId);
+  const prioritisedItems=items.map(item=>({...item,priority:findingPriorityFields(item.finding,priorityContext)}));
+  const report=QaReportDAL.captureQaReport(projectId,{type:'whole_project',comparison_ids:runs.map(r=>r.comparison),requested_event_id:options.event??null,requested_qa_run_id:options.qa_run_id??null,participating_runs:QaRunDAL.listNonArchivedQaRuns(projectId).map(r=>({id:r.id,environment:r.environment,kind:r.kind,started_at:r.started_at,...(r.source?{source:r.source}:{}),...(r.manifest_json?{sample:qaSampleFacts(r.manifest_json)}:{}),...(Array.isArray(r.samples_json)&&r.samples_json.length>0?{samples:r.samples_json}:{})}))},summary,prioritisedItems);
   return {...summary,report_id:report.id,report_sequence:report.report_sequence};
  }).immediate();
 }

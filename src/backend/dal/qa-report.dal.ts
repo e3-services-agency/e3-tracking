@@ -64,10 +64,14 @@ export function getQaReport(projectId: string, id: string): QaReport & {
     return { ...result, items: items.map(i => ({ id: String(i.id), finding_id: String(i.finding_id), finding_sequence: Number(i.finding_sequence), disposition: i.disposition as ReportItem['disposition'], recorded: JSON.parse(String(i.snapshot_json)), current_status: typeof i.current_status === 'string' ? i.current_status : null, current_acknowledged: i.current_resolved_by === 'user' })) };
 }
 export function findingAppearances(projectId: string, id: string, publicOnly = false) { return getDb().prepare(`SELECT r.id AS report_id,r.report_sequence,r.completed_at,i.disposition FROM qa_report_findings i JOIN qa_reports r ON r.id=i.report_id AND r.project_id=i.project_id WHERE i.project_id=? AND i.finding_id=? ${publicOnly ? 'AND i.public_visible=1' : ''} ORDER BY r.report_sequence DESC`).all(projectId, id); }
-/** Diagnostic payloads are copied, never references to mutable observations. */
+/** Diagnostic payloads are copied, never references to mutable observations.
+ * D-89 (T-5-47): an item's `priority` (the derived `priority`, `priority_rank`, `priority_reasons`
+ * at capture time) is frozen into its recorded JSON, so a later change to an event's priority, method
+ * or use cases never changes what the report said. Additive: older reports have no such keys. */
 export function captureQaReport(projectId: string, scope: Record<string, unknown>, summary: Record<string, unknown>, items: {
     finding: FindingRow;
     disposition: 'produced' | 'resolved';
+    priority?: { priority: string; priority_rank: number; priority_reasons: string[] };
 }[]): QaReport {
     const db = getDb(), id = newId(), sequence = allocateQaSequence(projectId, 'report'), completed = nowIso();
     const seen = new Set<string>();
@@ -81,9 +85,10 @@ export function captureQaReport(projectId: string, scope: Record<string, unknown
         }[]).map(row => [row.id, row.name]))]));
     const label = (table: string, ref: string | null): string | null => ref ? labels.get(table)?.get(ref) ?? null : null;
     const insert = db.prepare('INSERT INTO qa_report_findings(id,project_id,report_id,finding_id,finding_sequence,disposition,public_visible,snapshot_json) VALUES (?,?,?,?,?,?,?,?)');
-    for (const { finding: f, disposition } of uniqueItems) {
+    for (const { finding: f, disposition, priority } of uniqueItems) {
         const recorded = { comparison: f.comparison, kind: f.kind, severity: f.severity, status: f.status, acknowledged: f.resolved_by === 'user', first_seen_at: f.first_seen_at, last_seen_at: f.last_seen_at, resolved_at: f.resolved_at, message: f.message, expected: f.expected_json, actual: f.actual_json,
-            references: { event_id: f.event_id, variant_id: f.variant_id, property_id: f.property_id, observation_id: f.observation_id, qa_run_id: f.qa_run_id }, labels: { event: label('events', f.event_id), variant: label('variants', f.variant_id), property: label('properties', f.property_id) } };
+            references: { event_id: f.event_id, variant_id: f.variant_id, property_id: f.property_id, observation_id: f.observation_id, qa_run_id: f.qa_run_id }, labels: { event: label('events', f.event_id), variant: label('variants', f.variant_id), property: label('properties', f.property_id) },
+            ...(priority ? { priority: priority.priority, priority_rank: priority.priority_rank, priority_reasons: [...priority.priority_reasons] } : {}) };
         insert.run(newId(), projectId, id, f.id, f.finding_sequence, disposition, !f.event_id || !!db.prepare('SELECT id FROM events WHERE id=? AND project_id=? AND deleted_at IS NULL').get(f.event_id, projectId) ? 1 : 0, JSON.stringify(recorded));
     }
     return { id, report_sequence: sequence, completed_at: completed, snapshot_version: 1, scope, summary: capturedSummary };

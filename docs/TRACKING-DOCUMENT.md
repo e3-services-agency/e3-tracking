@@ -56,7 +56,7 @@ There is only one version today (`1`); `?version=1` and the unqualified request 
   sources: [...],            // D-62: { id, name, system, method, event_count }
   use_cases: [...],          // ordered requirements resolved to display names, plus narrative
   standard_event_mappings: [...],
-  findings_summary: { open: {error, warning, info}, by_comparison: {...} },
+  findings_summary: { open: {error, warning, info}, by_comparison: {...}, open_p1_count },  // open_p1_count: D-89
   unattached_findings: EventCardFinding[],  // open findings with no owning event card, fix round 2
   limits: { event_types: {count, limit}, max_properties_per_event: [...] },
 }
@@ -91,7 +91,7 @@ field list is present:
 | `use_cases[]` | `{code, name, level}` for every use case with a requirement touching this event (directly or via a variant); `level` is `R` if any matching requirement is required, else `O`. |
 | `freshness` | `{last_observation_at, observation_count}`, live-resolved against current definitions (not the observation's stored `event_id`/`variant_id`, which only refresh on a comparison recompute). |
 | `quality` | `{open: {error, warning, info}, acknowledged: {error, warning, info}, by_comparison}` — open `Finding` counts for this event, across every comparison; `acknowledged` (D-42, T-2-09 fix round) is the same breakdown for findings a person resolved by hand whose fingerprint still reproduced as of the last recompute (excluded from `open`/`findings[]`, but still counted by `certification`). |
-| `findings[]` | Every currently-open `Finding` for this event, across every comparison and severity, **uncapped** (D-40 Q9, fix round): `id`, `comparison`, `kind`, `severity`, `property_id`/`property` (resolved name), `variant_id`/`variant`, `rule` (the originating rule's name, for a `rule_violation`/`bound_violation` finding; `null` otherwise), `message`, `expected`, `actual`, `qa_run_id`, `first_seen`, `last_seen`. |
+| `findings[]` | Every currently-open `Finding` for this event, across every comparison and severity, **uncapped** (D-40 Q9, fix round): `id`, `comparison`, `kind`, `severity`, `property_id`/`property` (resolved name), `variant_id`/`variant`, `rule` (the originating rule's name, for a `rule_violation`/`bound_violation` finding; `null` otherwise), `message`, `expected`, `actual`, `qa_run_id`, `first_seen`, `last_seen`, and (D-89, T-5-47) `priority`, `priority_rank`, `priority_reasons` (see "Finding priority" below). Sorted by `priority_rank`. |
 | `codegen` | Snippets per implementation method (same generator as the docs export, D-63, T-4-17). Original keys stay: `gtm` (the dataLayer push plus the GTM template, `datalayer` + `gtm_template`), `web_sdk` (now the new Web SDK, `brweb.track(event, payload)`), `tracking_api`. Additive keys: `datalayer` (the reset push `{ bloomreach: null }` and the namespaced push, `bloomreach.event` / `properties` / `item` / `items`, with a header comment stating this is E3's recommended practice and validation always runs on the Bloomreach payload), `gtm_template` (the fixed `brPayload` transformation, the event's state-list rules and the GTM custom template setup), `web_sdk_legacy` (`exponea.track`), `sdk_emits` and `sdk_default_properties` (`sdk_auto` events only), `note` (one line on why tabs are absent for `server_api`/`sdk_auto`). Keys that do not apply to the event's `implementation_method` are empty strings: `client_web` has the dataLayer, GTM, both Web SDK snippets and the Tracking API; `server_api` only `tracking_api` plus `note`; `sdk_auto` only `sdk_emits`, `sdk_default_properties` and `note`. |
 | `sdk_default_properties` | The fixed `SDK_DEFAULT_PROPERTIES` list (`os`, `browser`, `device`, `location`) — attributes the Bloomreach SDK attaches automatically, never flagged as unexpected. |
 
@@ -163,7 +163,8 @@ The client portal loads the document in two steps instead of downloading every c
   carries `id`, `name`, `business_name`, `class`, `implementation_method`, `status`, `priority`,
   `description`, `sources`, `identifiers`, `certification`, `quality` and (T-5-46) `expiration`,
   with the same values as the public card, plus `variant_names` (the card's `variants[].name`),
-  `property_count` (`properties.length`) and `open_finding_count` (`findings.length`). Every other
+  `property_count` (`properties.length`), `open_finding_count` (`findings.length`) and (D-89,
+  T-5-47) `open_p1_count` (how many of those findings are P1). Every other
   top-level section is unchanged. The event fields are an allowlist, so a field added to `EventCard` later does not
   appear in the summary until it is added to the type.
 - `GET /api/shared/:token/events/:eventId/card.json` returns one public `EventCard`, equal to the
@@ -171,7 +172,8 @@ The client portal loads the document in two steps instead of downloading every c
 - `GET /api/shared/:token/findings.json` (T-5-42, D-88 amendment 1) returns `{ events, unattached_findings }`:
   `id`, `name` and `findings` of each public event that has findings, plus the document's
   `unattached_findings`, from the same light public document as the summary. The portal QA view
-  reads it.
+  reads it. Each list is in priority order, and (D-89, T-5-47) the events are ordered by their best
+  finding's `priority_rank` (ties keep the document order), so events with P1 findings come first.
 
 Both are additive and leave `version` at 1. Internally `buildTrackingDocument(projectId, { light,
 eventIds })` builds them: `light` skips each card's coverage grid and codegen (left empty, then
@@ -212,9 +214,39 @@ The HTML documentation export (`export.service.ts`) renders the same list as an 
 without an event" table after the per-event sections, using `docs/sections.ts#renderFindingsTable`
 with a custom heading (omitted entirely when the array is empty, like the per-event table).
 
+### Finding priority (D-89, T-5-47)
+
+Every finding in `EventCard.findings[]` and `unattached_findings[]` carries three additive fields,
+derived at read time by the pure `src/domain/findingPriority.ts` and never stored (so they never
+go stale when an event's priority, implementation method or use cases change):
+
+- `priority`: `P1` | `P2` | `P3` | `P4`, from the severity and the business tier of the finding's event.
+  Tiers, highest first: **transactional** (the event's implementation method is `server_api`, data
+  sent from the client's backend through the Tracking API), **required** (a level `R` requirement of
+  a use case that is not `dropped` targets the event, one of its variants, or the finding's property
+  on that event), **important** (event priority `critical` or `high`), **normal** (everything else,
+  including findings with no event).
+
+  | | transactional | required | important | normal |
+  |---|---|---|---|---|
+  | error | P1 | P1 | P2 | P2 |
+  | warning | P2 | P3 | P3 | P4 |
+  | info | P3 | P4 | P4 | P4 |
+- `priority_rank`: one integer, lower first: priority, then severity, then tier, then event priority
+  (a missing one after `low`), then `finding_sequence`. Stable for identical inputs.
+- `priority_reasons`: plain text, the severity first (`Error: blocks certification`, `Warning`,
+  `Info`), then every tier that holds (`Transactional backend event`, `Required by UC-01, UC-02`
+  with at most three use case codes then `+N`, `Event priority high`). Only data the public document
+  already carries, so the public projection keeps the field as is.
+
+`findings_summary.open_p1_count` counts open P1 findings across the project. Certification is
+unchanged: only open and acknowledged error findings block it. QA reports freeze each item's
+priority at capture (see `docs/SHARING.md`).
+
 ### `sortEventCardFindings` ordering (WARNING 1 fix round)
 
-Two findings can share severity, comparison, kind, property, variant and message and still differ
+Since D-89 the comparator sorts by `priority_rank` first; the content tie-breaks below only apply
+to findings with an equal rank. Two findings can share severity, comparison, kind, property, variant and message and still differ
 only in `expected`/`actual` — e.g. a `cross_event` rule ("items total") violated by two different
 parent rows. The comparator's tie-break, in order: severity, comparison, kind, property, variant,
 message, then `JSON.stringify(expected)`, then `JSON.stringify(actual)`, then `id`. This makes the

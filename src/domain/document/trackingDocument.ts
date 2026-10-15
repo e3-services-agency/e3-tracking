@@ -16,7 +16,7 @@
  * requests an older version; the previous version is kept servable for one phase behind current
  * (see `docs/TRACKING-DOCUMENT.md`).
  */
-import type { ComparisonId, EventClass, FindingKind, FindingSeverity, ImplementationMethod, PropertyKind } from '../enums';
+import type { ComparisonId, EventClass, FindingKind, FindingPriority, FindingSeverity, ImplementationMethod, PropertyKind } from '../enums';
 import type { PropertyDerivation } from '../codegen/derivation';
 import type { PropertyCategory } from '../propertyCategory';
 import type { NamingConvention } from '../enums';
@@ -62,6 +62,15 @@ export interface EventCardFinding {
   qa_run_id: string | null;
   first_seen: string;
   last_seen: string;
+  /** D-89 (T-5-47), additive: derived at read time from severity x the event's business tier
+   * (transactional backend event > required by a use case > event priority critical/high). Optional
+   * only so older documents and fixtures still type-check; every build fills them. */
+  priority?: FindingPriority;
+  /** Sort key, lower first: priority, severity, tier, event priority, finding number. */
+  priority_rank?: number;
+  /** Plain public text: the severity first, then each tier that holds ("Transactional backend
+   * event", "Required by UC-01, UC-02", "Event priority high"). */
+  priority_reasons?: string[];
 }
 
 export interface EventCardAllowedValue {
@@ -501,7 +510,8 @@ export interface TrackingDocument {
   sources?: TrackingDocumentSource[];
   use_cases: TrackingDocumentUseCase[];
   standard_event_mappings: TrackingDocumentStandardEventMapping[];
-  findings_summary: { open: FindingSeverityCounts; by_comparison: Record<string, FindingSeverityCounts> };
+  /** `open_p1_count` (D-89, T-5-47, additive): open findings of priority P1 across the project. */
+  findings_summary: { open: FindingSeverityCounts; by_comparison: Record<string, FindingSeverityCounts>; open_p1_count?: number };
   /** Every currently-open finding whose `event_id` is `null` or does not resolve to an event in
    * `events[]` above (fix round 2, D-40 Q9 follow-up): a cross-event finding (e.g.
    * `shape_inconsistent`, computed across every event observing a property) or a project/consent-
@@ -542,6 +552,8 @@ export interface TrackingDocumentSummaryEvent {
   property_count: number;
   /** `EventCard.findings.length` (every severity). */
   open_finding_count: number;
+  /** D-89 (T-5-47), additive: how many of those findings are priority P1. */
+  open_p1_count: number;
 }
 
 /** T-5-41 (D-88): the public document with `events` reduced to `TrackingDocumentSummaryEvent`;

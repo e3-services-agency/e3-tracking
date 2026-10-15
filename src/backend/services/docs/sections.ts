@@ -755,6 +755,9 @@ export interface FindingForDocs {
   /** The originating rule's name (fix round 2), `null` for a finding that did not come from a rule. */
   rule: string | null;
   message: string | null;
+  /** D-89 (T-5-47): the derived priority and its reasons (shown as the cell's tooltip). */
+  priority?: string;
+  priority_reasons?: string[];
 }
 
 /**
@@ -769,6 +772,7 @@ export function renderFindingsTable(findings: FindingForDocs[], heading = 'Open 
   const rows = findings
     .map(
       (f) => `<tr>
+        <td><span title="${escapeHtml((f.priority_reasons ?? []).join('; '))}">${escapeHtml(f.priority ?? '')}</span></td>
         ${cell(enumLabelOr('severity', f.severity))}
         <td><span title="${escapeHtml(f.kind)}: ${escapeHtml(kindTooltip(f.kind))}">${escapeHtml(kindLabel(f.kind))}</span></td>
         <td><span title="${escapeHtml(f.comparison)}: ${escapeHtml(comparisonTooltip(f.comparison))}">${escapeHtml(comparisonLabel(f.comparison))}</span></td>
@@ -783,7 +787,7 @@ export function renderFindingsTable(findings: FindingForDocs[], heading = 'Open 
     <h3>${escapeHtml(heading)}</h3>
     <table>
       <thead>
-        <tr><th>Severity</th><th>Kind</th><th>Comparison</th><th>Property</th><th>Variant</th><th>Rule</th><th>Message</th></tr>
+        <tr><th>Priority</th><th>Severity</th><th>Kind</th><th>Comparison</th><th>Property</th><th>Variant</th><th>Rule</th><th>Message</th></tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>

@@ -227,6 +227,8 @@ export const FIELD_HINTS: Record<string, string> = {
   'Naming convention': 'Naming style for custom events and properties: snake_case, kebab_case or camel_case. Example: snake_case.',
   'Share link': 'A public read-only link to the documentation; rotate or revoke at any time.',
   'Show internal comments on the shared view': 'Internal comments never appear on the shared view; this setting controls the other comments.',
+  'Who can open the link': 'Anyone with the link, or only listed people signed in with Google. E3 staff can always open it. Example: listed people.',
+  'Listed people': 'Email addresses that may open the link after Google sign-in; the role is capped by the share access. Example: anna@client.com, commenter.',
   'Require a name on the share link': 'Visitors must enter a name before commenting, replying, reacting or changing a status through the link.',
   'Jump to': 'Go straight to an event or section of this document.',
   'Attach images': 'Screenshots on a comment: PNG, JPEG or WebP, 5 MB each, up to 10. Example: a screenshot of the checkout page.',

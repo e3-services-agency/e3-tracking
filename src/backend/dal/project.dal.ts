@@ -19,10 +19,14 @@ import { STANDARD_EVENTS } from '../../domain/bloomreach';
 import {
   NAMING_CONVENTIONS,
   SHARE_ACCESS,
+  SHARE_AUDIENCES,
   SHARE_COMMENT_VISIBILITIES,
+  SHARE_MEMBER_ROLES,
   type NamingConvention,
   type ShareAccess,
+  type ShareAudience,
   type ShareCommentVisibility,
+  type ShareMemberRole,
 } from '../../domain/enums';
 import * as ChangeLogDAL from './change-log.dal';
 import { payloadHash } from '../../domain/diff/hash';
@@ -67,6 +71,8 @@ export interface ProjectRow {
   share_comments: ShareCommentVisibility;
   /** D-70 item 5, T-5-03: the share link needs an author name for every write. */
   share_require_name: boolean;
+  /** D-88, T-5-45: `listed_people` gates the link behind a listed, verified Google email. */
+  share_audience: ShareAudience;
   /** When the current `share_token` was created or last rotated (D-48, T-4-01); `null` when no
    * share link has ever been generated, or after a revoke clears all three share columns. */
   share_created_at: string | null;
@@ -436,6 +442,8 @@ function buildProjectDiffSnapshot(row: ProjectRow): Record<string, unknown> {
   delete snapshot.data_manager_events_json;
   delete snapshot.data_manager_customers_json;
   delete snapshot.bloomreach_mapping_meta_json;
+  // T-5-45: listed people as one comparable line, so a member change is a one-line project update.
+  snapshot.share_members = listShareMembers(row.id).map((m) => `${m.email} (${m.role})`).join(', ');
   snapshot.data_manager_events_hash = row.data_manager_events_json ? payloadHash(row.data_manager_events_json) : null;
   snapshot.data_manager_customers_hash = row.data_manager_customers_json
     ? payloadHash(row.data_manager_customers_json)
@@ -610,6 +618,12 @@ function assertShareAccess(access: unknown): asserts access is ShareAccess {
   }
 }
 
+function assertShareAudience(value: unknown): asserts value is ShareAudience {
+  if (typeof value !== 'string' || !(SHARE_AUDIENCES as readonly string[]).includes(value)) {
+    throw new ValidationError(`share_audience must be one of: ${SHARE_AUDIENCES.join(', ')}.`, 'share_audience');
+  }
+}
+
 function assertShareComments(value: unknown): asserts value is ShareCommentVisibility {
   if (typeof value !== 'string' || !(SHARE_COMMENT_VISIBILITIES as readonly string[]).includes(value)) {
     throw new ValidationError(
@@ -668,27 +682,32 @@ export function updateShareAccess(id: string, access: unknown): ProjectRow {
 /** Changes `access` and/or `share_comments` (T-4-10) of an active share link; at least one is required. */
 export function updateShareSettings(
   id: string,
-  settings: { access?: unknown; share_comments?: unknown; share_require_name?: unknown }
+  settings: { access?: unknown; share_comments?: unknown; share_require_name?: unknown; share_audience?: unknown }
 ): ProjectRow {
-  if (settings.access === undefined && settings.share_comments === undefined && settings.share_require_name === undefined) {
-    throw new ValidationError('At least one of access, share_comments or share_require_name is required.', 'access');
+  if (settings.access === undefined && settings.share_comments === undefined && settings.share_require_name === undefined && settings.share_audience === undefined) {
+    throw new ValidationError('At least one of access, share_comments, share_require_name or share_audience is required.', 'access');
   }
+  if (settings.share_audience !== undefined) assertShareAudience(settings.share_audience);
   if (settings.share_require_name !== undefined && typeof settings.share_require_name !== 'boolean') {
     throw new ValidationError('share_require_name must be a boolean.', 'share_require_name');
   }
   if (settings.access !== undefined) assertShareAccess(settings.access);
   if (settings.share_comments !== undefined) assertShareComments(settings.share_comments);
   const before = getProjectOrThrow(id);
-  if (!before.share_token) {
+  // The audience may be set before a link exists (so a link is never open to anyone) and survives
+  // a revoke; the link settings need an active link.
+  const linkSettings = settings.access !== undefined || settings.share_comments !== undefined || settings.share_require_name !== undefined;
+  if (linkSettings && !before.share_token) {
     throw new NotFoundError('No active share link for this project.', 'share');
   }
   const db = getDb();
   const now = nowIso();
   const run = db.transaction(() => {
-    db.prepare('UPDATE projects SET share_access = ?, share_comments = ?, share_require_name = ?, updated_at = ? WHERE id = ?').run(
+    db.prepare('UPDATE projects SET share_access = ?, share_comments = ?, share_require_name = ?, share_audience = ?, updated_at = ? WHERE id = ?').run(
       settings.access ?? before.share_access,
       settings.share_comments ?? before.share_comments,
       (settings.share_require_name ?? before.share_require_name) ? 1 : 0,
+      settings.share_audience ?? before.share_audience,
       now,
       id
     );
@@ -705,6 +724,102 @@ export function updateShareSettings(
   });
   run();
   return getProjectOrThrow(id);
+}
+
+// ----- Share members (D-88, T-5-45) -----
+
+export interface ShareMemberRow {
+  id: string;
+  project_id: string;
+  email: string;
+  role: ShareMemberRole;
+  added_by: string | null;
+  created_at: string;
+}
+
+/** Simple shape check only; Google verifies the address itself at sign-in. */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Lower-cased, trimmed email, or a ValidationError. */
+export function normalizeShareEmail(value: unknown): string {
+  const email = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (email.length < 3 || email.length > 254 || !EMAIL_RE.test(email)) {
+    throw new ValidationError('email must be a valid email address.', 'email');
+  }
+  return email;
+}
+
+function assertShareMemberRole(value: unknown): asserts value is ShareMemberRole {
+  if (typeof value !== 'string' || !(SHARE_MEMBER_ROLES as readonly string[]).includes(value)) {
+    throw new ValidationError(`role must be one of: ${SHARE_MEMBER_ROLES.join(', ')}.`, 'role');
+  }
+}
+
+const SHARE_MEMBER_COLUMNS = 'id, project_id, email, role, added_by, created_at';
+
+export function listShareMembers(projectId: string): ShareMemberRow[] {
+  return getDb()
+    .prepare(`SELECT ${SHARE_MEMBER_COLUMNS} FROM share_members WHERE project_id = ? ORDER BY email`)
+    .all(projectId) as ShareMemberRow[];
+}
+
+/** The listed person with this verified email, if any. */
+export function findShareMember(projectId: string, email: string): ShareMemberRow | undefined {
+  return getDb()
+    .prepare(`SELECT ${SHARE_MEMBER_COLUMNS} FROM share_members WHERE project_id = ? AND email = ?`)
+    .get(projectId, email.toLowerCase()) as ShareMemberRow | undefined;
+}
+
+/** Runs a member change and logs it as one project `update` (D-88: member changes are project updates in `change_log`). */
+function withMemberChangeLog<T>(projectId: string, change: () => T): T {
+  const db = getDb();
+  return db.transaction(() => {
+    const before = getProjectOrThrow(projectId);
+    const beforeSnapshot = buildProjectDiffSnapshot(before);
+    const result = change();
+    db.prepare('UPDATE projects SET updated_at = ? WHERE id = ?').run(nowIso(), projectId);
+    const after = getProjectOrThrow(projectId);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'project',
+      entityId: projectId,
+      entityLabel: after.name,
+      action: 'update',
+      before: beforeSnapshot,
+      after: buildProjectDiffSnapshot(after),
+    });
+    return result;
+  })();
+}
+
+/** Adds a listed person (role `viewer` unless given); an email already listed is a 409. */
+export function addShareMember(projectId: string, input: { email?: unknown; role?: unknown }, addedBy: string | null): ShareMemberRow {
+  const email = normalizeShareEmail(input.email);
+  const role = input.role === undefined ? 'viewer' : input.role;
+  assertShareMemberRole(role);
+  return withMemberChangeLog(projectId, () => {
+    if (findShareMember(projectId, email)) throw new ConflictError('This email is already listed.', 'email');
+    getDb()
+      .prepare('INSERT INTO share_members (id, project_id, email, role, added_by, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(newId(), projectId, email, role, addedBy, nowIso());
+    return findShareMember(projectId, email)!;
+  });
+}
+
+export function updateShareMemberRole(projectId: string, memberId: string, role: unknown): ShareMemberRow {
+  assertShareMemberRole(role);
+  return withMemberChangeLog(projectId, () => {
+    const result = getDb().prepare('UPDATE share_members SET role = ? WHERE id = ? AND project_id = ?').run(role, memberId, projectId);
+    if (result.changes === 0) throw new NotFoundError('Share member not found.', 'share_member');
+    return getDb().prepare(`SELECT ${SHARE_MEMBER_COLUMNS} FROM share_members WHERE id = ?`).get(memberId) as ShareMemberRow;
+  });
+}
+
+export function removeShareMember(projectId: string, memberId: string): void {
+  withMemberChangeLog(projectId, () => {
+    const result = getDb().prepare('DELETE FROM share_members WHERE id = ? AND project_id = ?').run(memberId, projectId);
+    if (result.changes === 0) throw new NotFoundError('Share member not found.', 'share_member');
+  });
 }
 
 /** Revokes the current share link: the token, access and created-at columns are all cleared so the

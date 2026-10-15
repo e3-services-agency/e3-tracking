@@ -55,7 +55,7 @@ import { getDb } from '../db';
 import { sharedHistory } from '../services/sharedHistory.service';
 import { resolveCommentParticipant, publicParticipant, existingCommentParticipantId } from '../services/commentParticipant';
 import express, { Router, type Request, type Response, type NextFunction } from 'express';
-import { requireShare } from '../middleware/share';
+import { requireShare, requireShareToken, resolveShareProject, hasShareSession, shareViewerAccess } from '../middleware/share';
 import { getProjectWithClient } from '../dal/project.dal';
 import {
   buildPublicEventCard,
@@ -90,8 +90,16 @@ router.use((_req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-router.get('/:token', requireShare, (req: Request, res: Response) => {
+router.get('/:token', requireShareToken, (req: Request, res: Response) => {
   try {
+    // D-88 listed_people: a visitor who is not let in gets only what a neutral sign-in screen needs,
+    // never the project or client name. `signed_in` is about the visitor's own session only.
+    const access = shareViewerAccess(req, resolveShareProject(req.params.token)!);
+    if (!access) {
+      res.status(200).json({ sign_in_required: true, signed_in: hasShareSession(req) });
+      return;
+    }
+    req.shareAccess = access;
     const project = getProjectWithClient(req.projectId!);
     res.status(200).json({
       // T-4-03: `client_logo_path` is additive, resolved by the caller through this same token's

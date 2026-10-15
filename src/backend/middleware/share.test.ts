@@ -9,7 +9,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { closeDb } from '../db';
 import * as ClientDAL from '../dal/client.dal';
 import * as ProjectDAL from '../dal/project.dal';
-import { requireShare } from './share';
+import { requireShare, requireShareToken } from './share';
 
 let projectId: string;
 let token: string;
@@ -90,5 +90,25 @@ describe('requireShare middleware (D-48, T-4-01)', () => {
     requireShare(req, res, next);
     expect(res.status).toHaveBeenCalledWith(404);
     expect(next).not.toHaveBeenCalled();
+  });
+});
+
+describe('requireShare with share_audience listed_people (D-88, T-5-45)', () => {
+  it('404s on its own without a listed session, and requireShareToken still passes the token', () => {
+    ProjectDAL.updateShareSettings(projectId, { share_audience: 'listed_people' });
+    const blocked = mockReqRes({ token });
+    requireShare(blocked.req, blocked.res, blocked.next);
+    expect(blocked.next).not.toHaveBeenCalled();
+    expect(blocked.res.status).toHaveBeenCalledWith(404);
+    expect(blocked.res.json).toHaveBeenCalledWith({ error: 'This share link is not valid.', code: 'SHARE_NOT_FOUND' });
+    // A request-side staff flag is the only bypass, and only server code sets it.
+    const staff = mockReqRes({ token });
+    staff.req.shareStaffVerified = true;
+    requireShare(staff.req, staff.res, staff.next);
+    expect(staff.next).toHaveBeenCalledOnce();
+    expect(staff.req.shareAccess).toBe('read');
+    const tokenOnly = mockReqRes({ token });
+    requireShareToken(tokenOnly.req, tokenOnly.res, tokenOnly.next);
+    expect(tokenOnly.next).toHaveBeenCalledOnce();
   });
 });

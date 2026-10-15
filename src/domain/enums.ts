@@ -494,6 +494,20 @@ export type ShareAccess = (typeof SHARE_ACCESS)[number];
 export const SHARE_COMMENT_VISIBILITIES = ['all', 'via_share_only'] as const;
 export type ShareCommentVisibility = (typeof SHARE_COMMENT_VISIBILITIES)[number];
 
+/** Who may open a share link (D-88, T-5-45): `anyone_with_link` (default, D-48 behaviour) or
+ * `listed_people` (a verified Google email listed in `share_members`; trusted Workspace staff always). */
+export const SHARE_AUDIENCES = ['anyone_with_link', 'listed_people'] as const;
+export type ShareAudience = (typeof SHARE_AUDIENCES)[number];
+
+/** A listed person's role, always capped by the link's `share_access`. No editor role (D-88). */
+export const SHARE_MEMBER_ROLES = ['viewer', 'commenter'] as const;
+export type ShareMemberRole = (typeof SHARE_MEMBER_ROLES)[number];
+
+/** Effective access of a member: their role capped by the link role. */
+export function capShareAccess(linkAccess: ShareAccess, role: ShareMemberRole): ShareAccess {
+  return linkAccess === 'comment' && role === 'commenter' ? 'comment' : 'read';
+}
+
 /** Per-project naming convention for custom events, their properties and customer properties (D-65,
  * T-4-22). `snake_case` is the default; system items are exempt (`src/domain/naming.ts`). */
 export const NAMING_CONVENTIONS = ['snake_case', 'kebab_case', 'camel_case'] as const;

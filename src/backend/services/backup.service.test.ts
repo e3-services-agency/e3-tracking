@@ -129,6 +129,7 @@ const EXPECTED_KEYS = [
   'comment_reactions',
   'comments',
   'comment_attachments',
+  'share_members',
   'files',
   'files_missing',
   'warnings',

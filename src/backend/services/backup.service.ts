@@ -173,6 +173,8 @@ export interface BackupPayload {
   comments: Row[];
   comment_reactions: Row[];
   comment_attachments: Row[];
+  /** T-5-45 (D-88): listed people; restored with the project's `share_audience`. */
+  share_members: Row[];
   files: BackupFileEntry[];
   files_missing: string[];
   /** Malformed `*_json` cells kept as raw strings instead of being silently nulled (pre-QA fix INFO 2). */
@@ -329,6 +331,7 @@ export async function buildBackup(projectId: string): Promise<BackupPayload> {
     // T-5-03 (D-70): reactions, same ordering rule.
     comment_reactions: directRows('comment_reactions', projectId, warnings, 'created_at, id'),
     comment_attachments: commentAttachments,
+    share_members: tableExists('share_members') ? directRows('share_members', projectId, warnings, 'email') : [],
     files,
     files_missing,
     warnings,

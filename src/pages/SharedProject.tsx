@@ -16,11 +16,11 @@
  * view and item (`portalModel.ts`); a comment link keeps its hash so the target's comments open on
  * that comment. An unknown or revoked token renders "This link is not valid" instead of an error.
  */
-import React, { useEffect, useMemo } from 'react';
+import React, { useLayoutEffect, useMemo } from 'react';
 import { buildSharedViewModel, sharedFileUrl } from './sharedViewModel';
 import { PortalProvider, usePortalData, usePortalLocation, type PortalContextValue } from '@/src/features/portal/PortalContext';
 import { PortalShell } from '@/src/features/portal/PortalShell';
-import { buildPortalIndex, resolveHash, sameTarget, type PortalView } from '@/src/features/portal/portalModel';
+import { buildPortalIndex, missingDetail, missingItemNote, resolveHash, sameTarget, type PortalView } from '@/src/features/portal/portalModel';
 import { PortalOverview } from '@/src/features/portal/views/PortalOverview';
 import { PortalEventsView } from '@/src/features/portal/views/PortalEventsView';
 import { PortalPropertiesView } from '@/src/features/portal/views/PortalPropertiesView';
@@ -62,14 +62,21 @@ export function SharedProject({ token }: { token: string }) {
   const index = useMemo(() => (summary ? buildPortalIndex(summary) : null), [summary]);
   const resolution = useMemo(() => (index ? resolveHash(location.hash, index, comments) : { kind: 'none' as const }), [index, location.hash, comments]);
 
-  // An old anchor or a comment link that belongs to another view redirects there (replacing the entry).
-  useEffect(() => {
+  // An old anchor or a comment link that belongs to another view redirects there (replacing the
+  // entry). A link or a path naming an item this share does not have lands on the view's list with
+  // a note (T-5-44). Layout effects, so the page it leaves is never painted.
+  const missingPathItem = useMemo(() => (index ? missingDetail(location.view, location.id, index) : null), [index, location.view, location.id]);
+  useLayoutEffect(() => {
+    if (missingPathItem) {
+      navigate({ view: location.view, id: null, notFound: missingPathItem }, { replace: true });
+      return;
+    }
     if (resolution.kind !== 'target' && resolution.kind !== 'comment') return;
-    if (sameTarget(resolution.target, location.view, location.id)) return;
+    if (sameTarget(resolution.target, location.view, location.id) && !resolution.target.notFound) return;
     navigate(resolution.target, { replace: true });
-  }, [resolution, location.view, location.id, navigate]);
+  }, [missingPathItem, resolution, location.view, location.id, navigate]);
 
-  const value = useMemo<Omit<PortalContextValue, 'index' | 'refIndex' | 'api' | 'fileUrl'> | null>(
+  const value = useMemo<Omit<PortalContextValue, 'index' | 'refIndex' | 'api' | 'fileUrl' | 'viewState'> | null>(
     () =>
       data.state === 'ready'
         ? {
@@ -106,6 +113,7 @@ export function SharedProject({ token }: { token: string }) {
     <>
       {resolution.kind === 'comment-invalid' && <Notice>This comment link is not valid.</Notice>}
       {resolution.kind === 'comment-unavailable' && <Notice>This comment is unavailable in this view.</Notice>}
+      {location.notFound && !location.id && <Notice>{missingItemNote(location.notFound)}</Notice>}
     </>
   );
   return (

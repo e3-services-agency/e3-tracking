@@ -1,9 +1,10 @@
 /**
- * Portal Events view (T-5-42): the shared `EventsTable` on the document summary, and the event's
- * own page at `events/<name>`. The detail page is the interim one until T-5-44: the existing
- * `EventCardView` (mode `shared`) fed by the per-event `card.json` route, fetched on open only.
+ * Portal Events view (T-5-42, T-5-44): the shared `EventsTable` on the document summary, and the
+ * event's own page at `events/<name>`: the `EventCardView` (mode `shared`) fed by the per-event
+ * `card.json` route, fetched on open only, with the event's comments on the page. The list keeps
+ * its search, filters, sort and scroll while the visitor is on an event's page (`PortalListScope`).
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import { SourceBadge } from '@/src/components/ui/badges';
@@ -14,7 +15,17 @@ import type { EventCard } from '@/src/domain/document/trackingDocument';
 import { CertificationBadge, EventCardView, type EventCardData } from '@/src/features/events/components/EventCardView';
 import { EventsTable, eventRowsFromSummary } from '@/src/features/views';
 import { shareApiUrl, usePortal } from '../PortalContext';
-import { Collaboration, CopyPortalLink, NotInShare, PortalPage, useCommentCount, usePortalRef } from '../PortalParts';
+import {
+  Collaboration,
+  CopyPortalLink,
+  NotInShare,
+  PageCollaboration,
+  PageComments,
+  PortalListScope,
+  PortalPage,
+  useCommentCount,
+  usePortalRef,
+} from '../PortalParts';
 
 export function NamingNote() {
   const { summary } = usePortal();
@@ -47,22 +58,77 @@ function PortalEventsList() {
   const commentCount = useCommentCount();
   const rows = useMemo(() => eventRowsFromSummary(summary), [summary]);
   return (
-    <PortalPage view="events" count={rows.length} notes={<><NamingNote /><SourcesNote /></>}>
-      <EventsTable
-        rows={rows}
-        readOnly
-        onOpen={(row) => navigate({ view: 'events', id: row.name })}
-        commentCount={(row) => commentCount('event', row.id)}
-        commentsInActions
-        rowActions={(row) => (
-          <>
-            <Collaboration entityType="event" entityId={row.id} label={`event ${row.name}`} />
-            <CopyPortalLink target={{ view: 'events', id: row.name }} label={row.name} />
-          </>
-        )}
-        empty={{ message: 'No events in this tracking plan.' }}
-      />
+    <PortalPage
+      view="events"
+      count={rows.length}
+      notes={
+        <>
+          <NamingNote />
+          <SourcesNote />
+        </>
+      }
+    >
+      <PortalListScope scope="events">
+        <EventsTable
+          rows={rows}
+          readOnly
+          onOpen={(row) => navigate({ view: 'events', id: row.name })}
+          commentCount={(row) => commentCount('event', row.id)}
+          commentsInActions
+          rowActions={(row) => (
+            <>
+              <Collaboration entityType="event" entityId={row.id} label={`event ${row.name}`} />
+              <CopyPortalLink target={{ view: 'events', id: row.name }} label={row.name} />
+            </>
+          )}
+          empty={{ message: 'No events in this tracking plan.' }}
+        />
+      </PortalListScope>
     </PortalPage>
+  );
+}
+
+type CardState = { state: 'loading' } | { state: 'failed' } | { state: 'ready'; card: EventCard };
+
+/** The event's card from `card.json`, fetched when the page opens (and again on "Try again"). */
+function useEventCard(token: string, id: string | undefined) {
+  const [result, setResult] = useState<CardState>({ state: 'loading' });
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+    setResult({ state: 'loading' });
+    fetch(shareApiUrl(token, `events/${encodeURIComponent(id)}/card.json`))
+      .then(async (res) => {
+        if (!res.ok) throw new Error('card');
+        const card = (await res.json()) as EventCard;
+        if (active) setResult({ state: 'ready', card });
+      })
+      .catch(() => {
+        if (active) setResult({ state: 'failed' });
+      });
+    return () => {
+      active = false;
+    };
+  }, [id, token, attempt]);
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
+  return { result, retry };
+}
+
+/** Placeholder blocks in the card's shape while `card.json` loads, so the page does not jump. */
+function CardLoading() {
+  return (
+    <div role="status" aria-busy="true" aria-label="Loading the event card" className="space-y-6" data-testid="event-card-loading">
+      {[0, 1, 2].map((n) => (
+        <div key={n} className="animate-pulse space-y-3 rounded-lg border bg-white p-4 shadow-sm">
+          <div className="h-4 w-32 rounded bg-gray-200" />
+          <div className="h-3 w-full rounded bg-gray-100" />
+          <div className="h-3 w-5/6 rounded bg-gray-100" />
+          <div className="h-3 w-2/3 rounded bg-gray-100" />
+        </div>
+      ))}
+      <span className="sr-only">Loading the event card…</span>
+    </div>
   );
 }
 
@@ -71,29 +137,11 @@ function PortalEventDetail({ name }: { name: string }) {
   const renderRef = usePortalRef();
   const id = index.eventIdByName.get(name);
   const event = summary.events.find((e) => e.id === id);
-  const [card, setCard] = useState<EventCard | null>(null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    if (!id) return;
-    let active = true;
-    setCard(null);
-    setFailed(false);
-    fetch(shareApiUrl(token, `events/${encodeURIComponent(id)}/card.json`))
-      .then(async (res) => {
-        if (!res.ok) throw new Error('card');
-        const data = (await res.json()) as EventCard;
-        if (active) setCard(data);
-      })
-      .catch(() => {
-        if (active) setFailed(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, [id, token]);
+  const { result, retry } = useEventCard(token, id);
+  const card = result.state === 'ready' ? result.card : null;
   // An old `#variants-event-…` link scrolls to the card's variants block once it is there.
   useEffect(() => {
-    if (!card || !location.hash) return;
+    if (!card || !location.hash || location.hash.startsWith('#comment=')) return;
     let anchor = location.hash.slice(1);
     try {
       anchor = decodeURIComponent(anchor);
@@ -112,7 +160,7 @@ function PortalEventDetail({ name }: { name: string }) {
       title={name}
       actions={
         <>
-          <Collaboration entityType="event" entityId={id} label={`event ${name}`} />
+          <PageCollaboration entityType="event" entityId={id} label={`event ${name}`} />
           {card && <CopyMarkdownButton iconOnly getMarkdown={() => eventCardToMarkdown(card)} label={`Copy event ${name} as Markdown`} />}
           <CopyPortalLink target={{ view: 'events', id: name }} label={name} />
           <CopyNameButton name={name} />
@@ -121,24 +169,38 @@ function PortalEventDetail({ name }: { name: string }) {
       notes={
         <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
           {event.business_name && event.business_name !== name && <span>{event.business_name}</span>}
-          {(event.sources ?? []).map((s) => <SourceBadge key={s.id} system={s.system} method={s.method} color={s.color} />)}
+          {(event.sources ?? []).map((s) => (
+            <SourceBadge key={s.id} system={s.system} method={s.method} color={s.color} />
+          ))}
           <CertificationBadge certification={event.certification} compact />
-          {event.description && <p className="basis-full whitespace-pre-wrap [overflow-wrap:anywhere]">{event.description}</p>}
         </div>
       }
     >
-      {failed && <p role="alert" className="text-sm text-red-700">This event could not be loaded. Reload the page to try again.</p>}
-      {!card && !failed && <p className="text-sm text-gray-400">Loading…</p>}
-      {card && (
-        <EventCardView
-          card={card as unknown as EventCardData}
-          identifyCodegen={summary.identity_codegen?.identify ?? null}
-          fileUrl={fileUrl}
-          mode="shared"
-          hideHeader
-          renderPropertyLink={(p, label) => renderRef({ kind: 'property', id: p.property_id }, label)}
-        />
-      )}
+      {/* The card beside its comments on wide screens; the comments follow the card below 1280px. */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
+        <div className="min-w-0">
+          {result.state === 'failed' && (
+            <div role="alert" className="flex flex-wrap items-center gap-3 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              This event could not be loaded.
+              <button type="button" onClick={retry} className="rounded border border-red-300 bg-white px-2 py-1 text-xs font-medium hover:bg-red-100">
+                Try again
+              </button>
+            </div>
+          )}
+          {result.state === 'loading' && <CardLoading />}
+          {card && (
+            <EventCardView
+              card={card as unknown as EventCardData}
+              identifyCodegen={summary.identity_codegen?.identify ?? null}
+              fileUrl={fileUrl}
+              mode="shared"
+              hideHeader
+              renderPropertyLink={(p, label) => renderRef({ kind: 'property', id: p.property_id }, label)}
+            />
+          )}
+        </div>
+        <PageComments entityType="event" entityId={id} />
+      </div>
     </PortalPage>
   );
 }

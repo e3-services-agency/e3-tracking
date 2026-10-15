@@ -298,7 +298,8 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             ))}
         </dl>
         {card.description && <p className="text-sm text-gray-700 mt-3">{card.description}</p>}
-        {card.agent_instructions && (
+        {/* Internal only: the public projection deletes the key; the shared mode never renders it (T-5-44). */}
+        {!shared && card.agent_instructions && (
           <p className="text-xs text-gray-500 mt-2 italic">Agent instructions: {card.agent_instructions}</p>
         )}
       </Section>

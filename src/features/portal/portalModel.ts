@@ -43,6 +43,19 @@ export interface PortalTarget {
   view: PortalView;
   id: string | null;
   hash?: string;
+  /** T-5-44: the link named an item this share does not have; the list it lands on says so. */
+  notFound?: MissingItem;
+}
+
+/** An item a link or path names that is not in this share (renamed, removed, or a typo). */
+export interface MissingItem {
+  kind: 'event' | 'property' | 'use case' | 'catalog' | 'consent category' | 'standard event mapping' | 'identity rule';
+  name: string;
+}
+
+/** The note a list shows after a link to a missing item landed on it. */
+export function missingItemNote(item: MissingItem): string {
+  return `No ${item.kind} “${item.name}” is in this tracking plan. It may have been renamed or removed; the full list is below.`;
 }
 
 export interface PortalIndex {
@@ -181,44 +194,77 @@ function decodeAnchor(hash: string): string {
   }
 }
 
-/** Where an old single-page anchor (without `#`, decoded) lands, or `null` when it names nothing. */
+/** The view's list, with a note that the link named an item this share does not have (T-5-44). */
+const missing = (view: PortalView, kind: MissingItem['kind'], name: string): PortalTarget => ({ view, id: null, notFound: { kind, name } });
+
+/** Where an old single-page anchor (without `#`, decoded) lands, or `null` when it names nothing.
+ * An anchor naming an item that is not in the share lands on the list with `notFound` (T-5-44). */
 export function legacyAnchorTarget(anchor: string, index: PortalIndex): PortalTarget | null {
   if (!anchor) return null;
   if (SECTION_VIEWS[anchor]) return { view: SECTION_VIEWS[anchor], id: null };
   if (isQaAnchor(anchor)) return { view: 'qa', id: null, hash: `#${anchor}` };
   if (anchor.startsWith(VARIANTS_ANCHOR_PREFIX)) {
-    const name = index.eventNameByAnchor.get(strip(anchor, VARIANTS_ANCHOR_PREFIX));
-    return name ? { view: 'events', id: name, hash: `#${anchor}` } : { view: 'events', id: null };
+    const eventAnchor = strip(anchor, VARIANTS_ANCHOR_PREFIX);
+    const name = index.eventNameByAnchor.get(eventAnchor);
+    return name ? { view: 'events', id: name, hash: `#${anchor}` } : missing('events', 'event', strip(eventAnchor, 'event-'));
   }
   if (anchor.startsWith('events-')) return { view: 'events', id: null };
   if (anchor.startsWith('event-')) {
     const name = index.eventNameByAnchor.get(anchor);
-    return { view: 'events', id: name ?? null };
+    return name ? { view: 'events', id: name } : missing('events', 'event', strip(anchor, 'event-'));
   }
   if (anchor.startsWith('properties-')) return { view: 'properties', id: null };
   if (anchor.startsWith('property-')) {
     const slug = strip(anchor, 'property-');
-    return { view: 'properties', id: index.propertyIdBySlug.has(slug) ? slug : null };
+    return index.propertyIdBySlug.has(slug) ? { view: 'properties', id: slug } : missing('properties', 'property', slug);
   }
   if (anchor.startsWith('use-cases-')) return { view: 'use-cases', id: null };
   if (anchor.startsWith('use-case-')) {
     const id = index.useCaseIdByAnchor.get(anchor);
-    return { view: 'use-cases', id: id ? index.useCasePathIdById.get(id) ?? null : null };
+    const pathId = id ? index.useCasePathIdById.get(id) : undefined;
+    return pathId ? { view: 'use-cases', id: pathId } : missing('use-cases', 'use case', strip(anchor, 'use-case-'));
   }
   if (anchor.startsWith('consents-')) return { view: 'consents', id: null };
   if (anchor.startsWith('consent-')) {
     const slug = strip(anchor, 'consent-');
-    return { view: 'consents', id: index.consentIdBySlug.has(slug) ? slug : null };
+    return index.consentIdBySlug.has(slug) ? { view: 'consents', id: slug } : missing('consents', 'consent category', slug);
   }
   if (anchor.startsWith('catalog-')) {
     const slug = strip(anchor, 'catalog-');
-    return { view: 'catalogs', id: index.catalogIdBySlug.has(slug) ? slug : null };
+    return index.catalogIdBySlug.has(slug) ? { view: 'catalogs', id: slug } : missing('catalogs', 'catalog', slug);
   }
   if (anchor.startsWith('mapping-')) {
     const slug = strip(anchor, 'mapping-');
-    return { view: 'standard-events', id: index.mappingIndexBySlug.has(slug) ? slug : null };
+    return index.mappingIndexBySlug.has(slug) ? { view: 'standard-events', id: slug } : missing('standard-events', 'standard event mapping', slug);
   }
   return null;
+}
+
+/**
+ * The item a detail path names when this share does not have it (T-5-44): `/events/<name>` with
+ * no such event, and so on. The portal then shows the list with a note instead of a dead page.
+ * `null` when the item exists or the view has no items.
+ */
+export function missingDetail(view: PortalView, id: string | null, index: PortalIndex): MissingItem | null {
+  if (!id) return null;
+  switch (view) {
+    case 'events':
+      return index.eventIdByName.has(id) ? null : { kind: 'event', name: id };
+    case 'properties':
+      return index.propertyIdBySlug.has(id) ? null : { kind: 'property', name: id };
+    case 'use-cases':
+      return index.useCaseIdByPathId.has(id) ? null : { kind: 'use case', name: id };
+    case 'identity':
+      return index.identityRuleIds.has(id) ? null : { kind: 'identity rule', name: id };
+    case 'catalogs':
+      return index.catalogIdBySlug.has(id) ? null : { kind: 'catalog', name: id };
+    case 'consents':
+      return index.consentIdBySlug.has(id) ? null : { kind: 'consent category', name: id };
+    case 'standard-events':
+      return index.mappingIndexBySlug.has(id) ? null : { kind: 'standard event mapping', name: id };
+    default:
+      return null;
+  }
 }
 
 /** Where a comment's target lives in the portal. The view's own comments control focuses the

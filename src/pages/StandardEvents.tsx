@@ -4,7 +4,8 @@
  * Variant) and a field map editor (T-1-05). "Add standard event" appends a project addition.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
-import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
+import { FieldLabel } from '@/src/components/ui/FieldHint';
+import { StandardEventsTable, standardEventRowsFromInternal } from '@/src/features/views';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -124,6 +125,7 @@ export function StandardEvents() {
     () => buildStandardEventRows(standardEvents, mappings, events, allVariants),
     [standardEvents, mappings, events, allVariants]
   );
+  const viewRows = useMemo(() => standardEventRowsFromInternal(rows), [rows]);
   const mappingByKey = useMemo(() => new Map(mappings.map((m) => [m.standard_event, m])), [mappings]);
 
   const addStandardEvent = async () => {
@@ -188,32 +190,11 @@ export function StandardEvents() {
         {addKeyError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{addKeyError}</div>}
         {loadError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{loadError}</div>}
 
-        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hintScope="StandardEvents">Standard event</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hintScope="StandardEvents">Fields</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hintScope="StandardEvents">Mapped event</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hintScope="StandardEvents">Variant</HintTh>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {rows.map((row) => (
-                <tr
-                  key={row.key}
-                  className="hover:bg-gray-50 cursor-pointer"
-                  onClick={() => { setSelectedKey(row.key); setIsSheetOpen(true); }}
-                >
-                  <td className="px-6 py-4 font-medium text-gray-900 font-mono"><span className="inline-flex items-center gap-1.5">{row.key}<CopyNameButton name={row.key} /></span></td>
-                  <td className="px-6 py-4 text-gray-500">{row.fieldCount}</td>
-                  <td className="px-6 py-4 text-gray-500">{isLoading ? 'Loading…' : row.mappedEventName ?? '—'}</td>
-                  <td className="px-6 py-4 text-gray-500 font-mono">{isLoading ? 'Loading…' : row.mappedVariantName ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <StandardEventsTable
+          rows={viewRows}
+          loading={isLoading}
+          onOpen={(row) => { setSelectedKey(row.key); setIsSheetOpen(true); }}
+        />
       </PageBody>
 
       <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={`Map "${selectedKey ?? ''}"`}>

@@ -1,10 +1,6 @@
-import { Badge, ClassBadge, SourceBadge, StatusBadge } from '@/src/components/ui/badges';
-import { EntityIcon } from '@/src/components/ui/EntityIcon';
 import { EnumSelect } from '@/src/components/ui/EnumSelect';
-import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
-import { ExpandChevron } from '@/src/components/ui/ExpandChevron';
-import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
-import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
+import { FieldLabel } from '@/src/components/ui/FieldHint';
+import { EventsTable, eventRowsFromInternal } from '@/src/features/views';
 /**
  * Events: table + plain editor against `/api/projects/:projectId/events` (D-16). Linked
  * properties are edited as the full ordered list (`PUT /events/:id/properties`); T-1-04 adds the
@@ -13,7 +9,7 @@ import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
  * `GET /api/projects/:id/files/*`.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Loader2, FileDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -36,7 +32,6 @@ import { TriggerImagesEditor } from '@/src/features/events/components/TriggerIma
 import { triggerImageFields, triggerImages } from '@/src/domain/document/triggerImages';
 import { HistorySection } from '@/src/features/history/HistorySection';
 import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
-import { EmptyState } from '@/src/components/ui/EmptyState';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import { NamingWarning } from '@/src/components/ui/NamingWarning';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
@@ -106,12 +101,6 @@ async function parseJson(res: Response): Promise<any> {
   return res.json().catch(() => ({}));
 }
 
-function expirationSummary(expiration: ExpirationValue | null): string {
-  if (!expiration) return 'project default';
-  if (!expiration.enabled) return 'Disabled';
-  return `${expiration.count} ${expiration.units}`;
-}
-
 export function Events() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
   const [events, setEvents] = useState<EventRow[]>([]);
@@ -120,9 +109,6 @@ export function Events() {
   const [isCreating, setIsCreating] = useState(false);
   const [isDownloadingDocs, setIsDownloadingDocs] = useState(false);
   const [isDownloadingTrackingDocument, setIsDownloadingTrackingDocument] = useState(false);
-  // T-2-09: `class` filter (custom default, sdk, platform, all); the events list stays batched
-  // (one `GET /events` call), this only filters the already-loaded rows client-side.
-  const [classFilter, setClassFilter] = useState<'custom' | 'sdk' | 'platform' | 'all'>('custom');
   const setRequestedTab = useStore((s) => s.setRequestedTab);
   const setEventCardEventId = useStore((s) => s.setEventCardEventId);
 
@@ -134,51 +120,15 @@ export function Events() {
     [setEventCardEventId, setRequestedTab]
   );
 
-  // LOW 5 fix round: the empty state must react to the `class` filter, not the unfiltered list --
-  // a project whose custom filter (default) matches nothing used to render a headerless empty
-  // table with no "No events found" row.
-  // T-4-24: client-side search by name/description (debounced), column sorting, and one toggle that
-  // expands or collapses the variant sub-rows of every event.
-  const [search, setSearch] = useState('');
-  const debouncedSearch = useDebouncedValue(search.trim().toLowerCase(), 200);
+  // T-5-40: search, class/status/source filters, sorting, density and the variant sub-rows live in
+  // the shared `EventsTable`; this page keeps loading, the editor Sheet and navigation.
   const [variantsByEventId, setVariantsByEventId] = useState<Record<string, { id: string; name: string; description: string | null }[]>>({});
-  const [expandedEventIds, setExpandedEventIds] = useState<Set<string>>(new Set());
-  const searchedEvents = useMemo(
-    () =>
-      events
-        .filter((ev) => classFilter === 'all' || ev.class === classFilter)
-        .filter(
-          (ev) =>
-            !debouncedSearch ||
-            ev.name.toLowerCase().includes(debouncedSearch) ||
-            (ev.business_name ?? '').toLowerCase().includes(debouncedSearch) ||
-            (ev.description ?? '').toLowerCase().includes(debouncedSearch)
-        ),
-    [events, classFilter, debouncedSearch]
-  );
-  const { sorted: filteredEvents, sort } = useSortableTable(searchedEvents, {
-    name: (ev) => ev.name,
-    class: (ev) => ev.class,
-    source: (ev) => (ev.sources ?? []).map((s) => sourceViaLabel(s.system, s.method)).join(', '),
-    status: (ev) => ev.status,
-    certified: (ev) => ev.certified ?? 'n/a',
-    expiration: (ev) => expirationSummary(ev.expiration_json),
-    properties: (ev) => ev.attached_property_count ?? 0,
-  });
-  const eventsWithVariants = useMemo(
-    () => filteredEvents.filter((ev) => (variantsByEventId[ev.id] ?? []).length > 0),
-    [filteredEvents, variantsByEventId]
-  );
-  const allExpanded = eventsWithVariants.length > 0 && eventsWithVariants.every((ev) => expandedEventIds.has(ev.id));
-  const toggleAllVariants = () =>
-    setExpandedEventIds(allExpanded ? new Set() : new Set(eventsWithVariants.map((ev) => ev.id)));
-  const toggleEventVariants = (id: string) =>
-    setExpandedEventIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const viewRows = useMemo(() => eventRowsFromInternal(events, variantsByEventId), [events, variantsByEventId]);
+  const openEditor = useCallback((id: string | null) => {
+    setSelectedId(id);
+    setIsCreating(id === null);
+    setIsSheetOpen(true);
+  }, []);
 
   const handleDownloadDocumentation = useCallback(async () => {
     if (!activeProjectId) return;
@@ -270,143 +220,32 @@ export function Events() {
             {isDownloadingTrackingDocument ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
             Tracking document JSON
           </Button>
-          <Button onClick={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }} className="gap-2">
+          <Button onClick={() => openEditor(null)} className="gap-2">
             <Plus className="w-4 h-4" /> Add Event
           </Button>
         </div>
       </PageHeader>
 
-      <PageBody className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Input
-            type="search"
-            aria-label="Search events"
-            placeholder="Search name or description"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-9 w-64"
-          />
-          <Button variant="outline" onClick={toggleAllVariants} disabled={eventsWithVariants.length === 0} className="h-9">
-            {allExpanded ? 'Collapse all variants' : 'Expand all variants'}
-          </Button>
-          <FieldLabel className="text-xs font-medium text-gray-500" hint="Class" hintScope="Events">Class</FieldLabel>
-          <select
-            value={classFilter}
-            onChange={(e) => setClassFilter(e.target.value as typeof classFilter)}
-            className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm"
-          >
-            <option value="custom">custom</option>
-            {EVENT_CLASSES.filter((c) => c !== 'custom').map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-            <option value="all">all</option>
-          </select>
-        </div>
-        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <HintTh className="w-12 px-2 py-3" hintScope="Events"><span className="sr-only">Expand</span></HintTh>
-                <SortableTh sort={sort} column="name" className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap" hint="Name" hintScope="Events">Name</SortableTh>
-                <SortableTh sort={sort} column="class" className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap" hint="Class" hintScope="Events">Class</SortableTh>
-                <SortableTh sort={sort} column="source" className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap" hint="Source" hintScope="Events">Source</SortableTh>
-                <SortableTh sort={sort} column="status" className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap" hint="Status" hintScope="Events">Status</SortableTh>
-                <SortableTh sort={sort} column="certified" className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap" hint="Certified" hintScope="Events">
-                  <GlossaryTerm glossaryKey="certified">Certified</GlossaryTerm>
-                </SortableTh>
-                <SortableTh sort={sort} column="expiration" className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap" hint="Expiration" hintScope="Events">Expiration</SortableTh>
-                <SortableTh sort={sort} column="properties" className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap" hint="Properties" hintScope="Events">Properties</SortableTh>
-                <HintTh className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap" hint="Card" hintScope="Events">Card</HintTh>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filteredEvents
-                .map((ev) => (
-                  <React.Fragment key={ev.id}>
-                  <tr onClick={() => { setSelectedId(ev.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
-                    <td className="w-12 px-2 py-2">
-                      {(variantsByEventId[ev.id] ?? []).length > 0 && (
-                        <ExpandChevron
-                          expanded={expandedEventIds.has(ev.id)}
-                          label={`${(variantsByEventId[ev.id] ?? []).length} variant(s): click to ${expandedEventIds.has(ev.id) ? 'collapse' : 'expand'}`}
-                          onToggle={() => toggleEventVariants(ev.id)}
-                        />
-                      )}
-                    </td>
-                    <td className="px-4 py-3 min-w-[18rem] max-w-md">
-                      <span className="inline-flex items-center gap-1.5 font-medium text-gray-900">
-                        <EntityIcon kind="event" />{ev.name}<CopyNameButton name={ev.name} />
-                      </span>
-                      {ev.business_name && ev.business_name !== ev.name && (
-                        <span className="ml-1.5 text-xs text-gray-500">{ev.business_name}</span>
-                      )}
-                      {/* The description is the first thing a reader needs to tell events apart; clamped to two lines, full text on hover. */}
-                      {ev.description ? (
-                        <p className="mt-0.5 text-xs text-gray-500 line-clamp-2" title={ev.description} data-testid="event-description">
-                          {ev.description}
-                        </p>
-                      ) : (
-                        <p className="mt-0.5 text-xs italic text-gray-400" data-testid="event-description">No description</p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3"><ClassBadge eventClass={ev.class} /></td>
-                    <td className="px-4 py-3" data-testid="event-source-cell">
-                      <span className="flex flex-col gap-0.5">
-                        {(ev.sources ?? []).map((s) => <SourceBadge key={s.id} system={s.system} method={s.method} color={s.color} />)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500"><StatusBadge status={ev.status} /></td>
-                    <td className="px-4 py-3 text-gray-500">
-                      {ev.certified === 'yes' ? (
-                        <Badge tone="green">Yes</Badge>
-                      ) : ev.certified === 'no' ? (
-                        <Badge title={(ev.certified_reasons ?? []).join(', ') || undefined}>No</Badge>
-                      ) : (
-                        <span className="text-gray-400">n/a</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{expirationSummary(ev.expiration_json)}</td>
-                    <td className="px-4 py-3 text-gray-500 tabular-nums">{ev.attached_property_count ?? 0}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); openEventCard(ev.id); }}
-                        className="text-[var(--brand-primary)] hover:underline text-sm"
-                      >
-                        View card
-                      </button>
-                    </td>
-                  </tr>
-                  {expandedEventIds.has(ev.id) &&
-                    (variantsByEventId[ev.id] ?? []).map((v) => (
-                      <tr key={v.id} className="bg-gray-50 text-xs text-gray-600">
-                        <td className="w-12" />
-                        <td className="px-4 py-2" colSpan={8}>
-                          <span className="inline-flex items-center gap-1.5 font-medium text-gray-800"><EntityIcon kind="variant" />{v.name}</span>
-                          {v.description && <span className="ml-2 text-gray-500">{v.description}</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </React.Fragment>
-                ))}
-              {filteredEvents.length === 0 && events.length === 0 && (
-                <EmptyState
-                  colSpan={9}
-                  message="No events yet. Import a data mapping from the Import page, or add one by hand."
-                  actionLabel="Add Event"
-                  onAction={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }}
-                />
-              )}
-              {filteredEvents.length === 0 && events.length > 0 && (
-                <tr>
-                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
-                    No events match this filter.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+      <PageBody>
+        <EventsTable
+          rows={viewRows}
+          defaultClass="custom"
+          onOpen={(row) => openEditor(row.id)}
+          rowActions={(row) => (
+            <button
+              type="button"
+              onClick={() => openEventCard(row.id)}
+              className="text-[var(--brand-primary)] hover:underline text-sm"
+            >
+              View card
+            </button>
+          )}
+          empty={{
+            message: 'No events yet. Import a data mapping from the Import page, or add one by hand.',
+            actionLabel: 'Add Event',
+            onAction: () => openEditor(null),
+          }}
+        />
       </PageBody>
 
       <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={isCreating ? 'Create Event' : 'Edit Event'}>

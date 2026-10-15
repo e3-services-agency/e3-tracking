@@ -1,15 +1,15 @@
 import { useStore } from '@/src/store';
 import { TargetCollaboration, useProjectComments } from '@/src/features/comments/TargetCollaboration';
-import { StatusBadge } from '@/src/components/ui/badges';
+import { IdentityView, identityRowsFromInternal } from '@/src/features/views';
 import { EnumSelect } from '@/src/components/ui/EnumSelect';
-import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
+import { FieldLabel } from '@/src/components/ui/FieldHint';
 /**
  * Identity rules: plain table + form against `/api/projects/:projectId/identity-rules`
  * (plan "Target data model" section IdentityRule; T-1-06). Simplified UI (D-07): a single
  * sheet form with every field, plus move up/down for `sort_order`.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -112,9 +112,8 @@ export function IdentityRules() {
     load();
   }, [load]);
 
-  const sameIdentifierCount = (rule: IdentityRuleRow) => rules.filter((r) => r.identifier_name === rule.identifier_name).length;
-  const eventName = (id: string | null) => events.find((e) => e.id === id)?.name ?? '—';
-  const sourceName = (id: string | null) => sources.find((s) => s.id === id)?.name ?? '—';
+  // T-5-40: the rules table is the shared `IdentityView` (search, type and status filters, density).
+  const viewRows = useMemo(() => identityRowsFromInternal(rules, events), [rules, events]);
 
   const move = async (index: number, direction: -1 | 1) => {
     if (!activeProjectId) return;
@@ -176,57 +175,29 @@ ${flowParagraph}
         {reorderError && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{reorderError}</div>
         )}
-        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <HintTh className="px-6 py-3 font-medium text-gray-500 w-20" hint="Order" hintScope="Identity">Order</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Name" hintScope="Identity">Name</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Identifier name" hintScope="Identity">Identifier</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Type" hintScope="Identity">Type</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="SDK call" hintScope="Identity">SDK call</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Trigger event" hintScope="Identity">Trigger event</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Set by" hintScope="Identity">Set by</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Carried by" hintScope="Identity">Carried by</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Status" hintScope="Identity">Status</HintTh>
-                <HintTh className="px-4 py-3 font-medium text-gray-500" hintScope="Identity">Actions</HintTh>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {rules.map((rule, index) => (
-                <tr key={rule.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="flex gap-1">
-                      <button type="button" onClick={() => void move(index, -1)} disabled={index === 0} className="text-gray-400 hover:text-gray-900 disabled:opacity-30">
-                        <ArrowUp className="w-4 h-4" />
-                      </button>
-                      <button type="button" onClick={() => void move(index, 1)} disabled={index === rules.length - 1} className="text-gray-400 hover:text-gray-900 disabled:opacity-30">
-                        <ArrowDown className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 font-medium text-gray-900 cursor-pointer" onClick={() => openRule(rule.id)}>{rule.name}</td>
-                  <td className="px-6 py-4 text-gray-500">{rule.identifier_name}{sameIdentifierCount(rule) > 1 && <span className="ml-1 text-xs text-gray-400">({sameIdentifierCount(rule)} acts)</span>}</td>
-                  <td className="px-6 py-4 text-gray-500">{rule.identity_type}</td>
-                  <td className="px-6 py-4 text-gray-500">{rule.sdk_call ?? '—'}</td>
-                  <td className="px-6 py-4 text-gray-500">{eventName(rule.trigger_event_id)}</td>
-                  <td className="px-6 py-4 text-gray-500 cursor-pointer" title="Edit how this identifier is set" onClick={() => openRule(rule.id, 'set_by')}><SetByCell setBy={rule.set_by} binds={rule.binds} /></td>
-                  <td className="px-6 py-4 text-gray-500 cursor-pointer" title="Edit which events carry this identifier" onClick={() => openRule(rule.id, 'carried_by')}><CarriedByCell events={rule.carried_by} /></td>
-                  <td className="px-6 py-4 text-gray-500"><StatusBadge status={rule.status} /></td>
-                  <td className="px-4 py-4"><TargetCollaboration api={{mode:'internal',projectId:activeProjectId}} entityType="identity_rule" entityId={rule.id} label={rule.name} rows={collaboration.rows} onChanged={collaboration.reload} /></td>
-                </tr>
-              ))}
-              {rules.length === 0 && (
-                <EmptyState
-                  colSpan={10}
-                  message="No identity rules yet. Add one to describe how a customer identifier is captured and sent to Bloomreach."
-                  actionLabel="Add Identity Rule"
-                  onAction={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }}
-                />
-              )}
-            </tbody>
-          </table>
-        </div>
+        <IdentityView
+          rows={viewRows}
+          onOpen={(row) => openRule(row.id)}
+          onOpenSection={(row, section) => openRule(row.id, section)}
+          orderControls={(_row, index) => (
+            <div className="flex gap-1">
+              <button type="button" aria-label="Move up" onClick={() => void move(index, -1)} disabled={index === 0} className="text-gray-400 hover:text-gray-900 disabled:opacity-30">
+                <ArrowUp className="w-4 h-4" />
+              </button>
+              <button type="button" aria-label="Move down" onClick={() => void move(index, 1)} disabled={index === rules.length - 1} className="text-gray-400 hover:text-gray-900 disabled:opacity-30">
+                <ArrowDown className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+          commentsInActions
+          commentCount={(row) => collaboration.rows.filter((r) => r.entity_type === 'identity_rule' && r.entity_id === row.id).length}
+          rowActions={(row) => <TargetCollaboration api={{ mode: 'internal', projectId: activeProjectId }} entityType="identity_rule" entityId={row.id} label={row.name} rows={collaboration.rows} onChanged={collaboration.reload} />}
+          empty={{
+            message: 'No identity rules yet. Add one to describe how a customer identifier is captured and sent to Bloomreach.',
+            actionLabel: 'Add Identity Rule',
+            onAction: () => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); },
+          }}
+        />
 
         {codegen && (
           <div className="mt-8 bg-white rounded-lg border shadow-sm p-6 space-y-4">

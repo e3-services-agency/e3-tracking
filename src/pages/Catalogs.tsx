@@ -1,26 +1,25 @@
 import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
 import { useStore } from '@/src/store';
 import { TargetCollaboration, useProjectComments } from '@/src/features/comments/TargetCollaboration';
-import { StatusBadge } from '@/src/components/ui/badges';
+import { CatalogsTable, catalogRowsFromInternal } from '@/src/features/views';
 import { EnumSelect } from '@/src/components/ui/EnumSelect';
-import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
+import { FieldLabel } from '@/src/components/ui/FieldHint';
 /**
  * Catalogs: table + plain editor with nested fields against
  * `/api/projects/:projectId/catalogs` (kept, extended per the plan).
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
-import { EmptyState } from '@/src/components/ui/EmptyState';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { PRIORITIES, ENTITY_STATUSES, CATALOG_MAPPING_ROLES, CATALOG_KINDS, CATALOG_VERSIONS, CATALOG_SEARCHABLE_LIMIT } from '@/src/domain/enums';
-import { catalogMarketLabel, validateCatalogFields } from '@/src/domain/catalogs';
+import { validateCatalogFields } from '@/src/domain/catalogs';
 import { FieldTableEditor, type CatalogFieldDraft } from '@/src/features/catalogs/FieldTableEditor';
 import { HistorySection } from '@/src/features/history/HistorySection';
 
@@ -116,6 +115,8 @@ export function Catalogs() {
     setIsSheetOpen(false);
   };
 
+  const viewRows = useMemo(() => catalogRowsFromInternal(catalogs), [catalogs]);
+
   const load = useCallback(async () => {
     if (!hasValidProjectContext || !activeProjectId) return;
     const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/catalogs`);
@@ -140,42 +141,18 @@ export function Catalogs() {
       </PageHeader>
 
       <PageBody>
-        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Name" hintScope="Catalogs">Name</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Kind" hintScope="Catalogs">Kind</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Market / language" hintScope="Catalogs">Market / language</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Version" hintScope="Catalogs">Version</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Mapping role" hintScope="Catalogs">Mapping role</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Status" hintScope="Catalogs">Status</HintTh>
-                <HintTh className="px-4 py-3 font-medium text-gray-500" hintScope="Catalogs">Actions</HintTh>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {catalogs.map((c) => (
-                <tr key={c.id} onClick={() => { setSelectedId(c.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
-                  <td className="px-6 py-4 font-medium text-gray-900"><span className="inline-flex items-center gap-1.5">{c.name}<CopyNameButton name={c.name} /></span></td>
-                  <td className="px-6 py-4 text-gray-500">{c.kind}</td>
-                  <td className="px-6 py-4 text-gray-500">{catalogMarketLabel(c.market, c.language) || '—'}</td>
-                  <td className="px-6 py-4 text-gray-500">{c.version}{c.live_at ? ' · live' : ''}</td>
-                  <td className="px-6 py-4 text-gray-500">{c.mapping_role ?? '—'}</td>
-                  <td className="px-6 py-4 text-gray-500"><StatusBadge status={c.status} /></td>
-                  <td className="px-4 py-4"><TargetCollaboration api={{mode:'internal',projectId:activeProjectId}} entityType="catalog" entityId={c.id} label={c.name} rows={collaboration.rows} onChanged={collaboration.reload} /></td>
-                </tr>
-              ))}
-              {catalogs.length === 0 && (
-                <EmptyState
-                  colSpan={7}
-                  message="No catalogs yet. Add one to describe a Bloomreach catalog (products, articles, and so on)."
-                  actionLabel="Add Catalog"
-                  onAction={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }}
-                />
-              )}
-            </tbody>
-          </table>
-        </div>
+        <CatalogsTable
+          rows={viewRows}
+          onOpen={(row) => { setSelectedId(row.id); setIsCreating(false); setIsSheetOpen(true); }}
+          commentsInActions
+          commentCount={(row) => collaboration.rows.filter((r) => r.entity_type === 'catalog' && r.entity_id === row.id).length}
+          rowActions={(row) => <TargetCollaboration api={{ mode: 'internal', projectId: activeProjectId }} entityType="catalog" entityId={row.id} label={row.name} rows={collaboration.rows} onChanged={collaboration.reload} />}
+          empty={{
+            message: 'No catalogs yet. Add one to describe a Bloomreach catalog (products, articles, and so on).',
+            actionLabel: 'Add Catalog',
+            onAction: () => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); },
+          }}
+        />
       </PageBody>
 
       <Sheet isOpen={isSheetOpen} onClose={closeSheet} title={isCreating ? 'Create Catalog' : 'Edit Catalog'}>

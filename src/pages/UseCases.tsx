@@ -1,7 +1,6 @@
-import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
+import { UseCasesTable, useCaseRowsFromInternal } from '@/src/features/views';
 import { EnumSelect } from '@/src/components/ui/EnumSelect';
 import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
-import { PriorityBadge, StatusBadge } from '@/src/components/ui/badges';
 /**
  * Use cases: plain table + form against `/api/projects/:projectId/use-cases`, plus an ordered
  * requirements editor against `PUT .../use-cases/:id/requirements` (plan "Target data model"
@@ -15,7 +14,6 @@ import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
-import { EmptyState } from '@/src/components/ui/EmptyState';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import { InternalRefLink } from '@/src/features/shared/RefLink';
 import { buildReferenceIndex, resolveReference } from '@/src/features/shared/references';
@@ -127,14 +125,7 @@ async function parseJson(res: Response): Promise<any> {
 export function UseCases() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
   const [useCases, setUseCases] = useState<UseCaseRow[]>([]);
-  const { sorted: sortedUseCases, sort } = useSortableTable(useCases, {
-    code: (u) => u.code,
-    name: (u) => u.name,
-    type: (u) => u.type,
-    priority: (u) => ['critical', 'high', 'medium', 'low'].indexOf(u.priority ?? '') + 1 || null,
-    status: (u) => u.status,
-    owner: (u) => u.owner,
-  });
+  const viewRows = useMemo(() => useCaseRowsFromInternal(useCases), [useCases]);
   const [templates, setTemplates] = useState<UseCaseTemplateOption[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -254,40 +245,15 @@ export function UseCases() {
             {fromTemplateError}
           </div>
         )}
-        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <SortableTh sort={sort} column="code" className="px-6 py-3 font-medium text-gray-500" hint="Code" hintScope="UseCases">Code</SortableTh>
-                <SortableTh sort={sort} column="name" className="px-6 py-3 font-medium text-gray-500" hint="Name" hintScope="UseCases">Name</SortableTh>
-                <SortableTh sort={sort} column="type" className="px-6 py-3 font-medium text-gray-500" hint="Type" hintScope="UseCases">Type</SortableTh>
-                <SortableTh sort={sort} column="priority" className="px-6 py-3 font-medium text-gray-500" hint="Priority" hintScope="UseCases">Priority</SortableTh>
-                <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" hint="Status" hintScope="UseCases">Status</SortableTh>
-                <SortableTh sort={sort} column="owner" className="px-6 py-3 font-medium text-gray-500" hint="Owner" hintScope="UseCases">Owner</SortableTh>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {sortedUseCases.map((uc) => (
-                <tr key={uc.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedId(uc.id)}>
-                  <td className="px-6 py-4 text-gray-500">{uc.code ?? '—'}</td>
-                  <td className="px-6 py-4 font-medium text-gray-900"><span className="inline-flex items-center gap-1.5">{uc.name}<CopyNameButton name={uc.name} /></span></td>
-                  <td className="px-6 py-4 text-gray-500">{uc.type ?? '—'}</td>
-                  <td className="px-6 py-4 text-gray-500"><PriorityBadge priority={uc.priority} /></td>
-                  <td className="px-6 py-4 text-gray-500"><StatusBadge status={uc.status} /></td>
-                  <td className="px-6 py-4 text-gray-500">{uc.owner ?? '—'}</td>
-                </tr>
-              ))}
-              {useCases.length === 0 && (
-                <EmptyState
-                  colSpan={6}
-                  message="No use cases yet. Add one from the use case template library, or add one by hand."
-                  actionLabel="Browse templates"
-                  onAction={() => setRequestedTab('useCaseTemplates')}
-                />
-              )}
-            </tbody>
-          </table>
-        </div>
+        <UseCasesTable
+          rows={viewRows}
+          onOpen={(row) => setSelectedId(row.id)}
+          empty={{
+            message: 'No use cases yet. Add one from the use case template library, or add one by hand.',
+            actionLabel: 'Browse templates',
+            onAction: () => setRequestedTab('useCaseTemplates'),
+          }}
+        />
       </PageBody>
 
       <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title="Create use case">

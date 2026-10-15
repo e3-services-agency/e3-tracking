@@ -1,6 +1,6 @@
-import { StatusBadge } from '@/src/components/ui/badges';
+import { ConsentTable, consentRowsFromInternal } from '@/src/features/views';
 import { EnumSelect } from '@/src/components/ui/EnumSelect';
-import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
+import { FieldLabel } from '@/src/components/ui/FieldHint';
 /**
  * Consent categories: plain table + form against `/api/projects/:projectId/consent-categories`
  * (plan "Target data model" section ConsentCategory; T-1-06). `standard_key` is picked from the
@@ -8,12 +8,11 @@ import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
  * consent key" form below the picker appends to that project column.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
-import { EmptyState } from '@/src/components/ui/EmptyState';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
@@ -66,6 +65,7 @@ export function ConsentCategories() {
   }, [load]);
 
   const availableStandardKeys = mergeConsentKeys(consentKeyAdditions);
+  const viewRows = useMemo(() => consentRowsFromInternal(categories), [categories]);
 
   const move = async (index: number, direction: -1 | 1) => {
     if (!activeProjectId) return;
@@ -143,45 +143,25 @@ export function ConsentCategories() {
         {reorderError && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{reorderError}</div>
         )}
-        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <HintTh className="px-6 py-3 font-medium text-gray-500 w-20" hint="Order" hintScope="Consents">Order</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Client category" hintScope="Consents">Client category</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Standard key" hintScope="Consents">Standard key</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Status" hintScope="Consents">Status</HintTh>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {categories.map((c, index) => (
-                <tr key={c.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="flex gap-1">
-                      <button type="button" onClick={() => void move(index, -1)} disabled={index === 0} className="text-gray-400 hover:text-gray-900 disabled:opacity-30">
-                        <ArrowUp className="w-4 h-4" />
-                      </button>
-                      <button type="button" onClick={() => void move(index, 1)} disabled={index === categories.length - 1} className="text-gray-400 hover:text-gray-900 disabled:opacity-30">
-                        <ArrowDown className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 font-medium text-gray-900 cursor-pointer" onClick={() => { setSelectedId(c.id); setIsCreating(false); setIsSheetOpen(true); }}><span className="inline-flex items-center gap-1.5">{c.name}<CopyNameButton name={c.name} /></span></td>
-                  <td className="px-6 py-4 text-gray-500">{c.standard_key ?? '—'}</td>
-                  <td className="px-6 py-4 text-gray-500"><StatusBadge status={c.status} /></td>
-                </tr>
-              ))}
-              {categories.length === 0 && (
-                <EmptyState
-                  colSpan={4}
-                  message="No consent categories yet. Add one to track an opt-in/opt-out preference this project needs."
-                  actionLabel="Add Consent Category"
-                  onAction={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }}
-                />
-              )}
-            </tbody>
-          </table>
-        </div>
+        <ConsentTable
+          rows={viewRows}
+          onOpen={(row) => { setSelectedId(row.id); setIsCreating(false); setIsSheetOpen(true); }}
+          orderControls={(_row, index) => (
+            <div className="flex gap-1">
+              <button type="button" aria-label="Move up" onClick={() => void move(index, -1)} disabled={index === 0} className="text-gray-400 hover:text-gray-900 disabled:opacity-30">
+                <ArrowUp className="w-4 h-4" />
+              </button>
+              <button type="button" aria-label="Move down" onClick={() => void move(index, 1)} disabled={index === categories.length - 1} className="text-gray-400 hover:text-gray-900 disabled:opacity-30">
+                <ArrowDown className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+          empty={{
+            message: 'No consent categories yet. Add one to track an opt-in/opt-out preference this project needs.',
+            actionLabel: 'Add Consent Category',
+            onAction: () => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); },
+          }}
+        />
       </PageBody>
 
       <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={isCreating ? 'Create Consent Category' : 'Edit Consent Category'}>

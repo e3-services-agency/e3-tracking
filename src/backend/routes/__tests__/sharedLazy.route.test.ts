@@ -18,6 +18,7 @@ import * as EventDAL from '../../dal/event.dal';
 import * as PropertyDAL from '../../dal/property.dal';
 import * as VariantDAL from '../../dal/variant.dal';
 import * as UseCaseDAL from '../../dal/use-case.dal';
+import * as FindingDAL from '../../dal/finding.dal';
 
 let server: http.Server;
 let baseUrl: string;
@@ -28,6 +29,11 @@ let otherProjectEventId: string;
 let deletedEventId: string;
 let cartEventId: string;
 let token: string;
+// T-5-42: findings seeded for findings.json (attached, unattached, manually resolved, other project).
+let attachedFindingId: string;
+let unattachedFindingId: string;
+let resolvedFindingId: string;
+let otherProjectFindingId: string;
 
 const SHARE_NOT_FOUND = { error: 'This share link is not valid.', code: 'SHARE_NOT_FOUND' };
 
@@ -40,6 +46,8 @@ const SECRETS = {
   agent_instructions: 'SECRET agent prompt t541',
   internal_notes: 'SECRET use case internal note t541',
   internal_url: 'https://internal.example.com/secret-t541',
+  internal_finding: 'SECRET finding debug note t542',
+  other_project_finding: 'Other project finding message t542',
 };
 
 function rawGet(rawPath: string): Promise<{ status: number; headers: http.IncomingHttpHeaders; text: string }> {
@@ -119,6 +127,50 @@ beforeAll(async () => {
   EventDAL.createEvent(projectId, { name: 'page_visit', class: 'sdk' });
   deletedEventId = EventDAL.createEvent(projectId, { name: 'deleted_event', class: 'custom' }).id;
   EventDAL.deleteEvent(projectId, deletedEventId);
+
+  // T-5-42: one finding on an event (with an internal_* key inside its evidence), one tied to no
+  // event, one acknowledged by hand (resolved_by set), and one in another project.
+  attachedFindingId = FindingDAL.upsertFinding(projectId, {
+    comparison: 'definition_vs_observations',
+    kind: 'type_mismatch',
+    severity: 'error',
+    event_id: cart.id,
+    property_id: price.id,
+    expected_json: { type: 'number' },
+    actual_json: { type: 'string', value: '12.90', internal_debug: SECRETS.internal_finding },
+    message: 'total_price arrived as a string',
+    fingerprint: 't542-attached',
+  }).id;
+  unattachedFindingId = FindingDAL.upsertFinding(projectId, {
+    comparison: 'definition_vs_observations',
+    kind: 'unexpected_event',
+    severity: 'warning',
+    event_id: null,
+    actual_json: { event_type: 'mystery_event', count: 3 },
+    message: 'mystery_event is not in the tracking plan',
+    fingerprint: 't542-unattached',
+  }).id;
+  resolvedFindingId = FindingDAL.upsertFinding(projectId, {
+    comparison: 'definition_vs_observations',
+    kind: 'missing_required',
+    severity: 'error',
+    event_id: cart.id,
+    property_id: action.id,
+    expected_json: { required: true },
+    actual_json: { present: false },
+    message: 'action missing',
+    fingerprint: 't542-resolved',
+  }).id;
+  FindingDAL.setFindingStatus(projectId, resolvedFindingId, 'resolved');
+  otherProjectFindingId = FindingDAL.upsertFinding(otherProjectId, {
+    comparison: 'definition_vs_observations',
+    kind: 'unexpected_event',
+    severity: 'error',
+    event_id: otherProjectEventId,
+    actual_json: { event_type: 'other_project_event' },
+    message: SECRETS.other_project_finding,
+    fingerprint: 't542-other-project',
+  }).id;
 
   UseCaseDAL.createUseCase(projectId, {
     name: 'Abandoned cart',
@@ -227,10 +279,67 @@ describe('GET /api/shared/:token/events/:eventId/card.json (T-5-41)', () => {
   });
 });
 
+describe('GET /api/shared/:token/findings.json (T-5-42)', () => {
+  async function getFindings() {
+    const res = await fetch(`${baseUrl}/api/shared/${token}/findings.json`);
+    const text = await res.text();
+    return { res, text, body: JSON.parse(text) };
+  }
+  const idsOf = (body: { events: { findings: { id: string }[] }[]; unattached_findings: { id: string }[] }) =>
+    [...body.events.flatMap((e) => e.findings.map((f) => f.id)), ...body.unattached_findings.map((f) => f.id)].sort();
+
+  it("returns this project's open findings: one on its event, one tied to no event, nothing else", async () => {
+    const { res, body } = await getFindings();
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(Object.keys(body).sort()).toEqual(['events', 'unattached_findings']);
+    expect(body.events.map((e: { id: string }) => e.id)).toEqual([cartEventId]);
+    expect(body.events[0].findings.map((f: { id: string }) => f.id)).toEqual([attachedFindingId]);
+    expect(body.events[0].findings[0]).toMatchObject({ kind: 'type_mismatch', severity: 'error', message: 'total_price arrived as a string' });
+    expect(body.unattached_findings.map((f: { id: string }) => f.id)).toEqual([unattachedFindingId]);
+    expect(idsOf(body)).toEqual([attachedFindingId, unattachedFindingId].sort());
+  });
+
+  it("never carries another project's finding nor the finding acknowledged by hand", async () => {
+    const { res, text, body } = await getFindings();
+    expect(res.status).toBe(200);
+    expect(idsOf(body)).toContain(attachedFindingId);
+    expect(text).not.toContain(otherProjectFindingId);
+    expect(text).not.toContain(SECRETS.other_project_finding);
+    expect(text).not.toContain(otherProjectEventId);
+    expect(text).not.toContain(resolvedFindingId);
+  });
+
+  it('carries no field the public projection strips, inside finding evidence included', async () => {
+    const { res, body, text } = await getFindings();
+    expect(res.status).toBe(200);
+    expectNoStrippedField(body, text);
+    expect(text).not.toContain(SECRETS.internal_finding);
+    const keys = [...allKeys(body)];
+    for (const key of ['agent_instructions', 'identity_note', 'owners', 'bloomreach_project_url', 'resolved_by', 'resolved_at', 'project_id', 'fingerprint']) {
+      expect(keys).not.toContain(key);
+    }
+    expect(body.events[0].findings[0].actual).toEqual({ type: 'string', value: '12.90' });
+  });
+
+  it('equals the findings of the public tracking-document.json', async () => {
+    const { body } = await getFindings();
+    const full = await (await fetch(`${baseUrl}/api/shared/${token}/tracking-document.json`)).json();
+    expect(body.events).toEqual(
+      full.events
+        .filter((e: { findings: unknown[] }) => e.findings.length > 0)
+        .map((e: { id: string; name: string; findings: unknown[] }) => ({ id: e.id, name: e.name, findings: e.findings }))
+    );
+    expect(body.unattached_findings).toEqual(full.unattached_findings);
+    expect(idsOf(body)).toHaveLength(2);
+  });
+});
+
 describe('error behaviour of both lazy routes (T-5-41)', () => {
   it('a bad token, a revoked token and a malformed path all answer the identical 404 with no-store', async () => {
     const bad = [
       `/api/shared/not-a-token/document-summary.json`,
+      `/api/shared/not-a-token/findings.json`,
       `/api/shared/not-a-token/events/${cartEventId}/card.json`,
       `/api/shared/${token}/events/%ZZ/card.json`,
       `/api/shared/%E0%A4%A/document-summary.json`,
@@ -246,7 +355,7 @@ describe('error behaviour of both lazy routes (T-5-41)', () => {
 
   it('after revoking the link both routes answer the identical 404', async () => {
     await fetch(`${baseUrl}/api/projects/${projectId}/share`, { method: 'DELETE' });
-    for (const p of [`/api/shared/${token}/document-summary.json`, `/api/shared/${token}/events/${cartEventId}/card.json`]) {
+    for (const p of [`/api/shared/${token}/document-summary.json`, `/api/shared/${token}/events/${cartEventId}/card.json`, `/api/shared/${token}/findings.json`]) {
       const res = await fetch(`${baseUrl}${p}`);
       expect(res.status).toBe(404);
       expect(await res.json()).toEqual(SHARE_NOT_FOUND);

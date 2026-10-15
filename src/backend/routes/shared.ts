@@ -15,6 +15,8 @@ import { publicReportList,publicReport,publicFindingHistory } from '../services/
  * - `GET /:token/document-summary.json` and `GET /:token/events/:eventId/card.json` (T-5-41, D-88)
  *   -- the lazy client portal: the public document with light events, and one full public card.
  *   Both are derived from `toPublicTrackingDocument`'s output; any error is 404 `SHARE_NOT_FOUND`.
+ * - `GET /:token/findings.json` (T-5-42) -- the portal QA view's current findings per event plus the
+ *   unattached ones, from the same light public document; any error is 404 `SHARE_NOT_FOUND`.
  * - `GET /:token/documentation.html` -- the same HTML export as the internal route, generated with
  *   `{ public: true }` (same field set stripped).
  * - `GET /:token/files/*` -- the same decode/traversal checks as `routes/files.ts`, scoped to this
@@ -57,6 +59,7 @@ import { requireShare } from '../middleware/share';
 import { getProjectWithClient } from '../dal/project.dal';
 import {
   buildPublicEventCard,
+  buildPublicFindings,
   buildPublicTrackingDocumentSummary,
   buildTrackingDocument,
   toPublicTrackingDocument,
@@ -144,6 +147,14 @@ router.get('/:token/events/:eventId/card.json', requireShare, (req: Request, res
       return;
     }
     res.status(200).json(card);
+  } catch {
+    shareNotFound(res);
+  }
+});
+
+router.get('/:token/findings.json', requireShare, (req: Request, res: Response) => {
+  try {
+    res.status(200).json(buildPublicFindings(req.projectId!));
   } catch {
     shareNotFound(res);
   }

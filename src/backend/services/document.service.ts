@@ -1221,6 +1221,22 @@ export function buildPublicTrackingDocumentSummary(projectId: string): TrackingD
   return toTrackingDocumentSummary(toPublicTrackingDocument(buildTrackingDocument(projectId, { light: true })));
 }
 
+/** T-5-42 (D-88): the portal QA view's current findings. The summary keeps only a count per event,
+ * so this route carries each event's `findings` (events without any are left out) and
+ * `unattached_findings`, taken from the same light `toPublicTrackingDocument` output as the summary. */
+export interface PublicFindingsList {
+  events: Pick<EventCard, 'id' | 'name' | 'findings'>[];
+  unattached_findings: TrackingDocument['unattached_findings'];
+}
+
+export function buildPublicFindings(projectId: string): PublicFindingsList {
+  const doc = toPublicTrackingDocument(buildTrackingDocument(projectId, { light: true }));
+  return {
+    events: doc.events.filter((e) => e.findings.length > 0).map((e) => ({ id: e.id, name: e.name, findings: e.findings })),
+    unattached_findings: doc.unattached_findings,
+  };
+}
+
 /** `GET /api/shared/:token/events/:eventId/card.json`: one full card, taken from the
  * `toPublicTrackingDocument` output of a document limited to that event. `null` for an id that is
  * not an event of this project (unknown, deleted, or another project's). */

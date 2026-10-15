@@ -3,6 +3,7 @@
     { "source": "/tracking-plan/api", "destination": "/api/index.ts" },
     { "source": "/tracking-plan/api/:path*", "destination": "/api/index.ts" },
     { "source": "/api/(.*)", "destination": "/api/index.ts" },
+    { "source": "/tracking-plan/shared/(.*)", "destination": "/index.html" },
     { "source": "/((?!api/)(?!.*\\.).*)", "destination": "/index.html" }
   ]
 }

@@ -7,10 +7,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildSharedViewModel, sharedFileUrl, eventAnchor, eventAnchors, eventForHash, isEmptyValue, derivedMetricsText,
-  eventCardVisibility, oneLineDescription, sectionPresence, buildSectionIndex, filterNav, flattenNav, pickActiveId, lightboxStep, scrollTopToReveal,
-  renderedSectionIds, toggleInSet, pickActiveAtBottom, SECTION_IDS, setExpanded, stickyScrollMarginPx, spyTopOffsetPx, STICKY_PX,
+  eventCardVisibility, oneLineDescription, sectionPresence, sharedSectionGroups, lightboxStep,
+  toggleInSet, SECTION_IDS, stickyScrollMarginPx, STICKY_PX,
 } from './sharedViewModel';
-import type { TrackingDocument } from '../domain/document/trackingDocument';
+import type { TrackingDocument, TrackingDocumentSummary } from '../domain/document/trackingDocument';
+import { portalSections } from '../features/portal/portalSections';
+import { buildPortalIndex, legacyAnchorTarget } from '../features/portal/portalModel';
 
 function emptyEventCard(overrides: Partial<TrackingDocument['events'][number]>): TrackingDocument['events'][number] {
   return {
@@ -114,8 +116,6 @@ describe('T-4-14 view helpers', () => {
     const events = names.map((name) => ({ name, class: 'custom' }));
     expect(eventForHash('#event-ab-test-2', events)?.name).toBe('ab-test');
     expect(eventForHash('#event-Kauf-3', events)?.name).toBe('Kauf ü');
-    const nav = buildSectionIndex({ ...baseDoc, events });
-    expect(nav[0].children![0].children!.map((c) => c.id)).toEqual(ids);
   });
 
   it('eventForHash resolves a hash to its event, also percent-encoded, and ignores others', () => {
@@ -155,47 +155,11 @@ describe('T-4-14 view helpers', () => {
     expect(oneLineDescription('x'.repeat(50), 10).endsWith('\u2026')).toBe(true);
   });
 
-  it('sectionPresence and buildSectionIndex omit empty sections and group events by class', () => {
+  it('T-5-42: sectionPresence and the portal sidebar omit empty sections; QA is always listed', () => {
     expect(sectionPresence(baseDoc)).toMatchObject({ useCases: false, identity: false, catalogs: false, findings: false, consents: true, mapping: true });
-    const nav = buildSectionIndex(baseDoc);
-    expect(nav.map((n) => n.id)).toEqual(['events', 'properties', 'consents', 'mapping']);
-    const groups = nav[0].children!;
-    expect(groups.map((g) => g.id)).toEqual(['events-custom', 'events-sdk', 'events-platform']);
-    expect(groups[0].children!.map((c) => c.id)).toEqual(['event-purchase', 'event-cart-update']);
-    const withFindings = buildSectionIndex({ ...baseDoc, findings_summary: { open: { error: 1, warning: 0, info: 0 } } });
-    expect(withFindings.at(-1)?.id).toBe('findings');
-  });
-
-  it('buildSectionIndex skips an empty event class group', () => {
-    const nav = buildSectionIndex({ ...baseDoc, events: [ev('a'), ev('b', 'platform')] });
-    expect(nav[0].children!.map((g) => g.id)).toEqual(['events-custom', 'events-platform']);
-  });
-
-  it('filterNav keeps matching leaves with their ancestors, and whole subtrees on a parent match', () => {
-    const nav = buildSectionIndex(baseDoc);
-    expect(filterNav(nav, '')).toBe(nav);
-    const f = filterNav(nav, 'CART UPD');
-    expect(f).toHaveLength(1);
-    expect(f[0].children![0].children!.map((c) => c.label)).toEqual(['cart update']);
-    const parent = filterNav(nav, 'sdk events');
-    expect(parent[0].children!.map((g) => g.id)).toEqual(['events-sdk']);
-    expect(filterNav(nav, 'zzz')).toEqual([]);
-  });
-
-  it('flattenNav is document order with depth; pickActiveId takes the first visible', () => {
-    const flat = flattenNav(buildSectionIndex(baseDoc));
-    expect(flat[0]).toEqual({ id: 'events', label: 'Events (4)', depth: 0 });
-    expect(flat[2]).toMatchObject({ id: 'event-purchase', depth: 2 });
-    const ids = flat.map((f) => f.id);
-    expect(pickActiveId(ids, new Set(['event-cart-update', 'event-purchase']))).toBe('event-purchase');
-    expect(pickActiveId(ids, new Set())).toBeNull();
-  });
-
-  it('scrollTopToReveal moves only when the item is outside the view', () => {
-    expect(scrollTopToReveal(100, 200, 150, 20)).toBe(100);
-    expect(scrollTopToReveal(100, 200, 40, 20)).toBe(40);
-    expect(scrollTopToReveal(100, 200, 290, 20)).toBe(110);
-    expect(scrollTopToReveal(0, 200, -5, 20)).toBe(0);
+    const sections = portalSections({ ...baseDoc, event_properties: [] } as unknown as TrackingDocumentSummary);
+    expect(sections.map((s) => s.view)).toEqual(['events', 'properties', 'consents', 'standard-events', 'qa']);
+    expect(sections.map((s) => s.count)).toEqual([4, 1, 1, 1, 0]);
   });
 
   it('lightboxStep wraps in both directions', () => {
@@ -205,34 +169,30 @@ describe('T-4-14 view helpers', () => {
     expect(lightboxStep(0, 1, 0)).toBe(0);
   });
 
-  it('nav index ids equal the set of rendered section ids (every section link has a target)', () => {
+  it('T-5-42: every section of the single page has a portal view, and its old section id lands there', () => {
     const all = {
       ...baseDoc,
+      properties: [{ property_id: 'p1', name: 'tier', definitions: [] }],
+      event_properties: [],
       use_cases: [
-        { id: 'u1', code: 'UC1', name: 'Welcome', type: 'marketing' },
-        { id: 'u2', code: 'UC2', name: 'Order confirmation', type: 'transactional' },
-        { id: 'u3', code: null, name: 'Loose', type: null },
+        { id: 'u1', code: 'UC1', name: 'Welcome', type: 'marketing', requirements: [] },
+        { id: 'u2', code: 'UC2', name: 'Order confirmation', type: 'transactional', requirements: [] },
       ],
-      identity_rules: [1],
-      catalogs: [1],
-      events: [
-        { ...ev('purchase'), id: 'e1', findings: [{ severity: 'error', comparison: 'definition_vs_observations', kind: 'type_mismatch' }] },
-        { ...ev('cart update'), id: 'e2', findings: [{ severity: 'warning', comparison: 'definition_vs_mapping', kind: 'unmapped_property' }] },
-      ],
-      unattached_findings: [{ severity: 'info', comparison: 'definition_vs_observations', kind: 'unexpected_event' }],
-      consent_categories: [
-        { name: 'Newsletter', standard_key: 'newsletter' },
-        { name: 'SMS offers', standard_key: null },
-        { name: 'Brand consent', standard_key: null },
-      ],
+      identity_rules: [{ id: 'r1' }],
+      catalogs: [{ id: 'c1', name: 'products' }],
+      events: [{ ...ev('purchase'), id: 'e1' }],
       findings_summary: { open: { error: 1, warning: 0, info: 2 } },
-    };
-    for (const doc of [baseDoc, all, { ...baseDoc, events: [] }]) {
-      const navIds = flattenNav(buildSectionIndex(doc)).map((f) => f.id);
-      expect(navIds).toEqual(renderedSectionIds(doc));
-      expect(new Set(navIds).size).toBe(navIds.length);
+    } as unknown as TrackingDocumentSummary;
+    const views = portalSections(all).map((s) => s.view);
+    const index = buildPortalIndex(all);
+    const present = sectionPresence(all as never);
+    const keys = { events: 'events', properties: 'properties', useCases: 'use-cases', identity: 'identity', consents: 'consents', catalogs: 'catalogs', mapping: 'standard-events', findings: 'qa' } as const;
+    for (const [key, view] of Object.entries(keys) as [keyof typeof keys, string][]) {
+      if (!present[key]) continue;
+      expect(views).toContain(view);
+      expect(legacyAnchorTarget(SECTION_IDS[key], index)?.view).toBe(view);
     }
-    expect(renderedSectionIds(all)).toEqual(expect.arrayContaining([SECTION_IDS.consents, SECTION_IDS.mapping, SECTION_IDS.findings]));
+    expect(new Set(views).size).toBe(views.length);
   });
 
   it('T-4-21 groups use cases by type, consents by channel, mapping per leaf and findings by comparison', () => {
@@ -255,25 +215,17 @@ describe('T-4-14 view helpers', () => {
       ],
       findings_summary: { open: { error: 1, warning: 1, info: 1 } },
     };
-    const nav = buildSectionIndex(doc);
-    const uc = nav.find((n) => n.id === 'use-cases')!;
-    expect(uc.children!.map((g) => g.id)).toEqual(['use-cases-marketing', 'use-cases-transactional', 'use-cases-other']);
-    expect(uc.children![0].children!.map((l) => l.id)).toEqual(['use-case-UC1']);
-    expect(uc.children![1].children![0].label).toBe('UC2 \u2014 Order confirmation');
-    const consents = nav.find((n) => n.id === 'consents')!;
-    expect(consents.children!.map((g) => g.id)).toEqual(['consents-email', 'consents-sms', 'consents-other']);
-    const mapping = nav.find((n) => n.id === 'mapping')!;
-    expect(mapping.children!.map((l) => l.label)).toEqual(['cart_update \u2192 cart_update']);
-    const findings = nav.find((n) => n.id === 'findings')!;
-    expect(findings.children!.map((g) => g.id)).toEqual(['findings-definition_vs_mapping', 'findings-definition_vs_observations']);
-    expect(findings.children![0].label).toBe('Tracking plan vs Bloomreach mapping (1)');
-    expect(findings.children![1].children!.map((l) => l.id)).toEqual(['findings-definition_vs_observations-event-purchase', 'findings-definition_vs_observations-project']);
-    const ids = flattenNav(nav).map((f) => f.id);
-    expect(renderedSectionIds(doc)).toEqual(ids);
-    expect(new Set(ids).size).toBe(ids.length);
+    const groups = sharedSectionGroups(doc);
+    expect(groups.useCaseGroups.map((g) => g.id)).toEqual(['use-cases-marketing', 'use-cases-transactional', 'use-cases-other']);
+    expect(groups.useCaseGroups[0].items.map((l) => l.id)).toEqual(['use-case-UC1']);
+    expect(groups.consentGroups.map((g) => g.id)).toEqual(['consents-email', 'consents-sms', 'consents-other']);
+    expect(groups.mappingLeaves.map((l) => l.label)).toEqual(['cart_update \u2192 cart_update']);
+    expect(groups.findingGroups.map((g) => g.id)).toEqual(['findings-definition_vs_mapping', 'findings-definition_vs_observations']);
+    expect(groups.findingGroups[0].label).toBe('Tracking plan vs Bloomreach mapping');
+    expect(groups.findingGroups[1].leaves.map((l) => l.id)).toEqual(['findings-definition_vs_observations-event-purchase', 'findings-definition_vs_observations-project']);
   });
 
-  it('toggleInSet adds, removes and does not mutate its input (nav group collapse state)', () => {
+  it('toggleInSet adds, removes and does not mutate its input', () => {
     const start = new Set(['events']);
     const added = toggleInSet(start, 'events-custom');
     expect([...added]).toEqual(['events', 'events-custom']);
@@ -281,25 +233,9 @@ describe('T-4-14 view helpers', () => {
     expect([...start]).toEqual(['events']);
   });
 
-  it('pickActiveAtBottom picks the last section whose top is inside the viewport', () => {
-    const tops = new Map([['catalogs', 100], ['consents', 300], ['findings', 650], ['mapping', 900]]);
-    expect(pickActiveAtBottom(['catalogs', 'consents', 'findings', 'mapping'], tops, 800)).toBe('findings');
-    expect(pickActiveAtBottom(['catalogs'], new Map(), 800)).toBeNull();
-  });
-
-  it('setExpanded adds or removes a batch of ids without mutating (global and per-section Expand/Collapse all)', () => {
-    const open = new Set(['e1']);
-    expect([...setExpanded(open, ['e2', 'e3'], true)].sort()).toEqual(['e1', 'e2', 'e3']);
-    expect([...setExpanded(open, ['e1', 'zz'], false)]).toEqual([]);
-    expect([...open]).toEqual(['e1']);
-    // A local group toggle leaves other groups' rows alone.
-    expect([...setExpanded(new Set(['a', 'b']), ['a'], false)]).toEqual(['b']);
-  });
-
   it('sticky offsets: sections and groups clear the page header, an event also clears its group header', () => {
     expect(stickyScrollMarginPx('section')).toBe(STICKY_PX.pageHeader);
     expect(stickyScrollMarginPx('group')).toBe(STICKY_PX.pageHeader);
     expect(stickyScrollMarginPx('event')).toBe(STICKY_PX.pageHeader + STICKY_PX.groupHeader);
-    expect(spyTopOffsetPx()).toBeGreaterThanOrEqual(stickyScrollMarginPx('event'));
   });
 });

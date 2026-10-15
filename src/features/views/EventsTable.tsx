@@ -29,7 +29,7 @@ export interface EventsTableProps extends ViewSlots<EventViewRow> {
 
 const sourceLabels = (ev: EventViewRow) => ev.sources.map((s) => sourceViaLabel(s.system, s.method));
 
-export function EventsTable({ rows, rowActions, onOpen, commentCount, commentsInActions, readOnly = false, empty, toolbarExtra, defaultClass = '' }: EventsTableProps) {
+export function EventsTable({ rows, rowActions, onOpen, commentCount, commentsInActions, readOnly = false, empty, toolbarExtra, highlightId, defaultClass = '' }: EventsTableProps) {
   const [density, setDensity] = useDensity();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search.trim().toLowerCase(), 200);
@@ -55,7 +55,7 @@ export function EventsTable({ rows, rowActions, onOpen, commentCount, commentsIn
     source: (ev) => sourceLabels(ev).join(', '),
     status: (ev) => ev.status,
     certified: (ev) => ev.certified,
-    expiration: (ev) => ev.expiration.label,
+    expiration: (ev) => ev.expiration?.label ?? '',
     properties: (ev) => ev.property_count,
   });
 
@@ -71,7 +71,8 @@ export function EventsTable({ rows, rowActions, onOpen, commentCount, commentsIn
 
   const cell = CELL[density];
   const hasActions = !!(rowActions || commentCount);
-  const colSpan = hasActions ? 9 : 8;
+  const showExpiration = rows.some((ev) => ev.expiration);
+  const colSpan = 7 + (hasActions ? 1 : 0) + (showExpiration ? 1 : 0);
   const sourceOptions = filterOptions(rows, sourceLabels);
   const classOptions = withKnownOrder(EVENT_CLASSES, filterOptions(rows, (ev) => ev.class));
   const statusOptions = withKnownOrder(EVENT_STATUSES, filterOptions(rows, (ev) => ev.status));
@@ -108,7 +109,7 @@ export function EventsTable({ rows, rowActions, onOpen, commentCount, commentsIn
             <SortableTh sort={sort} column="certified" className={`${cell} ${HEAD_TEXT}`} hint="Certified" hintScope="Events">
               <GlossaryTerm glossaryKey="certified">Certified</GlossaryTerm>
             </SortableTh>
-            <SortableTh sort={sort} column="expiration" className={`${cell} ${HEAD_TEXT}`} hint="Expiration" hintScope="Events">Expiration</SortableTh>
+            {showExpiration && <SortableTh sort={sort} column="expiration" className={`${cell} ${HEAD_TEXT}`} hint="Expiration" hintScope="Events">Expiration</SortableTh>}
             <SortableTh sort={sort} column="properties" className={`${cell} ${HEAD_TEXT}`} hint="Properties" hintScope="Events">Properties</SortableTh>
             {hasActions && <HintTh className={`${cell} ${HEAD_TEXT}`} hint="Actions" hintScope="Events">Actions</HintTh>}
           </tr>
@@ -126,7 +127,7 @@ export function EventsTable({ rows, rowActions, onOpen, commentCount, commentsIn
             );
             return (
               <React.Fragment key={ev.id}>
-                <ViewRow onOpen={open} testId="event-row">
+                <ViewRow onOpen={open} testId="event-row" rowId={ev.id} highlighted={highlightId === ev.id}>
                   <td className="w-10 px-2 py-1">
                     {ev.variants.length > 0 && (
                       <ExpandChevron
@@ -167,7 +168,7 @@ export function EventsTable({ rows, rowActions, onOpen, commentCount, commentsIn
                       <span className="text-xs text-gray-400">n/a</span>
                     )}
                   </td>
-                  <td className={`${cell} whitespace-nowrap ${ev.expiration.inherited ? 'text-xs text-gray-400' : 'text-gray-700'}`}>{ev.expiration.label}</td>
+                  {showExpiration && <td className={`${cell} whitespace-nowrap ${ev.expiration?.inherited ? 'text-xs text-gray-400' : 'text-gray-700'}`}>{ev.expiration?.label ?? <EmptyDash />}</td>}
                   <td className={`${cell} tabular-nums ${ev.property_count === 0 ? 'text-gray-300' : 'text-gray-600'}`}>{ev.property_count}</td>
                   {hasActions && (
                     <ActionsCell className={cell} count={commentCount?.(ev) ?? 0} actions={rowActions?.(ev)} commentsInActions={commentsInActions} />

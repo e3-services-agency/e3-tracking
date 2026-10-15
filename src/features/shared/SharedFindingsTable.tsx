@@ -12,11 +12,12 @@ import { CopyLinkButton } from './CopyLinkButton';
 import { SharedEntityTable, SharedEntityRow } from './SharedEntityTable';
 import { SharedToolbarControl } from './SharedToolbarControl';
 import { SECTION_IDS, stickyScrollMarginPx } from './viewHelpers';
+import { PORTAL_ROW_LIMIT, ShowMoreRow, useRowLimit } from '@/src/features/views/ViewParts';
 import { EMPTY_FINDING_FILTERS, PROJECT_FINDINGS, filterSharedFindings, sharedFindingRows, type FindingFilters, type FindingNavigation } from './sharedFindingsModel';
 
 /** Current public findings only. Report evidence retains its separate finding-<id> anchors. */
 export function SharedFindingsTable({ events, unattached, api, comments, onChanged, linkedFindingId, anchorFor, onNavigate,
-  legacyAnchors = [], navigation, expansion, renderContext }: {
+  legacyAnchors = [], navigation, expansion, renderContext, rowLimit }: {
   events: Pick<EventCard, 'id' | 'name' | 'findings'>[];
   unattached: EventCardFinding[];
   api: CommentsPanelApi;
@@ -29,13 +30,31 @@ export function SharedFindingsTable({ events, unattached, api, comments, onChang
   navigation?: FindingNavigation;
   expansion?: { expanded: boolean; revision: number };
   renderContext?: (finding: EventCardFinding) => ReactNode;
+  /** T-5-42: render at most this many rows, then "Show N more" (`PORTAL_ROW_LIMIT` in the portal).
+   * Filters and search cover every finding; a finding a link points at is always rendered. */
+  rowLimit?: number;
 }) {
   const filterId = useId();
   const [filters, setFilters] = useState<FindingFilters>(EMPTY_FINDING_FILTERS);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const rows = useMemo(() => sharedFindingRows(events, unattached), [events, unattached]);
   const shown = useMemo(() => filterSharedFindings(rows, filters), [rows, filters]);
-  useEffect(() => { if (linkedFindingId) setFilters(EMPTY_FINDING_FILTERS); }, [linkedFindingId]);
+  const { limit, more } = useRowLimit(rowLimit);
+  // The finding a link landed on: highlighted, expanded, and always rendered. Past the window it is
+  // pinned after the rendered rows, so a link deep in a long list never renders everything above it.
+  const [landed, setLanded] = useState<string | undefined>();
+  const visible = useMemo(() => {
+    const head = shown.slice(0, limit);
+    const pinned = landed && !head.some(row => row.finding.id === landed) ? shown.find(row => row.finding.id === landed) : undefined;
+    return pinned ? [...head, pinned] : head;
+  }, [shown, limit, landed]);
+  const windowCount = Math.min(shown.length, limit);
+  const [pendingScroll, setPendingScroll] = useState<{ anchor: string; revision: number }>();
+  useEffect(() => {
+    if (!linkedFindingId) return;
+    setFilters(EMPTY_FINDING_FILTERS);
+    setLanded(linkedFindingId);
+  }, [linkedFindingId]);
   useEffect(() => { if (expansion) setExpanded(expansion.expanded ? new Set(rows.map(row => row.finding.id)) : new Set()); }, [expansion, rows]);
   useEffect(() => {
     if (!navigation) return;
@@ -45,9 +64,18 @@ export function SharedFindingsTable({ events, unattached, api, comments, onChang
     const target = navigation.findingId != null ? matches.find(row => row.finding.id === navigation.findingId) : matches[0];
     const qualified = navigation.findingId != null || navigation.comparison != null || navigation.eventId != null;
     const scrollAnchor = qualified ? target ? `current-finding-${target.finding.id}` : 'current-findings-table' : SECTION_IDS.findings;
-    const frame = requestAnimationFrame(() => document.getElementById(scrollAnchor)?.scrollIntoView({ block: 'start' }));
-    return () => cancelAnimationFrame(frame);
+    if (target && navigation.findingId != null) {
+      setLanded(target.finding.id);
+      setExpanded(previous => previous.has(target.finding.id) ? previous : new Set(previous).add(target.finding.id));
+    }
+    // Scroll once the (possibly widened) window has rendered the target row.
+    setPendingScroll(previous => ({ anchor: scrollAnchor, revision: (previous?.revision ?? 0) + 1 }));
   }, [navigation, rows]);
+  useEffect(() => {
+    if (!pendingScroll) return;
+    const frame = requestAnimationFrame(() => document.getElementById(pendingScroll.anchor)?.scrollIntoView({ block: 'start' }));
+    return () => cancelAnimationFrame(frame);
+  }, [pendingScroll]);
   const changeFilter = (key: keyof FindingFilters, value: string) => setFilters(previous => ({ ...previous, [key]: value }));
   const comparisons = [...new Set(rows.map(row => row.finding.comparison))];
   const selectClass = 'h-10 w-full rounded-md border border-[var(--border-default)] bg-white px-3 text-sm';
@@ -68,14 +96,14 @@ export function SharedFindingsTable({ events, unattached, api, comments, onChang
         { label: 'Number', width: '112px' }, { label: 'Severity', width: '108px' }, { label: 'Event', width: '18%' },
         { label: 'Message' }, { label: 'Actions', width: '132px' },
       ]}>
-        {shown.map(({ finding, event }) => {
+        {visible.map(({ finding, event }) => {
           const label = `Finding #${String(finding.finding_sequence ?? '').padStart(3, '0')}`;
           const anchor = `current-finding-${finding.id}`;
           const eventAnchor = event ? anchorFor(event.id) : undefined;
           const open = expanded.has(finding.id);
           return <SharedEntityRow key={finding.id} anchor={anchor} name={`#${String(finding.finding_sequence ?? '').padStart(3, '0')}`}
             expanded={open} onToggle={() => setExpanded(previous => { const next = new Set(previous); if (next.has(finding.id)) next.delete(finding.id); else next.add(finding.id); return next; })}
-            scrollMarginTop={stickyScrollMarginPx('event')} cells={[
+            scrollMarginTop={stickyScrollMarginPx('event')} highlighted={landed === finding.id} cells={[
               <SeverityBadge key="severity" severity={finding.severity} />,
               event ? eventAnchor ? <a key="event" href={`#${eventAnchor}`} className="inline-flex items-start gap-1.5 text-[var(--color-info)] hover:underline"
                 onClick={e => { e.preventDefault(); onNavigate(eventAnchor); }}><EntityIcon kind="event" /><span className="min-w-0 [overflow-wrap:anywhere]">{event.name}</span></a> : event.name : 'Not tied to an event',
@@ -97,6 +125,7 @@ export function SharedFindingsTable({ events, unattached, api, comments, onChang
             </div>
           </SharedEntityRow>;
         })}
+        {rowLimit && <ShowMoreRow colSpan={5} shown={windowCount} total={shown.length} step={rowLimit} onMore={more} what="findings" testId="finding-show-more" />}
         {shown.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-sm text-gray-500">No findings match these filters.</td></tr>}
       </SharedEntityTable>
     </div>

@@ -16,18 +16,23 @@ export function isTopModal(id: symbol): boolean {
   return stack[stack.length - 1] === id;
 }
 
-/** Esc closes, focus moves into the dialog and is trapped, returns to the opener, body scroll locked. */
+/** Esc closes, focus moves into the dialog and is trapped, returns to the opener, body scroll locked.
+ * Focus the dialog's content already placed inside it (T-5-42: a comment deep link focuses its
+ * comment, and child effects run before this one) stays there. */
 export function useModalA11y(ref: RefObject<HTMLElement | null>, onClose: () => void) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  // The opener is read during the first render, before any child effect can move focus.
+  const openerRef = useRef<HTMLElement | null | undefined>(undefined);
+  if (openerRef.current === undefined) openerRef.current = typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null);
   useEffect(() => {
     const id = pushModal();
-    const opener = document.activeElement as HTMLElement | null;
+    const opener = openerRef.current ?? null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const focusables = () =>
       Array.from(ref.current?.querySelectorAll<HTMLElement>('button, input, select, [href], [tabindex]:not([tabindex="-1"])') ?? []);
-    (focusables()[0] ?? ref.current)?.focus();
+    if (!ref.current?.contains(document.activeElement)) (focusables()[0] ?? ref.current)?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (!isTopModal(id)) return;
       if (e.key === 'Escape') {

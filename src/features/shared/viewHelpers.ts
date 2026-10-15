@@ -4,13 +4,7 @@
  * (D-20); re-exported by `src/pages/sharedViewModel.ts`.
  */
 
-import {
-  groupPropertiesByCategory,
-  propertyGroupId,
-  propertyKindGroupId,
-  type PropertyCategory,
-} from '../../domain/propertyCategory';
-import { USE_CASE_TYPES, type PropertyKind } from '../../domain/enums';
+import { USE_CASE_TYPES } from '../../domain/enums';
 import { CONSENT_CHANNELS, CONSENT_CHANNEL_LABELS, consentChannel } from '../../domain/consentChannel';
 import { mappingHeading } from '../../domain/document/standardMappings';
 import { computeFindingsSummary, type ComparisonFindingsGroup } from '../../domain/document/findingsSummary';
@@ -103,31 +97,6 @@ export function oneLineDescription(text: string | null | undefined, max = 140): 
   return flat.length > max ? `${flat.slice(0, max - 1).trimEnd()}…` : flat;
 }
 
-export interface NavItem {
-  /** DOM id of the target element (also the URL hash). */
-  id: string;
-  label: string;
-  children?: NavItem[];
-}
-
-/** A property as the shared Properties section lists it: customer-scope from `properties[]` or
- * event-scope from `event_properties[]` (D-64), both already carrying their `category`. */
-export interface SharedPropertyInput {
-  category: PropertyCategory;
-  kind?: PropertyKind | null;
-  name: string;
-}
-
-/** The Properties section's groups (System customer / Customer / SDK default / Event, Event split
- * by kind) over the customer and event property lists; one decision for the page, the nav and the
- * rendered-id list. */
-export function sharedPropertyGroups<T extends SharedPropertyInput, U extends SharedPropertyInput = T>(doc: {
-  properties: readonly T[];
-  event_properties?: readonly U[];
-}) {
-  return groupPropertiesByCategory<T | U>([...doc.properties, ...(doc.event_properties ?? [])]);
-}
-
 export interface NavDocInput {
   events: {
     id?: string;
@@ -150,13 +119,7 @@ export interface NavDocInput {
   findings_summary: { open: { error: number; warning: number; info: number } };
 }
 
-export const EVENT_CLASS_GROUPS: { cls: 'custom' | 'sdk' | 'platform'; label: string }[] = [
-  { cls: 'custom', label: 'Custom events' },
-  { cls: 'sdk', label: 'SDK events' },
-  { cls: 'platform', label: 'Platform events' },
-];
-
-/** DOM ids of the top-level sections; the nav index and the rendered `<section id>` both use these. */
+/** Ids of the single page's sections (T-4-14); old links still carry them (T-5-42 redirects them). */
 export const SECTION_IDS = {
   events: 'events',
   properties: 'properties',
@@ -167,11 +130,6 @@ export const SECTION_IDS = {
   mapping: 'mapping',
   findings: 'findings',
 } as const;
-
-/** DOM id of an event class group inside the Events section. */
-export function eventGroupId(cls: string): string {
-  return `events-${cls}`;
-}
 
 /** Unique DOM ids `<prefix>-<slug>` for a list of labels, in order (a taken slug gets -2, -3, ...). */
 export function slugAnchors(prefix: string, labels: string[]): string[] {
@@ -269,174 +227,12 @@ export function sectionPresence(doc: NavDocInput) {
   };
 }
 
-/** Left navigation tree: Events (grouped by class, event names as leaves) then the non-empty sections. */
-export function buildSectionIndex(doc: NavDocInput): NavItem[] {
-  const present = sectionPresence(doc);
-  const items: NavItem[] = [];
-  if (present.events) {
-    const anchorList = eventAnchors(doc.events.map((e) => e.name));
-    const anchorByEvent = new Map(doc.events.map((e, i) => [e, anchorList[i]]));
-    const groups: NavItem[] = [];
-    for (const { cls, label } of EVENT_CLASS_GROUPS) {
-      const inGroup = doc.events.filter((e) => e.class === cls);
-      if (inGroup.length === 0) continue;
-      groups.push({
-        id: eventGroupId(cls),
-        label: `${label} (${inGroup.length})`,
-        children: inGroup.map((e) => ({ id: anchorByEvent.get(e) as string, label: e.name })),
-      });
-    }
-    items.push({ id: SECTION_IDS.events, label: `Events (${doc.events.length})`, children: groups });
-  }
-  if (present.properties) {
-    const groups = sharedPropertyGroups(doc as unknown as { properties: SharedPropertyInput[]; event_properties?: SharedPropertyInput[] });
-    const total = doc.properties.length + (doc.event_properties?.length ?? 0);
-    items.push({
-      id: SECTION_IDS.properties,
-      label: 'Properties (' + total + ')',
-      children: groups.map((g) => ({
-        id: propertyGroupId(g.category),
-        label: g.label + ' (' + g.items.length + ')',
-        children: g.subgroups.length > 0 ? g.subgroups.map((s) => ({ id: propertyKindGroupId(s.kind), label: s.label + ' (' + s.items.length + ')' })) : undefined,
-      })),
-    });
-  }
-  const groups = sharedSectionGroups(doc);
-  if (present.useCases) {
-    items.push({
-      id: SECTION_IDS.useCases,
-      label: `Use cases (${doc.use_cases.length})`,
-      children: groups.useCaseGroups.map((g) => ({
-        id: g.id,
-        label: `${g.label} (${g.items.length})`,
-        children: g.items.map(({ uc, id }) => ({ id, label: uc.code ? `${uc.code} — ${uc.name ?? ''}` : (uc.name ?? id) })),
-      })),
-    });
-  }
-  if (present.identity) items.push({ id: SECTION_IDS.identity, label: 'Identity' });
-  if (present.consents) {
-    items.push({
-      id: SECTION_IDS.consents,
-      label: `Consents (${doc.consent_categories.length})`,
-      children: groups.consentGroups.map((g) => ({
-        id: g.id,
-        label: `${g.label} (${g.items.length})`,
-        children: g.items.map(({ category, id }) => ({ id, label: category.name })),
-      })),
-    });
-  }
-  if (present.catalogs) items.push({ id: SECTION_IDS.catalogs, label: 'Catalogs' });
-  if (present.mapping) {
-    items.push({
-      id: SECTION_IDS.mapping,
-      label: `Mapping (${doc.standard_event_mappings.length})`,
-      children: groups.mappingLeaves.map((l) => ({ id: l.id, label: l.label })),
-    });
-  }
-  if (present.findings) {
-    items.push({
-      id: SECTION_IDS.findings,
-      label: 'Findings',
-      children: groups.findingGroups.map((g) => ({
-        id: g.id,
-        label: `${g.label} (${g.total})`,
-        children: g.leaves.map((l) => ({ id: l.id, label: `${l.label} (${l.count})` })),
-      })),
-    });
-  }
-  return items;
-}
-
-/** Every DOM id the shared page renders as a navigation target, in document order: the same
- * decisions (`sectionPresence`, `EVENT_CLASS_GROUPS`, `eventAnchors`) the page uses to render. */
-export function renderedSectionIds(doc: NavDocInput): string[] {
-  const present = sectionPresence(doc);
-  const groups = sharedSectionGroups(doc);
-  const ids: string[] = [];
-  if (present.events) {
-    ids.push(SECTION_IDS.events);
-    const anchors = eventAnchors(doc.events.map((e) => e.name));
-    for (const { cls } of EVENT_CLASS_GROUPS) {
-      const idx = doc.events.map((e, i) => (e.class === cls ? i : -1)).filter((i) => i >= 0);
-      if (idx.length === 0) continue;
-      ids.push(eventGroupId(cls), ...idx.map((i) => anchors[i]));
-    }
-  }
-  for (const key of ['properties', 'useCases', 'identity', 'consents', 'catalogs', 'mapping', 'findings'] as const) {
-    if (!present[key]) continue;
-    ids.push(SECTION_IDS[key]);
-    if (key === 'properties') {
-      for (const g of sharedPropertyGroups(doc as unknown as { properties: SharedPropertyInput[]; event_properties?: SharedPropertyInput[] })) {
-        ids.push(propertyGroupId(g.category), ...g.subgroups.map((s) => propertyKindGroupId(s.kind)));
-      }
-    }
-    if (key === 'useCases') for (const g of groups.useCaseGroups) ids.push(g.id, ...g.items.map((i) => i.id));
-    if (key === 'consents') for (const g of groups.consentGroups) ids.push(g.id, ...g.items.map((i) => i.id));
-    if (key === 'mapping') ids.push(...groups.mappingLeaves.map((l) => l.id));
-    if (key === 'findings') for (const g of groups.findingGroups) ids.push(g.id, ...g.leaves.map((l) => l.id));
-  }
-  return ids;
-}
-
 /** Returns a new set with `id` added when absent, removed when present (group collapse state). */
 export function toggleInSet(set: ReadonlySet<string>, id: string): Set<string> {
   const next = new Set(set);
   if (next.has(id)) next.delete(id);
   else next.add(id);
   return next;
-}
-
-/** When the page is scrolled to its very end the last sections can never reach the scroll-spy band;
- * then the active entry is the last one whose top is inside the viewport. `tops` are viewport-relative. */
-export function pickActiveAtBottom(orderedIds: string[], tops: ReadonlyMap<string, number>, viewportHeight: number): string | null {
-  let found: string | null = null;
-  for (const id of orderedIds) {
-    const top = tops.get(id);
-    if (top !== undefined && top < viewportHeight) found = id;
-  }
-  return found;
-}
-
-/** Case-insensitive filter: keeps an item when its label matches (with all its children) or when a
- * descendant matches (with only the matching descendants). Empty query returns the tree unchanged. */
-export function filterNav(items: NavItem[], query: string): NavItem[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return items;
-  const walk = (list: NavItem[]): NavItem[] => {
-    const out: NavItem[] = [];
-    for (const item of list) {
-      if (item.label.toLowerCase().includes(q)) {
-        out.push(item);
-        continue;
-      }
-      const kids = item.children ? walk(item.children) : [];
-      if (kids.length > 0) out.push({ ...item, children: kids });
-    }
-    return out;
-  };
-  return walk(items);
-}
-
-/** Depth-first flat list (document order) of every nav entry, with its depth. */
-export function flattenNav(items: NavItem[], depth = 0): { id: string; label: string; depth: number }[] {
-  return items.flatMap((item) => [
-    { id: item.id, label: item.label, depth },
-    ...(item.children ? flattenNav(item.children, depth + 1) : []),
-  ]);
-}
-
-/** The nav entry to highlight: the first id, in document order, currently intersecting the viewport. */
-export function pickActiveId(orderedIds: string[], visible: ReadonlySet<string>): string | null {
-  return orderedIds.find((id) => visible.has(id)) ?? null;
-}
-
-/** New scrollTop for a scroll container so an item (top and height measured inside the container
- * content) is visible; unchanged when it already is. Used instead of scrollIntoView, which also
- * scrolls the window. */
-export function scrollTopToReveal(scrollTop: number, viewHeight: number, itemTop: number, itemHeight: number): number {
-  if (itemTop < scrollTop) return Math.max(0, itemTop);
-  if (itemTop + itemHeight > scrollTop + viewHeight) return Math.max(0, itemTop + itemHeight - viewHeight);
-  return scrollTop;
 }
 
 /** Wrap-around step through a gallery of `length` images. */
@@ -453,28 +249,7 @@ export const STICKY_PX = { pageHeader: 56, sectionHeader: 40, groupHeader: 32 } 
 /** `scroll-margin-top` for an anchor target, so it lands below the sticky headers that cover its
  * position: sections and groups start with their own sticky header (page header only); an event
  * sits below its group header, which stays visible while the event is collapsed. */
-/** Window scroll position that puts an element (bounding-rect top `rectTop`, current `scrollY`) just
- * below the stacked sticky bars: page header, then the event title row (`titleRowPx`) (T-4-25). */
-export function scrollTopBelowSticky(rectTop: number, scrollY: number, titleRowPx: number): number {
-  return Math.max(0, Math.round(rectTop + scrollY - STICKY_PX.pageHeader - titleRowPx - 8));
-}
 
 export function stickyScrollMarginPx(kind: 'section' | 'group' | 'event'): number {
   return kind === 'event' ? STICKY_PX.pageHeader + STICKY_PX.groupHeader : STICKY_PX.pageHeader;
-}
-
-/** Top of the scroll-spy band: just below the deepest sticky stack (an event under its group header). */
-export function spyTopOffsetPx(): number {
-  return stickyScrollMarginPx('event') + 4;
-}
-
-/** New set with every id in `ids` added (`expanded`) or removed; `current` is not mutated. Used by
- * the global and per-section Expand all / Collapse all buttons. */
-export function setExpanded(current: ReadonlySet<string>, ids: readonly string[], expanded: boolean): Set<string> {
-  const next = new Set(current);
-  for (const id of ids) {
-    if (expanded) next.add(id);
-    else next.delete(id);
-  }
-  return next;
 }

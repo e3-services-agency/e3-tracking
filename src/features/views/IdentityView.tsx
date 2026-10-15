@@ -39,6 +39,7 @@ export function IdentityView({
   readOnly = false,
   empty,
   toolbarExtra,
+  highlightId,
   flow,
   codegen,
   orderControls,
@@ -125,7 +126,7 @@ export function IdentityView({
                     }
                   : {};
               return (
-                <ViewRow key={rule.id} testId="identity-rule-row">
+                <ViewRow key={rule.id} testId="identity-rule-row" rowId={rule.id} highlighted={highlightId === rule.id}>
                   {showOrder && <td className={cell}>{orderControls!(rule, indexById.get(rule.id) ?? 0)}</td>}
                   <td className={`${cell} min-w-[10rem]`}>
                     <span className="inline-flex items-center gap-1.5">

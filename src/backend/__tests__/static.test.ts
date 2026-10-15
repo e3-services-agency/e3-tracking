@@ -64,7 +64,8 @@ describe('static serving', () => {
   });
 
   it('falls back to the SPA for client routes including the share route', async () => {
-    for (const p of ['/tracking-plan/events', '/tracking-plan/shared/abc_DEF-123', '/tracking-plan/help/glossary']) {
+    for (const p of ['/tracking-plan/events', '/tracking-plan/shared/abc_DEF-123', '/tracking-plan/help/glossary',
+      '/tracking-plan/shared/abc_DEF-123/events', '/tracking-plan/shared/abc_DEF-123/events/page.view', '/tracking-plan/shared/abc_DEF-123/use-cases/UC-1.2']) {
       const r = await raw(p);
       expect(r.status, p).toBe(200);
       expect(r.body).toContain('SPA');

@@ -1,4 +1,5 @@
-/** Copies the current page URL with the given anchor hash (T-4-14). */
+/** Copies the current page URL with the given anchor hash (T-4-14), or a given URL (T-5-42: a
+ * portal item's own path). */
 import React, { useState } from 'react';
 import { Check, Link2 } from 'lucide-react';
 import { copyText } from '@/src/components/ui/clipboard';
@@ -7,10 +8,10 @@ export function anchorUrl(anchor: string): string {
   return `${window.location.origin}${window.location.pathname}${window.location.search}#${anchor}`;
 }
 
-export function CopyLinkButton({ anchor, label }: { anchor: string; label: string }) {
+export function CopyLinkButton({ anchor, url, label }: { anchor?: string; url?: string; label: string }) {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
   const copy = async () => {
-    const ok = await copyText(anchorUrl(anchor));
+    const ok = await copyText(url ? new URL(url, window.location.origin).href : anchorUrl(anchor ?? ''));
     setState(ok ? 'copied' : 'failed');
     setTimeout(() => setState('idle'), 2000);
   };

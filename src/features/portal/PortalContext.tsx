@@ -34,6 +34,8 @@ async function parseJson(res: Response): Promise<any> {
 export type PortalData =
   | { state: 'loading' }
   | { state: 'invalid' }
+  /** D-88 listed_people: the link needs a listed Google account; the header names nothing else. */
+  | { state: 'sign-in'; signedIn: boolean }
   | { state: 'ready'; header: ShareHeader; summary: TrackingDocumentSummary };
 
 /** The header, then the summary and the comments together. The full `tracking-document.json` is
@@ -50,9 +52,18 @@ export function usePortalData(token: string) {
       // Best-effort refresh: the panel that triggered it reports its own error and the previous list stays.
     }
   }, [token]);
+  // A Google sign-in or sign-out can change what this visitor may open: load again.
+  const [identityVersion, setIdentityVersion] = useState(0);
+  useEffect(() => {
+    const onIdentity = (event: Event) => {
+      if ((event as CustomEvent<{ token?: string }>).detail?.token === token) setIdentityVersion((v) => v + 1);
+    };
+    window.addEventListener('e3-share-identity-changed', onIdentity);
+    return () => window.removeEventListener('e3-share-identity-changed', onIdentity);
+  }, [token]);
   useEffect(() => {
     let cancelled = false;
-    setData({ state: 'loading' });
+    setData((current) => (current.state === 'ready' ? current : { state: 'loading' }));
     (async () => {
       try {
         const headerRes = await fetch(shareApiUrl(token));
@@ -60,7 +71,11 @@ export function usePortalData(token: string) {
           if (!cancelled) setData({ state: 'invalid' });
           return;
         }
-        const header = (await parseJson(headerRes)) as ShareHeader;
+        const header = (await parseJson(headerRes)) as ShareHeader | { sign_in_required: true; signed_in?: boolean };
+        if ('sign_in_required' in header && header.sign_in_required) {
+          if (!cancelled) setData({ state: 'sign-in', signedIn: !!header.signed_in });
+          return;
+        }
         const [summaryRes, commentsRes] = await Promise.all([fetch(shareApiUrl(token, 'document-summary.json')), fetch(shareApiUrl(token, 'comments'))]);
         if (!summaryRes.ok) {
           if (!cancelled) setData({ state: 'invalid' });
@@ -70,7 +85,7 @@ export function usePortalData(token: string) {
         const rows = commentsRes.ok ? await parseJson(commentsRes) : [];
         if (cancelled) return;
         setComments(Array.isArray(rows) ? rows : []);
-        setData({ state: 'ready', header, summary });
+        setData({ state: 'ready', header: header as ShareHeader, summary });
       } catch {
         if (!cancelled) setData({ state: 'invalid' });
       }
@@ -78,7 +93,7 @@ export function usePortalData(token: string) {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, identityVersion]);
   return { data, comments, reloadComments };
 }
 

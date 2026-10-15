@@ -2,14 +2,14 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { timingSafeEqual } from 'node:crypto';
 import { OAuth2Client, type TokenPayload } from 'google-auth-library';
-import { requireShare } from '../middleware/share';
+import { cookieValue, requireShareToken, resolveShareProject, shareNotFound, shareViewerAccess, SHARE_SESSION_COOKIE } from '../middleware/share';
 import { authHash, createAuthChallenge, consumeAuthChallenge, createAuthSession, readAuthSession, deleteAuthSession } from '../dal/commentAuth.dal';
 
 export interface TrustedCommentParticipant { id: string; name: string; avatar_url: string | null; verified: true; kind: 'google' | 'staff' }
 type ParticipantRequest = Request & { commentParticipant?: TrustedCommentParticipant };
 export type GoogleVerifier = (credential: string, audience: string) => Promise<TokenPayload>;
 export interface SharedAuthOptions { verifyGoogle?: GoogleVerifier; staffFetch?: typeof fetch; verifyStaff?: GoogleVerifier }
-const SESSION_COOKIE = 'e3_comment_auth';
+const SESSION_COOKIE = SHARE_SESSION_COOKIE;
 const CHALLENGE_COOKIE = 'e3_comment_challenge';
 const SIGNED_OUT_COOKIE = 'e3_comment_signed_out';
 const oauthClient = new OAuth2Client();
@@ -20,11 +20,7 @@ const defaultVerifier: GoogleVerifier = async (credential, audience) => {
   return payload;
 };
 
-export function cookieValue(req: Request, name: string): string | undefined {
-  const values = (req.headers.cookie ?? '').split(';').map((c) => c.trim()).filter((c) => c.startsWith(`${name}=`));
-  if (values.length !== 1) return undefined;
-  try { return decodeURIComponent(values[0].slice(name.length + 1)); } catch { return undefined; }
-}
+export { cookieValue };
 function cookieOptions(maxAge: number) {
   return { httpOnly: true, sameSite: 'lax' as const, secure: process.env.NODE_ENV === 'production', path: '/', maxAge };
 }
@@ -128,13 +124,23 @@ export function createSharedAuthRouter(options: SharedAuthOptions = {}): express
   const router = express.Router();
   router.use((_req, res, next) => { privateResponse(res); next(); });
   const verifyGoogle = options.verifyGoogle ?? defaultVerifier;
-  // requireShare validates revoked/read-only tokens independently of identity. No local admin fallback.
-  router.use('/:token', requireShare, (req: ParticipantRequest, res, next) => {
+  // requireShareToken validates revoked tokens independently of identity. No local admin fallback.
+  router.use('/:token', requireShareToken, (req: ParticipantRequest, res, next) => {
     void (async () => {
       const sessionToken = cookieValue(req, SESSION_COOKIE);
       const session = sessionToken ? readAuthSession(sessionToken) : undefined;
+      let staffChecked = false;
       if (session) req.commentParticipant = { id: session.participant_id, name: session.name, avatar_url: session.avatar_url, verified: true, kind: 'google' };
-      else if (!req.commentParticipant && cookieValue(req, SIGNED_OUT_COOKIE) !== '1') req.commentParticipant = await resolveStaffIdentity(req, options.staffFetch, options.verifyStaff);
+      else if (!req.commentParticipant && cookieValue(req, SIGNED_OUT_COOKIE) !== '1') { req.commentParticipant = await resolveStaffIdentity(req, options.staffFetch, options.verifyStaff); staffChecked = true; }
+      // D-88 listed_people: staff recognised by the trusted proxy are always allowed (even when
+      // signed in with Google or signed out of the commenter identity); only a non-member needs the check.
+      const project = resolveShareProject(req.params.token)!;
+      if (project.share_audience === 'listed_people') {
+        if (req.commentParticipant?.kind === 'staff') req.shareStaffVerified = true;
+        else if (!staffChecked && !shareViewerAccess(req, project) && await resolveStaffIdentity(req, options.staffFetch, options.verifyStaff)) req.shareStaffVerified = true;
+        // Everything but the neutral header and the sign-in routes is the same 404 for a shut-out visitor.
+        if (!shareViewerAccess(req, project) && req.path !== '/' && !req.path.startsWith('/auth/')) { privateResponse(res); shareNotFound(res); return; }
+      }
       // SameSite is supplementary: authenticated mutations additionally require exact application origin.
       if (req.commentParticipant && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !originAllowed(req)) {
         reject(res, 403, 'AUTH_ORIGIN', 'This action must come from the shared portal.'); return;
@@ -169,7 +175,9 @@ export function createSharedAuthRouter(options: SharedAuthOptions = {}): express
       const name = payload.name?.trim().slice(0, 80) || 'Google user';
       const oldToken = cookieValue(req, SESSION_COOKIE);
       if (oldToken) deleteAuthSession(oldToken);
-      const token = createAuthSession(payload.sub, name, safeProfilePhoto(payload.picture));
+      // T-5-45: the email gates listed_people shares, so only a Google-verified one is kept.
+      const verifiedEmail = payload.email_verified === true && typeof payload.email === 'string' ? payload.email : null;
+      const token = createAuthSession(payload.sub, name, safeProfilePhoto(payload.picture), verifiedEmail);
       res.cookie(SESSION_COOKIE, token, cookieOptions(24 * 60 * 60 * 1000));
       res.clearCookie(CHALLENGE_COOKIE, cookieOptions(0));
       res.clearCookie(SIGNED_OUT_COOKIE, cookieOptions(0));

@@ -58,6 +58,8 @@ export const PROJECT_SCOPED_TABLES = [
   'comments',
   'comment_reactions',
   'comment_attachments',
+  // T-5-45 (D-88): listed people of the share audience. Sessions stay out (operational credentials).
+  'share_members',
 ] as const;
 
 export type ProjectScopedTable = (typeof PROJECT_SCOPED_TABLES)[number];

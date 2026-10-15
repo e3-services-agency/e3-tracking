@@ -151,6 +151,9 @@ function shareResponse(req: Request, project: ProjectDAL.ProjectRow) {
     share_comments: project.share_comments,
     share_require_name: project.share_require_name,
     share_created_at: project.share_created_at,
+    share_audience: project.share_audience,
+    // Staff-only route: listed people survive a rotate or revoke (D-88).
+    members: ProjectDAL.listShareMembers(project.id),
     url: project.share_token ? shareUrl(req, project.share_token) : null,
   };
 }
@@ -188,8 +191,41 @@ router.patch('/:id/share', (req: Request, res: Response) => {
       access: body.access,
       share_comments: body.share_comments,
       share_require_name: body.share_require_name,
+      share_audience: body.share_audience,
     });
     res.status(200).json(shareResponse(req, project));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+// D-88, T-5-45: listed people (email + viewer|commenter). Each change is a project update in change_log.
+router.post('/:id/share/members', (req: Request, res: Response) => {
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  try {
+    ProjectDAL.getProjectOrThrow(req.params.id);
+    const member = ProjectDAL.addShareMember(req.params.id, { email: body.email, role: body.role }, req.userName ?? null);
+    res.status(201).json(member);
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.patch('/:id/share/members/:memberId', (req: Request, res: Response) => {
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  try {
+    ProjectDAL.getProjectOrThrow(req.params.id);
+    res.status(200).json(ProjectDAL.updateShareMemberRole(req.params.id, req.params.memberId, body.role));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.delete('/:id/share/members/:memberId', (req: Request, res: Response) => {
+  try {
+    ProjectDAL.getProjectOrThrow(req.params.id);
+    ProjectDAL.removeShareMember(req.params.id, req.params.memberId);
+    res.status(204).end();
   } catch (err) {
     handleRouteError(err, res);
   }

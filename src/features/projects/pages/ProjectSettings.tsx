@@ -16,7 +16,9 @@ import {
   LIBRARY_INDUSTRIES,
   NAMING_CONVENTIONS,
   SHARE_ACCESS,
+  SHARE_AUDIENCES,
   SHARE_COMMENT_VISIBILITIES,
+  SHARE_MEMBER_ROLES,
   type NamingConvention,
 } from '@/src/domain/enums';
 import { NAMING_CONVENTION_EXAMPLES, NAMING_CONVENTION_LABELS } from '@/src/domain/naming';
@@ -58,7 +60,16 @@ interface ShareState {
   share_comments?: string;
   share_require_name?: boolean;
   share_created_at: string | null;
+  /** D-88, T-5-45 */
+  share_audience?: string;
+  members?: ShareMember[];
   url: string | null;
+}
+
+interface ShareMember {
+  id: string;
+  email: string;
+  role: string;
 }
 
 export function ProjectSettings() {
@@ -93,6 +104,8 @@ export function ProjectSettings() {
   const [sourceOptions, setSourceOptions] = useState<{ id: string; name: string; system: string; method: string | null }[]>([]);
 
   const [share, setShare] = useState<ShareState | null>(null);
+  const [memberEmail, setMemberEmail] = useState('');
+  const [memberRole, setMemberRole] = useState<string>(SHARE_MEMBER_ROLES[0]);
   const [shareAccessSelect, setShareAccessSelect] = useState<string>(SHARE_ACCESS[0]);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
@@ -288,6 +301,40 @@ export function ProjectSettings() {
     } finally {
       setShareLoading(false);
     }
+  };
+
+  /** One share-settings request; the response (or the reloaded share) replaces the block's state. */
+  const shareRequest = async (path: string, method: string, body: unknown, failure: string): Promise<boolean> => {
+    if (!activeProjectId) return false;
+    setShareLoading(true);
+    setShareError(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/share${path}`, {
+        method,
+        headers: { Accept: 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      const data = res.status === 204 ? {} : await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setShareError(typeof data?.error === 'string' ? data.error : failure);
+        return false;
+      }
+      if (path) await fetchShare();
+      else setShare(data as ShareState);
+      return true;
+    } catch (e) {
+      setShareError(e instanceof Error ? e.message : 'Network error');
+      return false;
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const handleAudienceChange = (share_audience: string) =>
+    void shareRequest('', 'PATCH', { share_audience }, 'Failed to update who can open the link');
+
+  const handleAddMember = async () => {
+    if (await shareRequest('/members', 'POST', { email: memberEmail, role: memberRole }, 'Failed to add the person')) setMemberEmail('');
   };
 
   const handleRevokeShare = async () => {
@@ -491,6 +538,82 @@ export function ProjectSettings() {
           </div>
         )}
         {!share?.share_token && <div className="text-xs text-gray-500">No share link yet.</div>}
+        {share && (
+          <div className="space-y-2 max-w-md" data-testid="share-audience">
+            <FieldLabel className="block text-xs font-medium text-gray-700" hintScope="Settings">Who can open the link</FieldLabel>
+            <select
+              value={share.share_audience ?? SHARE_AUDIENCES[0]}
+              onChange={(e) => handleAudienceChange(e.target.value)}
+              disabled={shareLoading}
+              aria-label="Who can open the link"
+              className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+            >
+              {SHARE_AUDIENCES.map((v) => (
+                <option key={v} value={v}>
+                  {v === 'anyone_with_link' ? 'Anyone with the link' : 'Only listed people (Google sign-in)'}
+                </option>
+              ))}
+            </select>
+            <FieldLabel className="block text-xs font-medium text-gray-700 pt-2" hintScope="Settings">Listed people</FieldLabel>
+            {(share.members ?? []).length === 0 ? (
+              <p className="text-xs text-gray-500">Nobody listed yet.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <tbody>
+                  {(share.members ?? []).map((m) => (
+                    <tr key={m.id} className="border-b">
+                      <td className="py-1 pr-2 break-all">{m.email}</td>
+                      <td className="py-1 pr-2">
+                        <select
+                          value={m.role}
+                          aria-label={`Role of ${m.email}`}
+                          disabled={shareLoading}
+                          onChange={(e) => void shareRequest(`/members/${m.id}`, 'PATCH', { role: e.target.value }, 'Failed to change the role')}
+                          className="h-8 rounded-md border border-gray-300 bg-white px-2 text-sm"
+                        >
+                          {SHARE_MEMBER_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                      </td>
+                      <td className="py-1 text-right">
+                        <Button
+                          variant="secondary"
+                          disabled={shareLoading}
+                          onClick={() => void shareRequest(`/members/${m.id}`, 'DELETE', undefined, 'Failed to remove the person')}
+                        >
+                          Remove
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                type="email"
+                value={memberEmail}
+                onChange={(e) => setMemberEmail(e.target.value)}
+                placeholder="name@client.com"
+                aria-label="Email to add"
+                className="max-w-[16rem]"
+              />
+              <select
+                value={memberRole}
+                onChange={(e) => setMemberRole(e.target.value)}
+                aria-label="Role to add"
+                className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+              >
+                {SHARE_MEMBER_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+              <Button variant="secondary" disabled={shareLoading || !memberEmail.trim()} onClick={() => void handleAddMember()}>
+                Add
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500">
+              A commenter on a read-only link can only read. People are kept when the link is rotated or revoked. E3 staff can always open the link.
+            </p>
+          </div>
+        )}
         {share?.share_token && (
           <div className="space-y-1 max-w-md">
             <FieldLabel className="block text-xs font-medium text-gray-700" hintScope="Settings">Show internal comments on the shared view</FieldLabel>

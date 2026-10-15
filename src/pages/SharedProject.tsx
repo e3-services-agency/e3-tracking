@@ -20,6 +20,7 @@ import React, { useLayoutEffect, useMemo } from 'react';
 import { buildSharedViewModel, sharedFileUrl } from './sharedViewModel';
 import { PortalProvider, usePortalData, usePortalLocation, type PortalContextValue } from '@/src/features/portal/PortalContext';
 import { PortalShell } from '@/src/features/portal/PortalShell';
+import { PortalSignIn } from '@/src/features/portal/PortalSignIn';
 import { buildPortalIndex, missingDetail, missingItemNote, resolveHash, sameTarget, type PortalView } from '@/src/features/portal/portalModel';
 import { PortalOverview } from '@/src/features/portal/views/PortalOverview';
 import { PortalEventsView } from '@/src/features/portal/views/PortalEventsView';
@@ -104,6 +105,7 @@ export function SharedProject({ token }: { token: string }) {
       </div>
     );
   }
+  if (data.state === 'sign-in') return <PortalSignIn token={token} signedIn={data.signedIn} />;
   if (!value) {
     return <div className="min-h-screen flex items-center justify-center text-sm text-gray-400">Loading…</div>;
   }

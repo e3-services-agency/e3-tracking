@@ -12,12 +12,19 @@ function prune(): void {
   db.prepare('DELETE FROM comment_auth_sessions WHERE expires_at <= ?').run(Date.now());
   db.prepare('DELETE FROM comment_auth_challenges WHERE expires_at <= ?').run(Date.now());
 }
-export function createAuthSession(subject: string, name: string, avatar: string | null): string {
+/** `verifiedEmail` is stored only when Google marked it verified (T-5-45); it never leaves the server. */
+export function createAuthSession(subject: string, name: string, avatar: string | null, verifiedEmail: string | null = null): string {
   prune();
   const token = randomAuthToken();
-  getDb().prepare('INSERT INTO comment_auth_sessions (token_hash, participant_id, name, avatar_url, expires_at) VALUES (?, ?, ?, ?, ?)').run(
-    authHash(token), `google:${authHash(subject)}`, name, avatar, Date.now() + SESSION_MS);
+  getDb().prepare('INSERT INTO comment_auth_sessions (token_hash, participant_id, name, avatar_url, expires_at, email) VALUES (?, ?, ?, ?, ?, ?)').run(
+    authHash(token), `google:${authHash(subject)}`, name, avatar, Date.now() + SESSION_MS, verifiedEmail ? verifiedEmail.trim().toLowerCase() : null);
   return token;
+}
+/** The session's verified email for share-audience checks only (D-88); never part of `AuthSession`. */
+export function readAuthSessionEmail(token: string): string | null {
+  const row = getDb().prepare('SELECT email FROM comment_auth_sessions WHERE token_hash = ? AND expires_at > ?')
+    .get(authHash(token), Date.now()) as { email: string | null } | undefined;
+  return row?.email ?? null;
 }
 export function readAuthSession(token: string): AuthSession | undefined {
   return getDb().prepare('SELECT participant_id, name, avatar_url, expires_at FROM comment_auth_sessions WHERE token_hash = ? AND expires_at > ?')

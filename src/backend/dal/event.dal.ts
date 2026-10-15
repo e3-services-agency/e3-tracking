@@ -997,7 +997,10 @@ export interface EventPropertyWithDetailsExtended extends EventPropertyWithDetai
 export function getEventWithProperties(
   projectId: string,
   eventId: string,
-  definitionsById?: Map<string, PropertyDefinitionDAL.PropertyDefinitionRow>
+  definitionsById?: Map<string, PropertyDefinitionDAL.PropertyDefinitionRow>,
+  /** T-5-41: every non-deleted property of the project by id, loaded once by a caller that builds
+   * many cards; without it each link runs its own property query. */
+  propertiesById?: Map<string, PropertyRow>
 ): { event: EventRow; properties: EventPropertyWithDetailsExtended[]; source_ids: string[] } {
   const event = getEventOrThrow(projectId, eventId);
   const db = getDb();
@@ -1008,7 +1011,7 @@ export function getEventWithProperties(
   const properties: EventPropertyWithDetailsExtended[] = [];
   for (const raw of linkRows) {
     const link = mapEventPropertyRow(raw);
-    const property = getPropertyById(projectId, link.property_id);
+    const property = propertiesById ? (propertiesById.get(link.property_id) ?? null) : getPropertyById(projectId, link.property_id);
     if (!property) continue; // property soft-deleted; link is stale but left intact (T-1-02 keeps it simple)
     const definition = !link.definition_id
       ? null

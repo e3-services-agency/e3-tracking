@@ -515,4 +515,36 @@ export interface TrackingDocument {
   limits: TrackingDocumentLimits;
 }
 
+/**
+ * T-5-41 (D-88), additive: one event in `GET /api/shared/:token/document-summary.json`. The light
+ * fields of the public `EventCard` (same names, same values) plus three derived counts. The full
+ * card for one event comes from `GET /api/shared/:token/events/:eventId/card.json`.
+ */
+export interface TrackingDocumentSummaryEvent {
+  id: string;
+  name: string;
+  business_name: string | null;
+  class: EventClass;
+  implementation_method?: ImplementationMethod;
+  status: string;
+  priority: string | null;
+  description: string | null;
+  sources?: EventCardSource[];
+  identifiers?: string[];
+  certification: EventCardCertification;
+  quality: EventCardQuality;
+  /** `EventCard.variants[].name`, in card order. */
+  variant_names: string[];
+  /** `EventCard.properties.length`. */
+  property_count: number;
+  /** `EventCard.findings.length` (every severity). */
+  open_finding_count: number;
+}
+
+/** T-5-41 (D-88): the public document with `events` reduced to `TrackingDocumentSummaryEvent`;
+ * every other section is identical to the public `TrackingDocument`. */
+export interface TrackingDocumentSummary extends Omit<TrackingDocument, 'events'> {
+  events: TrackingDocumentSummaryEvent[];
+}
+
 export type { EventClass, FindingSeverity };

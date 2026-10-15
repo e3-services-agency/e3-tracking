@@ -154,6 +154,26 @@ document — including `triggers[]`, property `definitions[]`, and the two addit
 list and the shared routes. Comments are never part of this document on either side (D-49) — they
 have their own routes.
 
+### Summary and single-card shapes (T-5-41, D-88)
+
+The client portal loads the document in two steps instead of downloading every card up front:
+
+- `GET /api/shared/:token/document-summary.json` returns `TrackingDocumentSummary`: the public
+  document above with `events[]` replaced by `TrackingDocumentSummaryEvent[]`. Each summary event
+  carries `id`, `name`, `business_name`, `class`, `implementation_method`, `status`, `priority`,
+  `description`, `sources`, `identifiers`, `certification` and `quality`, with the same values as
+  the public card, plus `variant_names` (the card's `variants[].name`), `property_count`
+  (`properties.length`) and `open_finding_count` (`findings.length`). Every other top-level section
+  is unchanged. The event fields are an allowlist, so a field added to `EventCard` later does not
+  appear in the summary until it is added to the type.
+- `GET /api/shared/:token/events/:eventId/card.json` returns one public `EventCard`, equal to the
+  matching entry of the public `events[]`.
+
+Both are additive and leave `version` at 1. Internally `buildTrackingDocument(projectId, { light,
+eventIds })` builds them: `light` skips each card's coverage grid and codegen (left empty, then
+dropped by the summary), and `eventIds` limits `events[]` to the given ids. The default call and
+the full downloads are unchanged.
+
 ### Payload keys (ERROR 2 fix round)
 
 Observations and their `context_values_json` column are keyed by **payload key**, not the

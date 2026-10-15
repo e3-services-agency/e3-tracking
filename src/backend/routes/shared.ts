@@ -12,6 +12,9 @@ import { publicReportList,publicReport,publicFindingHistory } from '../services/
  *   through `toPublicTrackingDocument` (D-48 amendment): `agent_instructions`, `owners`,
  *   `identity_note`, `bloomreach_project_url` and any `internal_*` field are stripped;
  *   `not_suitable_for` stays.
+ * - `GET /:token/document-summary.json` and `GET /:token/events/:eventId/card.json` (T-5-41, D-88)
+ *   -- the lazy client portal: the public document with light events, and one full public card.
+ *   Both are derived from `toPublicTrackingDocument`'s output; any error is 404 `SHARE_NOT_FOUND`.
  * - `GET /:token/documentation.html` -- the same HTML export as the internal route, generated with
  *   `{ public: true }` (same field set stripped).
  * - `GET /:token/files/*` -- the same decode/traversal checks as `routes/files.ts`, scoped to this
@@ -52,7 +55,12 @@ import { resolveCommentParticipant, publicParticipant, existingCommentParticipan
 import express, { Router, type Request, type Response, type NextFunction } from 'express';
 import { requireShare } from '../middleware/share';
 import { getProjectWithClient } from '../dal/project.dal';
-import { buildTrackingDocument, toPublicTrackingDocument } from '../services/document.service';
+import {
+  buildPublicEventCard,
+  buildPublicTrackingDocumentSummary,
+  buildTrackingDocument,
+  toPublicTrackingDocument,
+} from '../services/document.service';
 import { generateProjectDocumentationHtml } from '../services/export.service';
 import { getFileStore } from '../files/FileStore';
 import { TRACKING_DOCUMENT_VERSION } from '../../domain/document/trackingDocument';
@@ -113,6 +121,31 @@ router.get('/:token/tracking-document.json', requireShare, (req: Request, res: R
     res.status(200).json(toPublicTrackingDocument(buildTrackingDocument(req.projectId!)));
   } catch (err) {
     handleRouteError(err, res);
+  }
+});
+
+// T-5-41 (D-88): the lazy portal routes. Both come out of `toPublicTrackingDocument` (see
+// `buildPublicTrackingDocumentSummary`/`buildPublicEventCard`), so they can never carry a field the
+// full download above does not. Every error, an unknown or deleted event id included, is the same
+// 404 `SHARE_NOT_FOUND` an unknown token gets.
+router.get('/:token/document-summary.json', requireShare, (req: Request, res: Response) => {
+  try {
+    res.status(200).json(buildPublicTrackingDocumentSummary(req.projectId!));
+  } catch {
+    shareNotFound(res);
+  }
+});
+
+router.get('/:token/events/:eventId/card.json', requireShare, (req: Request, res: Response) => {
+  try {
+    const card = buildPublicEventCard(req.projectId!, req.params.eventId);
+    if (!card) {
+      shareNotFound(res);
+      return;
+    }
+    res.status(200).json(card);
+  } catch {
+    shareNotFound(res);
   }
 });
 

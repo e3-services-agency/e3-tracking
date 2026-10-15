@@ -26,6 +26,8 @@ import { listVariants } from '../dal/variant.dal';
 import { evaluateVariant, type VariantCondition } from '../../domain/variants';
 import type { EventWithCounts, EventPropertyWithDetails } from '../dal/event.dal';
 import type { VariantRow } from '../dal/variant.dal';
+import type { PropertyRow } from '../dal/property.dal';
+import type { PropertyDefinitionRow } from '../dal/property-definition.dal';
 
 export interface EventResolution {
   event_id: string | null;
@@ -77,7 +79,10 @@ export function resolveEventAndVariant(
  * observe later writes to events/variants (definitions do not change mid-request).
  */
 export function createEventResolver(
-  projectId: string
+  projectId: string,
+  /** T-5-41: optional preloaded project properties/definitions by id, passed through to `getEventWithProperties`. */
+  propertiesById?: Map<string, PropertyRow>,
+  definitionsById?: Map<string, PropertyDefinitionRow>
 ): (eventType: string, properties: Record<string, unknown>) => EventResolution {
   const eventsByName = new Map(EventDAL.listEvents(projectId).map((e) => [e.name, e]));
   const discriminatorsByEventId = new Map<string, EventPropertyWithDetails[]>();
@@ -89,7 +94,7 @@ export function createEventResolver(
 
     let discriminators = discriminatorsByEventId.get(event.id);
     if (!discriminators) {
-      const { properties: links } = EventDAL.getEventWithProperties(projectId, event.id);
+      const { properties: links } = EventDAL.getEventWithProperties(projectId, event.id, definitionsById, propertiesById);
       discriminators = links.filter((l) => l.role === 'discriminator');
       discriminatorsByEventId.set(event.id, discriminators);
     }

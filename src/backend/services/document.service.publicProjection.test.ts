@@ -8,7 +8,7 @@ import { closeDb } from '../db';
 import * as ClientDAL from '../dal/client.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import * as EventDAL from '../dal/event.dal';
-import { buildTrackingDocument, toPublicTrackingDocument } from './document.service';
+import { buildTrackingDocument, toPublicTrackingDocument, toTrackingDocumentSummary, buildPublicEventCard } from './document.service';
 
 let projectId: string;
 
@@ -95,5 +95,49 @@ describe('toPublicTrackingDocument (D-48 amendment)', () => {
       events: d.events.map((e) => ({ ...e, identity_note: null, owners: { business: null, technical: null }, agent_instructions: null })),
     });
     expect(normalize(pub)).toEqual(normalize(doc));
+  });
+});
+
+// T-5-41 (D-88): the lazy share routes take `toPublicTrackingDocument`'s output, so a future
+// internal field anywhere in the tree is stripped for them exactly as for the full download.
+describe('toTrackingDocumentSummary / buildPublicEventCard (T-5-41)', () => {
+  it('a future internal_* key on an event card never reaches the summary or the card', () => {
+    const doc = buildTrackingDocument(projectId);
+    const withFutureField = {
+      ...doc,
+      events: doc.events.map((e) => ({ ...e, internal_review: 'secret review', properties: e.properties.map((p) => ({ ...p, internal_hint: 'secret hint' })) })),
+    };
+    const summary = toTrackingDocumentSummary(toPublicTrackingDocument(withFutureField));
+    const pub = toPublicTrackingDocument(withFutureField);
+    for (const text of [JSON.stringify(summary), JSON.stringify(pub.events)]) {
+      expect(text).not.toContain('secret review');
+      expect(text).not.toContain('secret hint');
+      expect(text).not.toContain('internal_');
+    }
+  });
+
+  it('the summary event is an allowlist: a new non-internal card field does not appear in it', () => {
+    const doc = buildTrackingDocument(projectId);
+    const withNewField = { ...doc, events: doc.events.map((e) => ({ ...e, some_future_field: 'x' })) };
+    const summary = toTrackingDocumentSummary(toPublicTrackingDocument(withNewField));
+    expect('some_future_field' in summary.events[0]).toBe(false);
+    expect('identity_note' in summary.events[0]).toBe(false);
+    expect('owners' in summary.events[0]).toBe(false);
+  });
+
+  it('buildPublicEventCard returns the public card for a project event and null for an unknown id', () => {
+    const eventId = buildTrackingDocument(projectId).events[0].id;
+    const card = buildPublicEventCard(projectId, eventId)!;
+    expect(card.identity_note).toBeNull();
+    expect('agent_instructions' in card).toBe(false);
+    expect(buildPublicEventCard(projectId, 'no-such-event')).toBeNull();
+  });
+
+  it('a light build differs from the full build only in coverage and codegen', () => {
+    const full = buildTrackingDocument(projectId);
+    const light = buildTrackingDocument(projectId, { light: true });
+    const strip = (d: typeof full) => ({ ...d, generated_at: null, events: d.events.map(({ coverage: _c, codegen: _g, ...e }) => e) });
+    expect(strip(light)).toEqual(strip(full));
+    expect(light.events[0].codegen).toEqual({ gtm: '', web_sdk: '', tracking_api: '' });
   });
 });

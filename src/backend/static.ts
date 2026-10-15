@@ -8,7 +8,9 @@
  * - `index.html` and every other file: `no-store`.
  * - Any other GET/HEAD under `/tracking-plan/` whose last segment has no file extension gets
  *   `index.html` (client-side routes, incl. `/tracking-plan/shared/:token`); a missing file with an
- *   extension is a plain 404.
+ *   extension is a plain 404. Every path under `/tracking-plan/shared/` is a client portal route
+ *   (T-5-42, `/shared/:token/<view>/<id>`, where an event name or use case code may contain a dot),
+ *   so it always gets `index.html`.
  * - A malformed percent-escape in the path is a plain-text 400, never a stack trace.
  * - Unknown `/api/*` paths are a JSON 404 (never the SPA).
  */
@@ -94,7 +96,7 @@ export function mountStatic(app: express.Express, distDir: string): boolean {
   app.use(BASE_PATH, (req, res, next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') return next();
     const last = req.path.split('/').filter(Boolean).pop() ?? '';
-    if (last.includes('.')) {
+    if (last.includes('.') && !req.path.startsWith('/shared/')) {
       res.status(404).type('text/plain').send('Not found.');
       return;
     }

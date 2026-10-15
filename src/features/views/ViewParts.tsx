@@ -4,9 +4,10 @@
  * zero, other actions on hover) and a row that opens on click without stealing clicks from its
  * own controls or text selection.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { MessageSquare } from 'lucide-react';
 import { Input } from '@/src/components/ui/Input';
+import { Button } from '@/src/components/ui/Button';
 import { browserStorage, readDensity, writeDensity, type Density } from './viewModel';
 
 /** Cell padding per density; headers use the same padding so columns line up. */
@@ -156,22 +157,35 @@ export function ActionsCell({
 
 const CONTROL = 'button, a, input, select, textarea, label, summary, [role="button"], [role="link"], [contenteditable="true"]';
 
-/** A body row. With `onOpen`, a click anywhere outside the row's own controls opens it. */
+/** A body row. With `onOpen`, a click anywhere outside the row's own controls opens it.
+ * `highlighted` (T-5-42, a portal deep link) marks the row and scrolls it into view once. */
 export function ViewRow({
   onOpen,
   className = '',
   children,
   testId,
+  rowId,
+  highlighted = false,
 }: {
   onOpen?: () => void;
   className?: string;
   children: React.ReactNode;
   testId?: string;
+  rowId?: string;
+  highlighted?: boolean;
 }) {
+  const ref = useRef<HTMLTableRowElement>(null);
+  useEffect(() => {
+    if (highlighted) ref.current?.scrollIntoView?.({ block: 'center' });
+  }, [highlighted]);
   return (
     <tr
+      ref={ref}
       data-testid={testId}
-      className={`hover:bg-gray-50 ${onOpen ? 'cursor-pointer' : ''} ${className}`}
+      data-row-id={rowId}
+      data-highlighted={highlighted || undefined}
+      aria-current={highlighted || undefined}
+      className={`${highlighted ? 'bg-amber-50' : 'hover:bg-gray-50'} ${onOpen ? 'cursor-pointer' : ''} ${className}`}
       onClick={
         onOpen
           ? (event) => {
@@ -199,6 +213,49 @@ export function RowName({ name, onOpen, mono = false }: { name: string; onOpen?:
     </button>
   ) : (
     <span className={cls}>{name}</span>
+  );
+}
+
+/** Rows the client portal renders at a time in a long table (T-5-42): keeps one view within its
+ * DOM budget; search and filters still cover every row. */
+export const PORTAL_ROW_LIMIT = 100;
+
+/** A growing window over a long list: the first `step` rows, then `step` more per "Show more".
+ * Without `step` every row is shown. */
+export function useRowLimit(step?: number) {
+  const [limit, setLimit] = useState(step ?? Infinity);
+  const more = useCallback(() => setLimit((n) => n + (step ?? Infinity)), [step]);
+  return { limit, more };
+}
+
+/** "Showing N of M <what>. Show K more" as a table row, when rows are hidden by `useRowLimit`. */
+export function ShowMoreRow({
+  colSpan,
+  shown,
+  total,
+  step,
+  onMore,
+  what,
+  testId,
+}: {
+  colSpan: number;
+  shown: number;
+  total: number;
+  step: number;
+  onMore: () => void;
+  what: string;
+  testId?: string;
+}) {
+  if (shown >= total) return null;
+  return (
+    <tr data-testid={testId}>
+      <td colSpan={colSpan} className="px-4 py-3 text-sm text-gray-600">
+        Showing {shown} of {total} {what}.{' '}
+        <Button variant="outline" className="ml-2 h-8" onClick={onMore}>
+          Show {Math.min(step, total - shown)} more
+        </Button>
+      </td>
+    </tr>
   );
 }
 

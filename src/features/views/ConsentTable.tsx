@@ -20,7 +20,7 @@ export interface ConsentTableProps extends ViewSlots<ConsentViewRow> {
   orderControls?: (row: ConsentViewRow, index: number) => React.ReactNode;
 }
 
-export function ConsentTable({ rows, rowActions, onOpen, commentCount, commentsInActions, readOnly = false, empty, toolbarExtra, orderControls }: ConsentTableProps) {
+export function ConsentTable({ rows, rowActions, onOpen, commentCount, commentsInActions, readOnly = false, empty, toolbarExtra, highlightId, orderControls }: ConsentTableProps) {
   const [density, setDensity] = useDensity();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search.trim().toLowerCase(), 200);
@@ -67,7 +67,7 @@ export function ConsentTable({ rows, rowActions, onOpen, commentCount, commentsI
           {visible.map((c) => {
             const open = onOpen ? () => onOpen(c) : undefined;
             return (
-              <ViewRow key={c.id} testId="consent-row">
+              <ViewRow key={c.id} testId="consent-row" rowId={c.id} highlighted={highlightId === c.id}>
                 {showOrder && <td className={cell}>{orderControls!(c, indexById.get(c.id) ?? 0)}</td>}
                 <td className={cell}>
                   <span className="inline-flex items-center gap-1.5">

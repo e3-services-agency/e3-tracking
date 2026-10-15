@@ -20,7 +20,7 @@ import { ENTITY_STATUSES } from '@/src/domain/enums';
 import { enumLabel } from '@/src/domain/enumLabels';
 import { PROPERTY_CATEGORIES, PROPERTY_CATEGORY_LABELS, type PropertyCategory } from '@/src/domain/propertyCategory';
 import { groupRowsByCategory, toggleCollapsed } from '@/src/domain/propertyTableGroups';
-import { ActionsCell, CELL, HEAD_TEXT, NoMatchRow, RowName, ViewFrame, ViewRow, ViewToolbar, useDensity } from './ViewParts';
+import { ActionsCell, CELL, HEAD_TEXT, NoMatchRow, RowName, ShowMoreRow, ViewFrame, ViewRow, ViewToolbar, useDensity, useRowLimit } from './ViewParts';
 import { filterOptions, matchesFilter, matchesSearch, withKnownOrder } from './viewModel';
 import type { PropertyViewRow, ViewSlots } from './types';
 
@@ -29,6 +29,10 @@ export interface PropertiesTableProps extends ViewSlots<PropertyViewRow> {
   renderDefinitions?: (row: PropertyViewRow, colSpan: number) => React.ReactNode;
   /** Message when rows exist upstream but the page's own filter (scope) left none. */
   filteredUpstream?: boolean;
+  /** T-5-42: render at most this many rows, then a "Show more" row that adds as many again. The
+   * client portal sets it to keep one view within its DOM budget; search and filters still cover
+   * every row. */
+  rowLimit?: number;
 }
 
 const PRIORITY_ORDER = ['critical', 'high', 'medium', 'low'];
@@ -44,7 +48,10 @@ export function PropertiesTable({
   toolbarExtra,
   renderDefinitions,
   filteredUpstream = false,
+  rowLimit,
+  highlightId,
 }: PropertiesTableProps) {
+  const { limit, more } = useRowLimit(rowLimit);
   const [density, setDensity] = useDensity();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search.trim().toLowerCase(), 200);
@@ -73,6 +80,16 @@ export function PropertiesTable({
     status: (p) => p.status,
   });
   const groups = useMemo(() => groupRowsByCategory(sorted, (p) => p.category), [sorted]);
+  // Rows of open groups, in display order, count towards the limit; the rest are not rendered.
+  let budget = limit;
+  const shownGroups = groups.map((group) => {
+    if (collapsedGroups.has(group.category)) return { group, rows: group.rows };
+    const rows = group.rows.slice(0, Math.max(0, budget));
+    budget -= rows.length;
+    return { group, rows };
+  });
+  const openRowCount = groups.reduce((n, g) => n + (collapsedGroups.has(g.category) ? 0 : g.rows.length), 0);
+  const hiddenCount = Math.max(0, openRowCount - limit);
 
   const expandable = renderDefinitions ? sorted.filter((p) => p.definition_count > 0).map((p) => p.id) : [];
   const allExpanded = expandable.length > 0 && expandable.every((id) => expanded.has(id));
@@ -137,8 +154,9 @@ export function PropertiesTable({
           </tr>
         </thead>
         <tbody className="divide-y">
-          {groups.map((group) => {
+          {shownGroups.map(({ group, rows: groupRows }) => {
             const isCollapsed = collapsedGroups.has(group.category);
+            if (!isCollapsed && groupRows.length === 0) return null;
             return (
               <React.Fragment key={group.category}>
                 <tr className="border-y border-gray-200 bg-gray-100" data-testid={`property-group-${group.category}`}>
@@ -156,13 +174,13 @@ export function PropertiesTable({
                   </HintTh>
                 </tr>
                 {!isCollapsed &&
-                  group.rows.map((p) => {
+                  groupRows.map((p) => {
                     const open = onOpen ? () => onOpen(p) : undefined;
                     const defLabel = `${expanded.has(p.id) ? 'Collapse' : 'Expand'} definitions for ${p.name} (${p.definition_count} ${p.definition_count === 1 ? 'definition' : 'definitions'})`;
                     const canExpand = !!renderDefinitions && p.definition_count > 0;
                     return (
                       <React.Fragment key={p.id}>
-                        <ViewRow onOpen={open} testId="property-row">
+                        <ViewRow onOpen={open} testId="property-row" rowId={p.id} highlighted={highlightId === p.id}>
                           <td className="px-1 py-1">
                             {canExpand && <ExpandChevron expanded={expanded.has(p.id)} label={defLabel} onToggle={() => toggle(p.id)} />}
                           </td>
@@ -205,6 +223,9 @@ export function PropertiesTable({
               </React.Fragment>
             );
           })}
+          {rowLimit && (
+            <ShowMoreRow colSpan={colSpan} shown={openRowCount - hiddenCount} total={openRowCount} step={rowLimit} onMore={more} what="properties" testId="property-show-more" />
+          )}
           {sorted.length === 0 && (rows.length > 0 || filteredUpstream) && <NoMatchRow colSpan={colSpan} what="properties" />}
           {sorted.length === 0 && rows.length === 0 && !filteredUpstream && empty && (
             <EmptyState colSpan={colSpan} message={empty.message} actionLabel={empty.actionLabel} onAction={empty.onAction} />

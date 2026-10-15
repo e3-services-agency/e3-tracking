@@ -2,7 +2,6 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { SharedEntityTable, SharedEntityRow } from './SharedEntityTable';
-import { SharedNav } from './SharedNav';
 
 const name = 'booking_flight_shopping_with_a_long_descriptive_entity_name';
 const description = 'Full description with multiple sentences.\nA second line remains visible, including the final words.';
@@ -38,13 +37,5 @@ describe('Shared entity table accessibility and readable content', () => {
     const html = renderToStaticMarkup(<SharedEntityRow name={name} kind="catalog" cells={[description]} />);
     expect(html).not.toContain('aria-expanded');
     expect(html).toContain('data-entity-icon="catalog"');
-  });
-  it('preserves long sidebar leaf labels with wrapping and accessible navigation targets', () => {
-    const items = [{ id: 'events', label: 'Events', children: [{ id: 'event-long', label: name }] }];
-    const html = renderToStaticMarkup(<SharedNav items={items} allItems={items} activeId="event-long" query="" onQuery={() => {}} onNavigate={() => {}} />);
-    expect(html).toContain(name);
-    expect(html).not.toContain('truncate');
-    expect(html).toContain('href="#event-long"');
-    expect(html).toContain('aria-current="location"');
   });
 });

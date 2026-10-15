@@ -22,6 +22,8 @@ export interface ViewSlots<R> {
   commentsInActions?: boolean;
   /** Portal mode: full text, no planning-only columns, no reorder controls. */
   readOnly?: boolean;
+  /** T-5-42: the row to mark and scroll into view (a portal deep link), by row id. */
+  highlightId?: string | null;
   /** Message (and optional action) when there are no rows at all. */
   empty?: { message: string; actionLabel?: string; onAction?: () => void };
   /** Page-specific controls appended to the search and filter bar. */
@@ -53,8 +55,9 @@ export interface EventViewRow {
   /** `n/a` for sdk and platform events. */
   certified: 'yes' | 'no' | 'n/a';
   certified_reasons: string[];
-  /** `inherited` = the project default applies (shown muted). */
-  expiration: { label: string; inherited: boolean };
+  /** `inherited` = the project default applies (shown muted). `null` when the source does not carry
+   * it (the portal's document summary); the column is left out when no row has one. */
+  expiration: { label: string; inherited: boolean } | null;
   property_count: number;
   variants: EventVariantRow[];
 }

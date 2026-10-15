@@ -9,6 +9,7 @@ import { commentFragment, parseCommentLink, type CommentLinkTarget } from './com
 import { emptyEventCard } from './commentLinkFixtures';
 import type { CommentPanelRow } from './CommentsPanel';
 import { useStore } from '@/src/store';
+import { portalFetch } from '@/src/features/portal/portalTestFixtures';
 vi.mock('@/src/features/projects/context/ProjectShellContext', () => ({ useProjectShell: () => ({ activeProjectId: 'internal-project', hasValidProjectContext: true }) }));
 
 let root: Root | undefined;
@@ -24,15 +25,19 @@ const doc = {
   project: { key: 'fixture-project', name: 'Fixture project', naming_convention: 'snake_case' },
   events: [emptyEventCard({ id: 'event-id', name: 'cart_update' })],
   properties: [{ property_id: 'property-id', name: 'loyalty_points', category: 'customer', data_type: 'number', data_formats: [], description: 'Customer points', definitions: [] }],
-  event_properties: [], identity_rules: [], consent_categories: [], catalogs: [], standard_event_mappings: [],
+  event_properties: [], consent_categories: [], standard_event_mappings: [],
+  identity_rules: [{ id: 'rule-id', name: 'Email at login', identifier_name: 'email_id', identity_type: 'hard', transformations: [], sdk_call: 'identify', trigger_text: null, carried_by: [] }],
+  catalogs: [{ id: 'catalog-id', name: 'products', mapping_role: null, status: 'planned', fields: [] }],
   use_cases: [{ id: 'use-case-id', code: 'UC-01', name: 'Retention', type: 'marketing', status: 'planned', documentation_url: null, requirements: [{ id: 'requirement-id', target_label: 'cart_update', target_kind: 'event', event_id: 'event-id', property_id: null, level: 'required', status: 'planned' }] }],
   findings_summary: { open: { error: 0, warning: 0, info: 0 }, by_comparison: {} }, unattached_findings: [],
 };
 function target(entityType: CommentLinkTarget['entityType'], entityId: string): CommentLinkTarget { return { entityType, entityId, threadId: 'root', commentId: 'reply-3' }; }
 const changeHash = (hash: string) => { window.history.replaceState(null, '', hash); window.dispatchEvent(new HashChangeEvent('hashchange')); };
+const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
 beforeEach(() => {
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   vi.stubGlobal('isSecureContext', true);
+  vi.stubGlobal('scrollTo', vi.fn());
   writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
   Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
@@ -52,29 +57,35 @@ afterEach(async () => {
   else Reflect.deleteProperty(navigator, 'clipboard');
 });
 function mockShared(rows: CommentPanelRow[], status = 200) {
-  const fetchMock = vi.fn(async (url: string | URL | Request) => {
-    const path = String(url);
-    if (path.endsWith('/identity')) return json({ name: 'Purple Hedgehog', kind: 'guest', verified: false, avatar_url: null, name_chosen: false });
-    if (path.endsWith('/comments')) return json(rows);
-    if (path.endsWith('/qa-reports')) return json([]);
-    if (path.endsWith('/tracking-document.json')) return json(doc);
-    return json({ project: { name: 'Fixture project', client_logo_path: null }, client: { name: 'Fixture client' }, access: 'read' }, status);
-  });
+  const fetchMock = vi.fn(portalFetch({ doc: () => doc as never, comments: () => rows, status }));
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
 }
+/** T-5-42: every comment target lands on its own view and item. */
+const LANDS_ON: Record<string, string> = {
+  event: '/events/cart_update',
+  property: '/properties/loyalty_points',
+  use_case: '/use-cases/UC-01',
+  requirement: '/use-cases/UC-01',
+  identity_rule: '/identity/rule-id',
+  catalog: '/catalogs/products',
+};
 describe('mounted shared comment deep links and copy', () => {
-  it.each([['event', 'event-id'], ['property', 'property-id'], ['use_case', 'use-case-id'], ['requirement', 'requirement-id']] as const)('reloads %s into its third reply, expands permitted entity/thread, and focuses it', async (type, entityId) => {
+  it.each([['event', 'event-id'], ['property', 'property-id'], ['use_case', 'use-case-id'], ['requirement', 'requirement-id'], ['identity_rule', 'rule-id'], ['catalog', 'catalog-id']] as const)('reloads %s into its third reply on its own view, opens the thread, and focuses it', async (type, entityId) => {
     const linkedTarget = target(type, entityId);
     mockShared(rowsFor(type, entityId));
-    changeHash(commentFragment(linkedTarget));
+    window.history.replaceState(null, '', '/shared/fixture-share' + commentFragment(linkedTarget));
     await act(async () => root!.render(<SharedProject token="fixture-share" />));
-    const reply = container.querySelector<HTMLElement>('#comment-reply-3')!;
+    await settle();
+    // The old single-page link redirects to the target's view and keeps the comment hash.
+    expect(window.location.pathname).toBe('/shared/fixture-share' + LANDS_ON[type]);
+    expect(parseCommentLink(window.location.hash)).toEqual({ kind: 'target', target: linkedTarget });
+    const reply = document.querySelector<HTMLElement>('#comment-reply-3')!;
     expect(reply).not.toBeNull();
     expect(document.activeElement).toBe(reply);
     expect(reply.className).toContain('ring-2');
-    expect(container.querySelectorAll('[data-testid="comment-reply"]')).toHaveLength(3);
-    expect(container.querySelector('textarea[aria-label="Reply"]')).toBeNull(); // read-only share remains read-only
+    expect(document.querySelectorAll('[data-testid="comment-reply"]')).toHaveLength(3);
+    expect(document.querySelector('textarea[aria-label="Reply"]')).toBeNull(); // read-only share remains read-only
     await act(async () => reply.querySelector<HTMLButtonElement>('[aria-label="Copy comment link"]')!.click());
     const copied = writeText.mock.calls[0][0];
     expect(new URL(copied).pathname).toContain('/shared/fixture-share');
@@ -83,8 +94,10 @@ describe('mounted shared comment deep links and copy', () => {
     container.replaceChildren(); root = createRoot(container);
     window.history.replaceState(null, '', new URL(copied).pathname + new URL(copied).hash);
     await act(async () => root!.render(<SharedProject token="fixture-share" />));
-    expect(document.activeElement).toBe(container.querySelector('#comment-reply-3'));
-    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Copy thread Markdown"]')!.click());
+    await settle();
+    expect(window.location.pathname).toBe('/shared/fixture-share' + LANDS_ON[type]);
+    expect(document.activeElement).toBe(document.querySelector('#comment-reply-3'));
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Copy thread Markdown"]')!.click());
     const markdown = writeText.mock.calls.at(-1)![0];
     expect(markdown).toContain('Reply 3');
     expect(markdown).toContain('/api/shared/fixture-share/files/');
@@ -92,9 +105,10 @@ describe('mounted shared comment deep links and copy', () => {
   });
   it('copies a root link and single-root Markdown, then reloads into the focused root', async () => {
     mockShared(rowsFor('event', 'event-id'));
-    changeHash(commentFragment(target('event', 'event-id')));
+    window.history.replaceState(null, '', '/shared/root-share' + commentFragment(target('event', 'event-id')));
     await act(async () => root!.render(<SharedProject token="root-share" />));
-    const thread = container.querySelector<HTMLElement>('#comment-root')!;
+    await settle();
+    const thread = document.querySelector<HTMLElement>('#comment-root')!;
     await act(async () => thread.querySelector<HTMLButtonElement>('[aria-label="Copy comment Markdown"]')!.click());
     expect(writeText.mock.calls.at(-1)![0]).toContain('**Root discussion**');
     expect(writeText.mock.calls.at(-1)![0]).not.toContain('Reply 3');
@@ -104,14 +118,16 @@ describe('mounted shared comment deep links and copy', () => {
     await act(async () => root!.unmount()); root = createRoot(container);
     window.history.replaceState(null, '', copied.pathname + copied.hash);
     await act(async () => root!.render(<SharedProject token="root-share" />));
-    expect(document.activeElement).toBe(container.querySelector('#comment-root'));
+    await settle();
+    expect(document.activeElement).toBe(document.querySelector('#comment-root'));
   });
   it('does not expand or disclose missing/private targets, and handles invalid and revoked links', async () => {
     const fetchMock = mockShared(rowsFor('event', 'event-id').filter((row) => row.id !== 'reply-3'));
-    changeHash(commentFragment(target('event', 'event-id')));
+    window.history.replaceState(null, '', '/shared/missing-share' + commentFragment(target('event', 'event-id')));
     await act(async () => root!.render(<SharedProject token="missing-share" />));
     expect(container.textContent).toContain('This comment is unavailable in this view.');
-    expect(container.querySelector('[data-testid="comment-thread"]')).toBeNull();
+    expect(window.location.pathname).toBe('/shared/missing-share'); // no redirect to a target it cannot show
+    expect(document.querySelector('[data-testid="comment-thread"]')).toBeNull();
     expect(fetchMock.mock.calls.every(([url]) => !String(url).includes('/api/projects/'))).toBe(true);
     await act(async () => changeHash('#comment=v1&type=event&entity=event-id&thread=root&target=%ZZ'));
     expect(container.textContent).toContain('This comment link is not valid.');

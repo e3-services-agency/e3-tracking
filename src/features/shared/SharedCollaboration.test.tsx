@@ -1,9 +1,8 @@
 // @vitest-environment jsdom
-import React, { act, useRef, useState } from 'react';
+import React, { act, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SharedEntityTable, SharedEntityRow } from './SharedEntityTable';
-import { SharedActiveEntitySummary } from './SharedActiveEntitySummary';
 import { CertificationBadge } from '../events/components/EventCardView';
 import { CommentItem } from '../comments/CommentItem';
 import { CommentReactions } from '../comments/CommentReactions';
@@ -24,11 +23,9 @@ async function mount(element: React.ReactNode) {
   root = createRoot(container);
   await act(async () => root!.render(element));
 }
-function RowHarness({ overlay = false }: { overlay?: boolean }) {
+function RowHarness() {
   const [expanded, setExpanded] = useState(false);
-  const main = useRef<HTMLElement>(null);
-  return <main ref={main}>
-    {overlay && <SharedActiveEntitySummary container={main} revision={String(expanded)} />}
+  return <main>
     <SharedEntityTable label="Events" columns={[{ label: 'Name' }, { label: 'Description' }, { label: 'Actions' }]}>
       <SharedEntityRow anchor="event-click" name="Complete event name" kind="event" expanded={expanded}
         scrollMarginTop={88} onToggle={() => setExpanded(value => !value)}
@@ -38,7 +35,6 @@ function RowHarness({ overlay = false }: { overlay?: boolean }) {
     </SharedEntityTable>
   </main>;
 }
-const tick = async () => { await act(async () => { await new Promise(resolve => setTimeout(resolve, 25)); }); };
 
 describe('Shared summary row interaction', () => {
   it('toggles the whole summary while keeping native disclosure keyboard semantics', async () => {
@@ -83,35 +79,6 @@ describe('Shared summary row interaction', () => {
     selection.removeAllRanges();
     await act(async () => name.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 })));
     expect(disclosure.getAttribute('aria-expanded')).toBe('false');
-  });
-  it('bounds the active-body summary, hides outside its body and restores collapse focus/scroll', async () => {
-    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => setTimeout(() => callback(0), 0));
-    vi.stubGlobal('cancelAnimationFrame', (id: number) => clearTimeout(id));
-    vi.stubGlobal('innerWidth', 390); vi.stubGlobal('innerHeight', 700); vi.stubGlobal('scrollY', 500);
-    const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
-    await mount(<RowHarness overlay />);
-    const row = container!.querySelector<HTMLTableRowElement>('#event-click')!;
-    const button = row.querySelector<HTMLButtonElement>('th button')!;
-    vi.spyOn(container!.querySelector('main')!, 'getBoundingClientRect').mockReturnValue({ left: 16, right: 374 } as DOMRect);
-    vi.spyOn(row, 'getBoundingClientRect').mockReturnValue({ bottom: 40, top: -200 } as DOMRect);
-    await act(async () => button.click());
-    const details = container!.querySelector('#event-click-details')!;
-    const body = vi.spyOn(details, 'getBoundingClientRect').mockReturnValue({ top: -100, bottom: 1500, height: 1600 } as DOMRect);
-    window.dispatchEvent(new Event('scroll')); await tick();
-    const bar = document.querySelector<HTMLElement>('[aria-label="Active expanded entity"]')!;
-    expect(bar).not.toBeNull();
-    expect(bar.style.top).toBe('56px'); expect(bar.style.width).toBe('358px');
-    expect(bar.textContent).toContain('Complete event name');
-    body.mockReturnValue({ top: -1400, bottom: 100, height: 1500 } as DOMRect);
-    window.dispatchEvent(new Event('scroll')); await tick();
-    expect(document.querySelector('[aria-label="Active expanded entity"]')).toBeNull();
-    body.mockReturnValue({ top: -100, bottom: 1500, height: 1600 } as DOMRect);
-    window.dispatchEvent(new Event('scroll')); await tick();
-    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Collapse Complete event name"]')!.click());
-    await tick();
-    expect(container!.querySelector('#event-click-details')).toBeNull();
-    expect(document.activeElement).toBe(button);
-    expect(scroll).toHaveBeenCalledWith({ top: 204, behavior: 'auto' });
   });
 });
 

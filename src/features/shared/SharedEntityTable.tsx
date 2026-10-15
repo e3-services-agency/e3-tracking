@@ -37,9 +37,11 @@ export function RowActions({ children }: { children: React.ReactNode }) {
   return <span className="row-actions inline-flex flex-nowrap items-center gap-1">{children}</span>;
 }
 
-export function SharedEntityRow({ anchor, name, kind, expanded, onToggle, cells, children, badges, nameSuffix, nameIndented = false, scrollMarginTop }: {
+export function SharedEntityRow({ anchor, name, kind, expanded, onToggle, cells, children, badges, nameSuffix, nameIndented = false, scrollMarginTop, highlighted = false }: {
   anchor?: string; name: string; kind?: EntityKind; expanded?: boolean; onToggle?: () => void;
   cells: React.ReactNode[]; children?: React.ReactNode; badges?: React.ReactNode; nameSuffix?: React.ReactNode; nameIndented?: boolean; scrollMarginTop?: number;
+  /** T-5-42: the row a link landed on (marked until another link moves it). */
+  highlighted?: boolean;
 }) {
   const disclosureId = useId();
   const contentId = anchor ? `${anchor}-details` : undefined;
@@ -50,7 +52,8 @@ export function SharedEntityRow({ anchor, name, kind, expanded, onToggle, cells,
   </span></>;
   return (
     <>
-      <tr id={anchor} style={{ scrollMarginTop }} className={`hover:bg-gray-50 ${onToggle ? 'cursor-pointer' : ''}`}
+      <tr id={anchor} style={{ scrollMarginTop }} className={`${highlighted ? 'bg-amber-50' : 'hover:bg-gray-50'} ${onToggle ? 'cursor-pointer' : ''}`}
+        aria-current={highlighted || undefined} data-highlighted={highlighted || undefined}
         data-shared-expanded={expanded && onToggle ? 'true' : undefined}
         data-shared-name={name} data-shared-kind={kind} data-shared-disclosure={disclosureId}
         onClick={onToggle ? (event) => {

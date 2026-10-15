@@ -12,6 +12,8 @@ import { computeFindingsSummary } from '@/src/domain/document/findingsSummary';
 import { useCaseToMarkdown, findingsSummaryToMarkdown } from '@/src/domain/document/markdown';
 import type { TrackingDocumentUseCase, EventCardFinding } from '@/src/domain/document/trackingDocument';
 import type { CommentPanelRow } from '@/src/features/comments/CommentsPanel';
+import { portalFetch } from '@/src/features/portal/portalTestFixtures';
+import { PORTAL_ROW_LIMIT } from '@/src/features/views/ViewParts';
 vi.mock('@/src/features/shared-auth/SharedGoogleSignIn', () => ({ SharedGoogleSignIn: () => null }));
 let root: Root;
 let container: HTMLDivElement;
@@ -44,15 +46,9 @@ beforeEach(() => {
   copy = vi.fn().mockResolvedValue(undefined); requested = []; servedDoc = doc;
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: copy } });
   Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() });
+  vi.stubGlobal('scrollTo', vi.fn());
   window.history.replaceState(null, '', '/tracking-plan/shared/public-fixture');
-  vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request) => {
-    const address = String(url); requested.push(address);
-    const value = address.endsWith('/tracking-document.json') ? servedDoc : address.endsWith('/comments') ? comments : address.endsWith('/qa-reports') ? []
-      : address.endsWith('/history') ? { current_status: 'open', current_acknowledged: false, appearances: [] }
-      : address.endsWith('/identity') ? { name: 'Blue Fox', kind: 'guest', verified: false, name_chosen: false }
-      : { project: { name: 'Shared project', client_logo_path: null }, client: { name: 'Public client' }, access: 'read' };
-    return new Response(JSON.stringify(value), { status: 200, headers: { 'Content-Type': 'application/json' } });
-  }));
+  vi.stubGlobal('fetch', vi.fn(portalFetch({ doc: () => servedDoc as never, comments: () => comments, requested })));
   container = document.createElement('div'); document.body.append(container); root = createRoot(container);
 });
 afterEach(async () => {
@@ -121,15 +117,6 @@ describe('Shared current Findings table', () => {
     await act(async () => container.querySelector<HTMLButtonElement>(`button[aria-label="Copy link to Finding ${firstNumber}"]`)!.click());
     expect(copy).toHaveBeenCalledWith(`${window.location.origin}/tracking-plan/shared/public-fixture#current-finding-finding-event`);
   });
-  it('reloads a copied current-finding hash and scrolls to the stable row', async () => {
-    window.history.replaceState(null, '', '#current-finding-finding-project');
-    await mount(<SharedProject token="public-fixture" />);
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 60)); });
-    const row = container.querySelector('#current-finding-finding-project')!;
-    expect(row).not.toBeNull();
-    expect(vi.mocked(HTMLElement.prototype.scrollIntoView).mock.contexts).toContain(row);
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
-  });
   it('keeps comments on the exact finding target and read-only permissions', async () => {
     await mount(table());
     await act(async () => container.querySelector<HTMLButtonElement>(`button[aria-label="Comments on Finding ${firstNumber}: 1"]`)!.click());
@@ -142,109 +129,6 @@ describe('Shared current Findings table', () => {
     await act(async () => container.querySelector<HTMLButtonElement>(`button[aria-label="History of Finding ${secondNumber}"]`)!.click());
     expect(requested).toContain('/api/shared/public-fixture/findings/finding-project/history');
     expect(document.querySelector('[role="dialog"]')!.textContent).toContain('Current finding status: open');
-  });
-  it('integrates existing sidebar anchors, exports and a finding-comment deep link without changing Markdown', async () => {
-    window.history.replaceState(null, '', commentFragment({ entityType: 'finding', entityId: first.id, threadId: comment.id, commentId: comment.id }));
-    await mount(<SharedProject token="public-fixture" />);
-    expect(container.querySelector('[aria-label="Individual finding discussions table"]')).not.toBeNull();
-    expect(document.querySelector('[role="dialog"]')!.textContent).toContain('Exact finding discussion');
-    expect(container.querySelector(`[id="findings-definition_vs_observations-event-${eventName}"]`)).not.toBeNull();
-    expect(container.querySelector('a[href$="/tracking-document.json"]')).not.toBeNull();
-    expect(container.querySelector('a[href$="/documentation.html"]')).not.toBeNull();
-    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Copy findings as Markdown"]')!.click());
-    expect(copy).toHaveBeenCalledWith(findingsSummaryToMarkdown(computeFindingsSummary([event], [second])));
-    expect(requested.every(address => address.includes('/api/shared/public-fixture'))).toBe(true);
-  });  it('uses legacy sidebar comparison/event links to filter the single table and preserves the closed detailed summary', async () => {
-    await mount(<SharedProject token="public-fixture" />);
-    const details = Array.from(container.querySelectorAll('details')).find(detail => detail.querySelector('summary')?.textContent === 'Detailed findings summary')!;
-    expect(details.open).toBe(false);
-    const group = container.querySelector<HTMLAnchorElement>('nav a[href="#findings-definition_vs_observations"]')!;
-    await act(async () => group.click());
-    expect(container.querySelector<HTMLSelectElement>('select[id$="-comparison"]')!.value).toBe('definition_vs_observations');
-    const leaf = container.querySelector<HTMLAnchorElement>(`nav a[href="#findings-definition_vs_observations-event-${eventName}"]`)!;
-    await act(async () => leaf.click());
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 60)); });
-    const table = container.querySelector('[aria-label="Individual finding discussions table"]')!;
-    expect(table.querySelectorAll('tbody tr')).toHaveLength(1);
-    expect(table.querySelector('tbody tr')!.id).toBe(`current-finding-${first.id}`);
-    expect(vi.mocked(HTMLElement.prototype.scrollIntoView).mock.contexts).toContain(table.querySelector('tbody tr'));
-    expect(container.querySelectorAll('[aria-label="Individual finding discussions table"]')).toHaveLength(1);
-    expect(container.querySelector('[data-testid="project-findings"]')).toBeNull();
-    expect(details.open).toBe(false);
-  });
-  it.each(['initial hash', 'sidebar'] as const)('lands %s top-level Findings navigation at totals and filters, clearing prior filters', async source => {
-    if (source === 'initial hash') window.history.replaceState(null, '', '#findings');
-    await mount(<SharedProject token="public-fixture" />);
-    if (source === 'sidebar') {
-      const control = container.querySelector<HTMLSelectElement>('select[id$="-event"]')!;
-      await act(async () => { control.value = '__project__'; control.dispatchEvent(new Event('change', { bubbles: true })); });
-      expect(container.querySelector(`#current-finding-${first.id}`)).toBeNull();
-      vi.mocked(HTMLElement.prototype.scrollIntoView).mockClear();
-      await act(async () => container.querySelector<HTMLAnchorElement>('nav a[href="#findings"]')!.click());
-    }
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 60)); });
-    const section = container.querySelector<HTMLElement>('#findings')!;
-    expect(vi.mocked(HTMLElement.prototype.scrollIntoView).mock.contexts.at(-1)).toBe(section);
-    expect(parseFloat(section.style.scrollMarginTop)).toBeGreaterThan(0);
-    const totals = section.querySelector('[aria-label="Current finding totals"]')!;
-    const search = section.querySelector<HTMLInputElement>('input[type="search"]')!;
-    const firstRow = section.querySelector(`#current-finding-${first.id}`)!;
-    expect(totals.textContent).toContain('2 open findings');
-    expect(search.compareDocumentPosition(firstRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(Array.from(section.querySelectorAll<HTMLSelectElement>('select')).every(select => select.value === '')).toBe(true);
-    expect(section.querySelector('table tbody')!.querySelectorAll('tr')).toHaveLength(2);
-  });
-  it('reveals copied row and comment targets despite different active filters, and safely handles stale row hashes', async () => {
-    await mount(<SharedProject token="public-fixture" />);
-    const eventSelect = container.querySelector<HTMLSelectElement>('select[id$="-event"]')!;
-    await act(async () => { eventSelect.value = '__project__'; eventSelect.dispatchEvent(new Event('change', { bubbles: true })); });
-    expect(container.querySelector(`#current-finding-${first.id}`)).toBeNull();
-    const changeHash = async (hash: string) => { await act(async () => {
-      window.history.replaceState(null, '', hash); window.dispatchEvent(new HashChangeEvent('hashchange'));
-      await new Promise(resolve => setTimeout(resolve, 60));
-    }); };
-    await changeHash(`#current-finding-${first.id}`);
-    expect(container.querySelector(`#current-finding-${first.id}`)).not.toBeNull();
-    await act(async () => { eventSelect.value = '__project__'; eventSelect.dispatchEvent(new Event('change', { bubbles: true })); });
-    await changeHash(commentFragment({ entityType: 'finding', entityId: first.id, threadId: comment.id, commentId: comment.id }));
-    expect(document.querySelector('[role="dialog"]')!.textContent).toContain('Exact finding discussion');
-    expect(container.querySelector(`#current-finding-${first.id}`)).not.toBeNull();
-    await changeHash('#current-finding-stale-id');
-    expect(vi.mocked(HTMLElement.prototype.scrollIntoView).mock.contexts).toContain(container.querySelector('#current-findings-table'));
-    expect(requested.every(address => address.includes('/api/shared/public-fixture'))).toBe(true);
-  });
-  it('keeps every header and section text control at the same size with native button/link semantics', async () => {
-    await mount(<SharedProject token="public-fixture" />);
-    const global = container.querySelector<HTMLButtonElement>('button[aria-label="Expand all rows"]')!;
-    const local = container.querySelector<HTMLButtonElement>('button[aria-label="Expand all custom events"]')!;
-    const links = ['#qa-reports', '/tracking-document.json', '/documentation.html'].map(suffix => container.querySelector<HTMLAnchorElement>(`main a[href$="${suffix}"]`)!);
-    for (const control of [global, local, ...links]) {
-      expect(control.className).toContain('h-8'); expect(control.className).toContain('text-sm');
-      expect(control.className).toContain('px-3'); expect(control.className).toContain('py-0'); expect(control.className).toContain('rounded-md');
-      expect(control.className).not.toMatch(/h-7|h-9|h-10|text-xs/);
-    }
-    expect(container.querySelector<HTMLInputElement>('input[id$="-search"]')!.className).toContain('h-10');
-    expect(Array.from(container.querySelectorAll<HTMLSelectElement>('select[id*="-severity"], select[id*="-event"], select[id*="-comparison"]')).every(control => control.className.includes('h-10'))).toBe(true);
-    expect(global.tagName).toBe('BUTTON'); expect(links.every(link => link.tagName === 'A')).toBe(true);
-    expect(container.querySelector('button a')).toBeNull();
-    const details = Array.from(container.querySelectorAll('details')).find(detail => detail.querySelector('summary')?.textContent === 'Detailed findings summary')!;
-    await act(async () => global.click());
-    expect(details.open).toBe(true);
-    expect(container.querySelector(`#current-finding-${first.id}-details`)).not.toBeNull();
-    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Collapse all rows"]')!.click());
-    expect(container.querySelector(`#current-finding-${first.id}-details`)).toBeNull();
-    expect(details.open).toBe(false);
-  });
-  it('excludes zero-height legacy aliases from scroll spy while observing the actual Findings section', async () => {
-    const observed: string[] = [];
-    vi.stubGlobal('IntersectionObserver', class {
-      observe(element: HTMLElement) { observed.push(element.id); }
-      disconnect() {}
-    });
-    await mount(<SharedProject token="public-fixture" />);
-    expect(observed).toContain('findings');
-    expect(observed.some(id => id.startsWith('findings-'))).toBe(false);
-    expect(container.querySelector('#findings-definition_vs_observations')).not.toBeNull();
   });
   it('preserves public Property/Variant/Catalog/Consent links and unresolved fallback in expanded context', async () => {
     const contextFindings: EventCardFinding[] = [
@@ -277,44 +161,218 @@ describe('Shared current Findings table', () => {
     }
     expect(requested).toEqual([]);
   });
-  it('wires project finding Property and Catalog context links through the real shared page', async () => {
+});
+
+/** T-5-42: the findings table on the portal's QA view, reached by path or by an old single-page link. */
+const PORTAL = '/shared/public-fixture';
+const mountPortal = async (url: string) => {
+  window.history.replaceState(null, '', url);
+  await mount(<SharedProject token="public-fixture" />);
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 60)); });
+};
+// Effects flush when the first act ends; the second lets their scroll frame run.
+const changeHash = async (hash: string) => {
+  await act(async () => { window.history.replaceState(null, '', window.location.pathname + hash); window.dispatchEvent(new HashChangeEvent('hashchange')); });
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 60)); });
+};
+
+describe('Findings on the portal QA view (T-5-42)', () => {
+  it('reloads a copied current-finding link on the QA view and scrolls to the stable row', async () => {
+    await mountPortal(`${PORTAL}#current-finding-finding-project`);
+    expect(window.location.pathname).toBe(`${PORTAL}/qa`);
+    expect(window.location.hash).toBe('#current-finding-finding-project');
+    const row = container.querySelector('#current-finding-finding-project')!;
+    expect(row).not.toBeNull();
+    expect(vi.mocked(HTMLElement.prototype.scrollIntoView).mock.contexts).toContain(row);
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+  });
+  it('loads findings only on the QA view, opens a finding-comment deep link there and keeps Markdown and downloads', async () => {
+    await mountPortal(PORTAL);
+    expect(requested.some(address => address.endsWith('/findings.json'))).toBe(false);
+    await changeHash(commentFragment({ entityType: 'finding', entityId: first.id, threadId: comment.id, commentId: comment.id }));
+    expect(window.location.pathname).toBe(`${PORTAL}/qa`);
+    expect(container.querySelector('[aria-label="Individual finding discussions table"]')).not.toBeNull();
+    expect(document.querySelector('[role="dialog"]')!.textContent).toContain('Exact finding discussion');
+    expect(container.querySelector('a[href$="/tracking-document.json"]')).not.toBeNull();
+    expect(container.querySelector('a[href$="/documentation.html"]')).not.toBeNull();
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Copy findings as Markdown"]')!.click());
+    expect(copy).toHaveBeenCalledWith(findingsSummaryToMarkdown(computeFindingsSummary([event], [second])));
+    expect(requested.filter(address => address.endsWith('/findings.json'))).toHaveLength(1);
+    expect(requested.every(address => address.includes('/api/shared/public-fixture'))).toBe(true);
+    expect(requested.some(address => address.endsWith('/tracking-document.json'))).toBe(false);
+  });
+  it('uses old comparison and event finding links to filter the single table and keeps the detailed summary closed', async () => {
+    await mountPortal(`${PORTAL}#findings-definition_vs_observations`);
+    expect(window.location.pathname).toBe(`${PORTAL}/qa`);
+    const details = Array.from(container.querySelectorAll('details')).find(detail => detail.querySelector('summary')?.textContent === 'Detailed findings summary')!;
+    expect(details.open).toBe(false);
+    expect(container.querySelector<HTMLSelectElement>('select[id$="-comparison"]')!.value).toBe('definition_vs_observations');
+    await changeHash(`#findings-definition_vs_observations-event-${eventName}`);
+    const table = container.querySelector('[aria-label="Individual finding discussions table"]')!;
+    expect(table.querySelectorAll('tbody tr')).toHaveLength(1);
+    expect(table.querySelector('tbody tr')!.id).toBe(`current-finding-${first.id}`);
+    expect(vi.mocked(HTMLElement.prototype.scrollIntoView).mock.contexts).toContain(table.querySelector('tbody tr'));
+    expect(container.querySelectorAll('[aria-label="Individual finding discussions table"]')).toHaveLength(1);
+    expect(details.open).toBe(false);
+  });
+  it.each(['initial link', 'hash change'] as const)('lands a top-level #findings %s at totals and filters, clearing prior filters', async source => {
+    await mountPortal(source === 'initial link' ? `${PORTAL}#findings` : `${PORTAL}/qa`);
+    if (source === 'hash change') {
+      const control = container.querySelector<HTMLSelectElement>('select[id$="-event"]')!;
+      await act(async () => { control.value = '__project__'; control.dispatchEvent(new Event('change', { bubbles: true })); });
+      expect(container.querySelector(`#current-finding-${first.id}`)).toBeNull();
+      vi.mocked(HTMLElement.prototype.scrollIntoView).mockClear();
+      await changeHash('#findings');
+    }
+    const section = container.querySelector<HTMLElement>('#findings')!;
+    expect(vi.mocked(HTMLElement.prototype.scrollIntoView).mock.contexts.at(-1)).toBe(section);
+    const totals = section.querySelector('[aria-label="Current finding totals"]')!;
+    const search = section.querySelector<HTMLInputElement>('input[type="search"]')!;
+    const firstRow = section.querySelector(`#current-finding-${first.id}`)!;
+    expect(totals.textContent).toContain('2 open findings');
+    expect(search.compareDocumentPosition(firstRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(Array.from(section.querySelectorAll<HTMLSelectElement>('select')).every(select => select.value === '')).toBe(true);
+    expect(section.querySelector('table tbody')!.querySelectorAll('tr')).toHaveLength(2);
+  });
+  it('reveals copied row and comment targets despite different active filters, and safely handles stale row hashes', async () => {
+    await mountPortal(`${PORTAL}/qa`);
+    const eventSelect = container.querySelector<HTMLSelectElement>('select[id$="-event"]')!;
+    await act(async () => { eventSelect.value = '__project__'; eventSelect.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(container.querySelector(`#current-finding-${first.id}`)).toBeNull();
+    await changeHash(`#current-finding-${first.id}`);
+    expect(container.querySelector(`#current-finding-${first.id}`)).not.toBeNull();
+    await act(async () => { eventSelect.value = '__project__'; eventSelect.dispatchEvent(new Event('change', { bubbles: true })); });
+    await changeHash(commentFragment({ entityType: 'finding', entityId: first.id, threadId: comment.id, commentId: comment.id }));
+    expect(document.querySelector('[role="dialog"]')!.textContent).toContain('Exact finding discussion');
+    expect(container.querySelector(`#current-finding-${first.id}`)).not.toBeNull();
+    await changeHash('#current-finding-stale-id');
+    expect(vi.mocked(HTMLElement.prototype.scrollIntoView).mock.contexts).toContain(container.querySelector('#current-findings-table'));
+    expect(requested.every(address => address.includes('/api/shared/public-fixture'))).toBe(true);
+  });
+  it('has no Expand all / Collapse all and no scroll spy; filter controls and downloads keep their native semantics', async () => {
+    const observed: string[] = [];
+    vi.stubGlobal('IntersectionObserver', class {
+      observe(element: HTMLElement) { observed.push(element.id); }
+      disconnect() {}
+    });
+    await mountPortal(`${PORTAL}/qa`);
+    expect(container.querySelector('button[aria-label^="Expand all"], button[aria-label^="Collapse all"]')).toBeNull();
+    expect(observed).toEqual([]);
+    expect(container.querySelector('#findings-definition_vs_observations')).toBeNull();
+    expect(container.querySelector<HTMLInputElement>('input[id$="-search"]')!.className).toContain('h-10');
+    expect(Array.from(container.querySelectorAll<HTMLSelectElement>('select[id*="-severity"], select[id*="-event"], select[id*="-comparison"]')).every(control => control.className.includes('h-10'))).toBe(true);
+    const downloads = ['/tracking-document.json', '/documentation.html'].map(suffix => container.querySelector<HTMLAnchorElement>(`a[href$="${suffix}"]`)!);
+    expect(downloads.every(link => link.tagName === 'A')).toBe(true);
+    expect(container.querySelector('button a')).toBeNull();
+  });
+  it('wires project finding Property and Catalog context links to their portal views', async () => {
     const propertyFinding = { ...second, id: 'property-integration', property_id: 'property-id', property: 'customer_name' };
     const catalogFinding = { ...second, id: 'catalog-integration', kind: 'catalog_searchable_limit' };
     servedDoc = { ...doc, unattached_findings: [propertyFinding, catalogFinding],
       properties: [{ property_id: 'property-id', name: 'customer_name', category: 'customer', description: null, data_type: 'string', data_formats: [], definitions: [] }],
       catalogs: [{ id: 'catalog-id', name: 'Products', mapping_role: null, status: 'planned', fields: [] }] };
-    await mount(<SharedProject token="public-fixture" />);
-    for (const [id, href] of [['property-integration', '#property-customer_name'], ['catalog-integration', '#catalogs']]) {
+    for (const [id, path, heading] of [['property-integration', `${PORTAL}/properties/customer_name`, 'customer_name'], ['catalog-integration', `${PORTAL}/catalogs`, 'Catalogs']]) {
+      await mountPortal(`${PORTAL}/qa`);
       await act(async () => container.querySelector<HTMLButtonElement>(`#current-finding-${id} th button`)!.click());
       const link = container.querySelector<HTMLAnchorElement>(`#current-finding-${id}-details a`)!;
-      expect(link.getAttribute('href')).toBe(href);
-      await act(async () => link.click()); expect(window.location.hash).toBe(href);
+      expect(link.getAttribute('href')).toBe(path);
+      await act(async () => { link.click(); await new Promise(resolve => setTimeout(resolve, 30)); });
+      expect(window.location.pathname).toBe(path);
+      expect(container.querySelector('h1')!.textContent).toContain(heading);
+      await act(async () => root.unmount()); root = createRoot(container);
     }
-    expect(container.querySelector('#property-customer_name-details')).not.toBeNull();
     expect(requested.every(address => address.includes('/api/shared/public-fixture'))).toBe(true);
   });
-  it('uses a bounded plain UC preview and shows full original Markdown only in expansion/copy', async () => {
+  it('lists a bounded plain use case preview and shows the full Markdown only on its page and in the copy', async () => {
     const narrative = '# Flow\n\n' + 'Customer data with `customer_email` and **important** detail. '.repeat(12) + '\n\n- Final narrative conclusion';
     const uc: TrackingDocumentUseCase = { id: 'usecase-preview', name: 'Welcome', code: 'UC-01', type: 'marketing', status: 'planned',
       documentation_url: null, narrative, requirements: [] };
     servedDoc = { ...doc, use_cases: [uc] };
-    await mount(<SharedProject token="public-fixture" />);
-    const row = container.querySelector<HTMLTableRowElement>('tr[data-shared-kind="use_case"]')!;
-    const description = row.querySelector('td')!;
+    await mountPortal(`${PORTAL}/use-cases`);
+    const row = container.querySelector<HTMLTableRowElement>('[data-testid="use-case-row"]')!;
+    const description = row.querySelector('span[title]')!;
     expect(Array.from(description.textContent!).length).toBeLessThanOrEqual(200);
     expect(description.textContent).toContain('Flow Customer data with customer_email');
-    expect(description.querySelector('h1,h2,ul,ol,p')).toBeNull();
-    expect(description.textContent).not.toContain('Final narrative conclusion');
-    await act(async () => row.querySelector<HTMLButtonElement>('th button')!.click());
-    const expanded = document.getElementById(`${row.id}-details`)!;
-    expect(expanded.textContent).toContain('Final narrative conclusion');
-    expect(expanded.querySelector('h1')!.textContent).toBe('Flow');
-    expect(expanded.querySelector('.whitespace-normal')).not.toBeNull();
-    await act(async () => row.querySelector<HTMLButtonElement>('button[aria-label="Copy use case Welcome as Markdown"]')!.click());
+    expect(row.querySelector('h1,h2,ul,ol,p')).toBeNull();
+    expect(row.textContent).not.toContain('Final narrative conclusion');
+    await act(async () => { Array.from(row.querySelectorAll('button')).find(button => button.textContent === 'Welcome')!.click(); await new Promise(resolve => setTimeout(resolve, 30)); });
+    expect(window.location.pathname).toBe(`${PORTAL}/use-cases/UC-01`);
+    expect(container.textContent).toContain('Final narrative conclusion');
+    expect(container.querySelector('main h1')!.textContent).toContain('UC-01');
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Copy use case Welcome as Markdown"]')!.click());
     expect(copy).toHaveBeenCalledWith(useCaseToMarkdown(uc));
     expect(narrative).toBe(uc.narrative);
-    expect(container.querySelector('a[href$="/tracking-document.json"]')).not.toBeNull();
-    expect(container.querySelector('a[href$="/documentation.html"]')).not.toBeNull();
+  });
+});
+
+/**
+ * T-5-42: the QA view renders at most PORTAL_ROW_LIMIT findings, then "Show N more". 141 findings:
+ * 120 on event_a (numbers 1-120), 20 errors on the long-named event (numbers 121-139, and the
+ * commented `first` as number 140 on row 140), and the unattached warning (row 141).
+ */
+describe('Findings past the portal row limit (T-5-42)', () => {
+  const many = Array.from({ length: 120 }, (_, i) => finding(`f-${i + 1}`, i + 1));
+  const later = [...Array.from({ length: 19 }, (_, i) => finding(`f-${i + 121}`, i + 121)), { ...first, finding_sequence: 140 }];
+  const bigDoc = () => ({ ...doc, events: [emptyEventCard({ id: 'event-a', name: 'event_a', findings: many }), { ...event, findings: later }] });
+  const rowsOf = () => container.querySelectorAll('[aria-label="Individual finding discussions table"] tbody tr[id^="current-finding-"]');
+  beforeEach(() => { servedDoc = bigDoc(); });
+
+  it(`renders ${PORTAL_ROW_LIMIT} rows, adds more on request, and filters over every finding`, async () => {
+    await mountPortal(`${PORTAL}/qa`);
+    expect(rowsOf()).toHaveLength(PORTAL_ROW_LIMIT);
+    expect(container.querySelector(`#current-finding-${first.id}`)).toBeNull();
+    const more = container.querySelector('[data-testid="finding-show-more"]')!;
+    expect(more.textContent).toContain(`Showing ${PORTAL_ROW_LIMIT} of 141 findings.`);
+    expect(container.querySelector('[role="status"]')!.textContent).toBe('Showing 141 of 141 findings');
+    // A filter reaches a finding past the window.
+    const control = container.querySelector<HTMLSelectElement>('select[id$="-severity"]')!;
+    await act(async () => { control.value = 'warning'; control.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(Array.from(rowsOf()).map(row => row.id)).toEqual([`current-finding-${second.id}`]);
+    await act(async () => { control.value = ''; control.dispatchEvent(new Event('change', { bubbles: true })); });
+    await act(async () => container.querySelector<HTMLButtonElement>('[data-testid="finding-show-more"] button')!.click());
+    expect(rowsOf()).toHaveLength(141);
+    expect(container.querySelector('[data-testid="finding-show-more"]')).toBeNull();
   });
 
+  it('opens a copied #current-finding link to row 140: pinned, marked, expanded and scrolled to', async () => {
+    await mountPortal(`${PORTAL}#current-finding-${first.id}`);
+    expect(window.location.pathname).toBe(`${PORTAL}/qa`);
+    const row = container.querySelector<HTMLElement>(`#current-finding-${first.id}`)!;
+    expect(row).not.toBeNull();
+    expect(row.getAttribute('aria-current')).toBe('true');
+    expect(row.className).toContain('bg-amber-50');
+    expect(container.querySelector(`#current-finding-${first.id}-details`)).not.toBeNull();
+    expect(vi.mocked(HTMLElement.prototype.scrollIntoView).mock.contexts).toContain(row);
+    // Pinned after the first rows, not by rendering every row above it.
+    expect(rowsOf()).toHaveLength(PORTAL_ROW_LIMIT + 1);
+    expect(rowsOf()[PORTAL_ROW_LIMIT].id).toBe(`current-finding-${first.id}`);
+    expect(container.querySelector('[data-testid="finding-show-more"]')!.textContent).toContain(`Showing ${PORTAL_ROW_LIMIT} of 141 findings.`);
+  });
+
+  it('follows a hash change to a finding past the window while the QA view is open', async () => {
+    await mountPortal(`${PORTAL}/qa`);
+    expect(container.querySelector(`#current-finding-${first.id}`)).toBeNull();
+    vi.mocked(HTMLElement.prototype.scrollIntoView).mockClear();
+    await changeHash(`#current-finding-${first.id}`);
+    const row = container.querySelector(`#current-finding-${first.id}`)!;
+    expect(row).not.toBeNull();
+    expect(vi.mocked(HTMLElement.prototype.scrollIntoView).mock.contexts).toContain(row);
+  });
+
+  it('filters an old findings-<comparison>-event-<name> link to that event, whose findings sit past row 100', async () => {
+    await mountPortal(`${PORTAL}#findings-definition_vs_observations-event-${eventName}`);
+    expect(rowsOf()).toHaveLength(20);
+    expect(container.querySelector(`#current-finding-${first.id}`)).not.toBeNull();
+    expect(vi.mocked(HTMLElement.prototype.scrollIntoView).mock.contexts).toContain(container.querySelector('#current-finding-f-121'));
+  });
+
+  it('opens a comment deep link on a finding past the window, with its row rendered and marked', async () => {
+    await mountPortal(PORTAL + commentFragment({ entityType: 'finding', entityId: first.id, threadId: comment.id, commentId: comment.id }));
+    expect(window.location.pathname).toBe(`${PORTAL}/qa`);
+    expect(document.querySelector('[role="dialog"]')!.textContent).toContain('Exact finding discussion');
+    const row = container.querySelector(`#current-finding-${first.id}`)!;
+    expect(row).not.toBeNull();
+    expect(row.getAttribute('aria-current')).toBe('true');
+  });
 });
+

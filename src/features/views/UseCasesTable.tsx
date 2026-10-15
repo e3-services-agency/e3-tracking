@@ -3,7 +3,7 @@
  * internal page only (the public document does not carry them) and a requirement count when the
  * rows carry their requirements.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { PriorityBadge, StatusBadge } from '@/src/components/ui/badges';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import { EmptyState } from '@/src/components/ui/EmptyState';
@@ -11,6 +11,7 @@ import { EntityIcon } from '@/src/components/ui/EntityIcon';
 import { HintTh } from '@/src/components/ui/FieldHint';
 import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
 import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
+import { useViewState } from '@/src/hooks/useViewState';
 import { USE_CASE_STATUSES, USE_CASE_TYPES } from '@/src/domain/enums';
 import { enumLabel } from '@/src/domain/enumLabels';
 import { ActionsCell, CELL, HEAD_TEXT, NoMatchRow, OrDash, RowName, ViewFrame, ViewRow, ViewToolbar, useDensity } from './ViewParts';
@@ -21,10 +22,10 @@ const PRIORITY_ORDER = ['critical', 'high', 'medium', 'low'];
 
 export function UseCasesTable({ rows, rowActions, onOpen, commentCount, commentsInActions, readOnly = false, empty, toolbarExtra }: ViewSlots<UseCaseViewRow>) {
   const [density, setDensity] = useDensity();
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useViewState('search', '');
   const debouncedSearch = useDebouncedValue(search.trim().toLowerCase(), 200);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useViewState('status', '');
+  const [typeFilter, setTypeFilter] = useViewState('type', '');
 
   const filtered = useMemo(
     () =>

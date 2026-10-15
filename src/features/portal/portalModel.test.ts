@@ -13,6 +13,8 @@ import {
   commentTargetView,
   findingNavigationForAnchor,
   legacyAnchorTarget,
+  missingDetail,
+  missingItemNote,
   portalViewOf,
   resolveHash,
   sameTarget,
@@ -101,10 +103,15 @@ describe('old single-page anchors (every kind) land on their view and item', () 
     expect(index.mappingIndexBySlug.get(b.id!)).toBe(1);
   });
 
-  it('an anchor naming an item that is gone lands on its list; an unknown anchor is ignored', () => {
-    expect(legacyAnchorTarget('event-deleted', index)).toEqual({ view: 'events', id: null });
-    expect(legacyAnchorTarget('property-gone', index)).toEqual({ view: 'properties', id: null });
-    expect(legacyAnchorTarget('catalog-gone', index)).toEqual({ view: 'catalogs', id: null });
+  it('an anchor naming an item that is gone lands on its list with a not-found note; an unknown anchor is ignored', () => {
+    expect(legacyAnchorTarget('event-deleted', index)).toEqual({ view: 'events', id: null, notFound: { kind: 'event', name: 'deleted' } });
+    expect(legacyAnchorTarget('variants-event-deleted', index)).toEqual({ view: 'events', id: null, notFound: { kind: 'event', name: 'deleted' } });
+    expect(legacyAnchorTarget('property-gone', index)).toEqual({ view: 'properties', id: null, notFound: { kind: 'property', name: 'gone' } });
+    expect(legacyAnchorTarget('use-case-gone', index)).toEqual({ view: 'use-cases', id: null, notFound: { kind: 'use case', name: 'gone' } });
+    expect(legacyAnchorTarget('catalog-gone', index)).toEqual({ view: 'catalogs', id: null, notFound: { kind: 'catalog', name: 'gone' } });
+    expect(legacyAnchorTarget('consent-gone', index)).toEqual({ view: 'consents', id: null, notFound: { kind: 'consent category', name: 'gone' } });
+    expect(legacyAnchorTarget('mapping-gone', index)).toEqual({ view: 'standard-events', id: null, notFound: { kind: 'standard event mapping', name: 'gone' } });
+    expect(missingItemNote({ kind: 'event', name: 'deleted' })).toContain('No event “deleted” is in this tracking plan.');
     expect(legacyAnchorTarget('something-else', index)).toBeNull();
     expect(legacyAnchorTarget('', index)).toBeNull();
   });
@@ -130,8 +137,24 @@ describe('old single-page anchors (every kind) land on their view and item', () 
   it('decodes a percent-encoded hash and keeps a malformed one as text', () => {
     expect(resolveHash('#event-cart-update', index, [])).toEqual({ kind: 'target', target: { view: 'events', id: 'cart update' } });
     expect(resolveHash('#property-total%2Dprice', index, [])).toEqual({ kind: 'target', target: { view: 'properties', id: 'total-price' } });
-    expect(resolveHash('#event-%E0%A4%A', index, [])).toEqual({ kind: 'target', target: { view: 'events', id: null } });
+    expect(resolveHash('#event-%E0%A4%A', index, [])).toEqual({ kind: 'target', target: { view: 'events', id: null, notFound: { kind: 'event', name: '%E0%A4%A' } } });
     expect(resolveHash('', index, [])).toEqual({ kind: 'none' });
+  });
+});
+
+describe('a detail path naming an item the share does not have (T-5-44)', () => {
+  it('names the missing item per view, and nothing for an existing item, a list or a view without items', () => {
+    expect(missingDetail('events', 'no_such_event', index)).toEqual({ kind: 'event', name: 'no_such_event' });
+    expect(missingDetail('events', 'purchase', index)).toBeNull();
+    expect(missingDetail('events', null, index)).toBeNull();
+    expect(missingDetail('properties', 'gone', index)).toEqual({ kind: 'property', name: 'gone' });
+    expect(missingDetail('use-cases', 'UC-404', index)).toEqual({ kind: 'use case', name: 'UC-404' });
+    expect(missingDetail('identity', 'r-404', index)).toEqual({ kind: 'identity rule', name: 'r-404' });
+    expect(missingDetail('catalogs', 'gone', index)).toEqual({ kind: 'catalog', name: 'gone' });
+    expect(missingDetail('consents', 'gone', index)).toEqual({ kind: 'consent category', name: 'gone' });
+    expect(missingDetail('standard-events', 'gone', index)).toEqual({ kind: 'standard event mapping', name: 'gone' });
+    expect(missingDetail('qa', 'anything', index)).toBeNull();
+    expect(missingDetail('overview', 'anything', index)).toBeNull();
   });
 });
 

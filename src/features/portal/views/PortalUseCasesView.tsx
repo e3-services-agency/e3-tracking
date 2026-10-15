@@ -1,7 +1,8 @@
 /**
- * Portal Use cases view (T-5-42): the shared `UseCasesTable`, and a use case's own page at
- * `use-cases/<code-or-id>` with its narrative and requirements, each requirement with its own
- * comments. T-5-44 refines the detail page.
+ * Portal Use cases view (T-5-42, T-5-44): the shared `UseCasesTable`, and a use case's own
+ * read-only page at `use-cases/<code-or-id>`: its narrative, documentation link and requirements
+ * (targets linked to their event or property), the use case's comments on the page and each
+ * requirement's comments from its row. The list keeps its state while a use case is open.
  */
 import React, { useMemo } from 'react';
 import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
@@ -17,7 +18,18 @@ import { useCasePreview } from '@/src/features/shared/useCasePreview';
 import { USE_CASE_TYPE_LABELS } from '@/src/features/shared/viewHelpers';
 import { UseCasesTable, useCaseRowsFromDocument } from '@/src/features/views';
 import { usePortal } from '../PortalContext';
-import { Collaboration, CopyPortalLink, LINK_CLASS, NotInShare, PortalLink, PortalPage, useCommentCount } from '../PortalParts';
+import {
+  Collaboration,
+  CopyPortalLink,
+  LINK_CLASS,
+  NotInShare,
+  PageCollaboration,
+  PageComments,
+  PortalLink,
+  PortalListScope,
+  PortalPage,
+  useCommentCount,
+} from '../PortalParts';
 import { targetForAnchorHref } from '../portalModel';
 
 export function PortalUseCasesView() {
@@ -29,24 +41,29 @@ function PortalUseCasesList() {
   const { summary, navigate, index } = usePortal();
   const commentCount = useCommentCount();
   // The list shows a bounded plain preview of the narrative; the full Markdown is on the use case's page.
-  const rows = useMemo(() => useCaseRowsFromDocument(summary).map((row) => ({ ...row, description: row.description ? useCasePreview(row.description) : null })), [summary]);
+  const rows = useMemo(
+    () => useCaseRowsFromDocument(summary).map((row) => ({ ...row, description: row.description ? useCasePreview(row.description) : null })),
+    [summary]
+  );
   const target = (id: string) => ({ view: 'use-cases' as const, id: index.useCasePathIdById.get(id) ?? id });
   return (
     <PortalPage view="use-cases" count={rows.length}>
-      <UseCasesTable
-        rows={rows}
-        readOnly
-        onOpen={(row) => navigate(target(row.id))}
-        commentCount={(row) => commentCount('use_case', row.id)}
-        commentsInActions
-        rowActions={(row) => (
-          <>
-            <Collaboration entityType="use_case" entityId={row.id} label={`use case ${row.name}`} />
-            <CopyPortalLink target={target(row.id)} label={row.name} />
-          </>
-        )}
-        empty={{ message: 'No use cases in this tracking plan.' }}
-      />
+      <PortalListScope scope="use-cases">
+        <UseCasesTable
+          rows={rows}
+          readOnly
+          onOpen={(row) => navigate(target(row.id))}
+          commentCount={(row) => commentCount('use_case', row.id)}
+          commentsInActions
+          rowActions={(row) => (
+            <>
+              <Collaboration entityType="use_case" entityId={row.id} label={`use case ${row.name}`} />
+              <CopyPortalLink target={target(row.id)} label={row.name} />
+            </>
+          )}
+          empty={{ message: 'No use cases in this tracking plan.' }}
+        />
+      </PortalListScope>
     </PortalPage>
   );
 }
@@ -61,7 +78,7 @@ function RequirementTarget({ requirement }: { requirement: Requirement }) {
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
       {v.typeLabel && (
-        <span data-testid="target-type" className="inline-flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
+        <span data-testid="target-type" className="inline-flex items-center gap-1 whitespace-nowrap rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
           {Icon && <Icon size={14} aria-hidden="true" />}
           {v.typeLabel}
         </span>
@@ -94,7 +111,7 @@ function PortalUseCaseDetail({ pathId }: { pathId: string }) {
       title={title}
       actions={
         <>
-          <Collaboration entityType="use_case" entityId={uc.id} label={`use case ${uc.name}`} />
+          <PageCollaboration entityType="use_case" entityId={uc.id} label={`use case ${uc.name}`} />
           <CopyMarkdownButton iconOnly getMarkdown={() => useCaseToMarkdown(uc)} label={`Copy use case ${uc.name} as Markdown`} />
           <CopyPortalLink target={{ view: 'use-cases', id: pathId }} label={uc.name} />
           <CopyNameButton name={uc.name} />
@@ -112,36 +129,59 @@ function PortalUseCaseDetail({ pathId }: { pathId: string }) {
         </div>
       }
     >
-      {uc.narrative && <div className="max-w-3xl"><MarkdownView source={uc.narrative} /></div>}
-      <section aria-label="Requirements" className="space-y-2">
-        <h2 className="text-base font-semibold text-gray-900">Requirements ({uc.requirements.length})</h2>
-        {uc.requirements.length === 0 ? (
-          <p className="text-sm text-gray-500">No requirements yet.</p>
-        ) : (
-          <div role="region" aria-label="Requirements table" tabIndex={0} className="overflow-x-auto rounded-lg border bg-white shadow-sm">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b bg-gray-50">
-                <tr>
-                  <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">Target</HintTh>
-                  <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">Level</HintTh>
-                  <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">Status</HintTh>
-                  <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">Actions</HintTh>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {uc.requirements.map((r) => (
-                  <tr key={r.id} className="align-top">
-                    <td className="px-3 py-2 [overflow-wrap:anywhere]"><RequirementTarget requirement={r} /></td>
-                    <td className="px-3 py-2">{enumLabelOr('level', r.level) || '—'}</td>
-                    <td className="px-3 py-2">{enumLabelOr('status', r.status) || '—'}</td>
-                    <td className="px-3 py-2"><Collaboration entityType="requirement" entityId={r.id} label="this requirement" /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
+        <div className="min-w-0 space-y-4">
+          {uc.narrative ? (
+            <div className="max-w-3xl">
+              <MarkdownView source={uc.narrative} />
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">No narrative yet.</p>
+          )}
+          <section aria-label="Requirements" className="space-y-2">
+            <h2 className="text-base font-semibold text-gray-900">Requirements ({uc.requirements.length})</h2>
+            {uc.requirements.length === 0 ? (
+              <p className="text-sm text-gray-500">No requirements yet.</p>
+            ) : (
+              <div role="region" aria-label="Requirements table" tabIndex={0} className="overflow-x-auto rounded-lg border bg-white shadow-sm">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b bg-gray-50">
+                    <tr>
+                      <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">
+                        Target
+                      </HintTh>
+                      <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">
+                        Level
+                      </HintTh>
+                      <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">
+                        Status
+                      </HintTh>
+                      <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">
+                        Actions
+                      </HintTh>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {uc.requirements.map((r) => (
+                      <tr key={r.id} className="align-top">
+                        <td className="px-3 py-2 [overflow-wrap:anywhere]">
+                          <RequirementTarget requirement={r} />
+                        </td>
+                        <td className="px-3 py-2">{enumLabelOr('level', r.level) || '—'}</td>
+                        <td className="px-3 py-2">{enumLabelOr('status', r.status) || '—'}</td>
+                        <td className="px-3 py-2">
+                          <Collaboration entityType="requirement" entityId={r.id} label="this requirement" />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </div>
+        <PageComments entityType="use_case" entityId={uc.id} />
+      </div>
     </PortalPage>
   );
 }

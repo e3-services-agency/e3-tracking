@@ -4,7 +4,7 @@
  * Defaults are muted (project default expiration, not certified, no properties); certified and
  * set values stand out. Used by the internal Events page and, later, the client portal.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Badge, ClassBadge, SourceBadge, StatusBadge } from '@/src/components/ui/badges';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import { EmptyState } from '@/src/components/ui/EmptyState';
@@ -15,6 +15,7 @@ import { HintTh } from '@/src/components/ui/FieldHint';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
 import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
+import { useViewState } from '@/src/hooks/useViewState';
 import { EVENT_CLASSES, EVENT_STATUSES } from '@/src/domain/enums';
 import { enumLabel } from '@/src/domain/enumLabels';
 import { sourceViaLabel } from '@/src/domain/sources';
@@ -31,12 +32,12 @@ const sourceLabels = (ev: EventViewRow) => ev.sources.map((s) => sourceViaLabel(
 
 export function EventsTable({ rows, rowActions, onOpen, commentCount, commentsInActions, readOnly = false, empty, toolbarExtra, highlightId, defaultClass = '' }: EventsTableProps) {
   const [density, setDensity] = useDensity();
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useViewState('search', '');
   const debouncedSearch = useDebouncedValue(search.trim().toLowerCase(), 200);
-  const [classFilter, setClassFilter] = useState(defaultClass);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [sourceFilter, setSourceFilter] = useState('');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [classFilter, setClassFilter] = useViewState('class', defaultClass);
+  const [statusFilter, setStatusFilter] = useViewState('status', '');
+  const [sourceFilter, setSourceFilter] = useViewState('source', '');
+  const [expanded, setExpanded] = useViewState<Set<string>>('expanded', new Set());
 
   const filtered = useMemo(
     () =>

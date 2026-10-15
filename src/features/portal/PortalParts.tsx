@@ -3,11 +3,14 @@
  * `PageHeader`/`PageBody`), links between views, cross-references, and the read-only row actions
  * (comments and history through `TargetCollaboration`, copy link).
  */
-import React from 'react';
+import React, { useEffect, useLayoutEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import { SHARED_SECTION_ICONS } from '@/src/components/layout/navIcons';
+import { CommentCountButton } from '@/src/features/comments/CommentCountButton';
+import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
 import { TargetCollaboration } from '@/src/features/comments/TargetCollaboration';
+import { ViewStateScope } from '@/src/hooks/useViewState';
 import { CopyLinkButton } from '@/src/features/shared/CopyLinkButton';
 import { resolveReference, type Reference } from '@/src/features/shared/references';
 import type { CommentEntityType } from '@/src/domain/enums';
@@ -84,6 +87,75 @@ export function Collaboration({ entityType, entityId, label }: { entityType: Com
       onChanged={reloadComments}
       forceOpen={linkedComment?.entityType === entityType && linkedComment.entityId === entityId}
     />
+  );
+}
+
+/** The id of a detail page's inline comments section (the header's count button jumps to it). */
+export const PAGE_COMMENTS_ID = 'page-comments';
+
+/**
+ * A detail page's own target (T-5-44): comments on the page itself (`PageComments`), so the header
+ * keeps a comment count that jumps there and the history button.
+ */
+export function PageCollaboration({ entityType, entityId, label }: { entityType: CommentEntityType; entityId: string; label: string }) {
+  const { api, comments, reloadComments } = usePortal();
+  const count = commentsOn(comments, entityType, entityId).length;
+  return (
+    <span className="inline-flex items-center gap-1">
+      <CommentCountButton
+        count={count}
+        open={false}
+        label={label}
+        onClick={() => {
+          const section = document.getElementById(PAGE_COMMENTS_ID);
+          section?.scrollIntoView?.({ block: 'start' });
+          section?.focus({ preventScroll: true });
+        }}
+      />
+      <TargetCollaboration api={api} entityType={entityType} entityId={entityId} label={label} rows={comments} onChanged={reloadComments} showComments={false} />
+    </span>
+  );
+}
+
+/** The comments panel of a detail page's target, on the page (T-5-44). A comment link to this
+ * target focuses its comment here (`CommentsPanel` reads the kept hash). */
+export function PageComments({ entityType, entityId, className = '' }: { entityType: CommentEntityType; entityId: string; className?: string }) {
+  const { api, comments, reloadComments } = usePortal();
+  const rows = commentsOn(comments, entityType, entityId);
+  return (
+    <section id={PAGE_COMMENTS_ID} tabIndex={-1} aria-label="Comments" className={`scroll-mt-20 rounded-lg border bg-white p-4 shadow-sm outline-none ${className}`.trim()}>
+      <CommentsPanel api={api} entityType={entityType} entityId={entityId} rows={rows} onChanged={reloadComments} />
+    </section>
+  );
+}
+
+/**
+ * A list view's state scope (T-5-44): its table's search, filters, sort and expanded rows, and the
+ * window scroll, are kept while the portal is open, so "back" from an item's page (the link or the
+ * browser button) finds the list as it was left.
+ */
+export function PortalListScope({ scope, children }: { scope: string; children: React.ReactNode }) {
+  const { viewState } = usePortal();
+  const scrollKey = `${scope}:scrollY`;
+  useLayoutEffect(() => {
+    const y = viewState.get(scrollKey);
+    if (typeof y === 'number' && y > 0 && !window.location.hash) window.scrollTo?.({ top: y });
+  }, [viewState, scrollKey]);
+  useEffect(() => {
+    const save = () => viewState.set(scrollKey, window.scrollY);
+    window.addEventListener('scroll', save, { passive: true });
+    // `navigate` announces the new location before it scrolls to the top, so the list's position is
+    // still current here (scroll events alone can be throttled away).
+    window.addEventListener('e3-comment-location-changed', save);
+    return () => {
+      window.removeEventListener('scroll', save);
+      window.removeEventListener('e3-comment-location-changed', save);
+    };
+  }, [viewState, scrollKey]);
+  return (
+    <ViewStateScope store={viewState} scope={scope}>
+      {children}
+    </ViewStateScope>
   );
 }
 

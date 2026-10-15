@@ -9,9 +9,10 @@ import type { TrackingDocumentSummary } from '@/src/domain/document/trackingDocu
 import type { CommentPanelRow, CommentsPanelApi } from '@/src/features/comments/CommentsPanel';
 import type { CommentLinkTarget } from '@/src/features/comments/commentLinks';
 import { buildReferenceIndex, type ReferenceIndex } from '@/src/features/shared/references';
+import type { ViewStateStore } from '@/src/hooks/useViewState';
 import { sharedFileUrl } from '@/src/pages/sharedViewModel';
 import { sharedPath, sharedRouteFromPath } from '@/src/sharedRoute';
-import { buildPortalIndex, portalViewOf, type PortalIndex, type PortalTarget, type PortalView } from './portalModel';
+import { buildPortalIndex, portalViewOf, type MissingItem, type PortalIndex, type PortalTarget, type PortalView } from './portalModel';
 
 export interface ShareHeader {
   project: { name: string; client_logo_path: string | null };
@@ -86,11 +87,20 @@ export interface PortalLocation {
   view: PortalView;
   id: string | null;
   hash: string;
+  /** T-5-44: this history entry is a list a link to a missing item landed on (kept in
+   * `history.state`, so the note stays with the entry and goes when the visitor moves on). */
+  notFound: MissingItem | null;
+}
+
+function readNotFound(): MissingItem | null {
+  const state = window.history.state as { notFound?: MissingItem } | null;
+  const item = state?.notFound;
+  return item && typeof item.kind === 'string' && typeof item.name === 'string' ? item : null;
 }
 
 function readLocation(): PortalLocation {
   const route = sharedRouteFromPath(window.location.pathname);
-  return { view: portalViewOf(route?.view), id: route?.view ? route.id : null, hash: window.location.hash };
+  return { view: portalViewOf(route?.view), id: route?.view ? route.id : null, hash: window.location.hash, notFound: readNotFound() };
 }
 
 /** Path-based navigation inside the portal. `navigate` pushes (or replaces) a history entry and
@@ -112,8 +122,9 @@ export function usePortalLocation(token: string) {
   const navigate = useCallback(
     (target: PortalTarget, options: { replace?: boolean } = {}) => {
       const href = hrefFor(target);
-      if (options.replace) window.history.replaceState(null, '', href);
-      else window.history.pushState(null, '', href);
+      const state = target.notFound ? { notFound: target.notFound } : null;
+      if (options.replace) window.history.replaceState(state, '', href);
+      else window.history.pushState(state, '', href);
       window.dispatchEvent(new Event('e3-comment-location-changed'));
       if (!target.hash) window.scrollTo?.({ top: 0 });
     },
@@ -137,6 +148,9 @@ export interface PortalContextValue {
   navigate: (target: PortalTarget, options?: { replace?: boolean }) => void;
   hrefFor: (target: PortalTarget) => string;
   fileUrl: (path: string) => string;
+  /** T-5-44: list state (search, filters, sort, scroll) kept per view while the page is open, so
+   * coming back from an item's page finds the list as it was left. */
+  viewState: ViewStateStore;
 }
 
 const Ctx = createContext<PortalContextValue | null>(null);
@@ -145,7 +159,7 @@ export function PortalProvider({
   value,
   children,
 }: {
-  value: Omit<PortalContextValue, 'index' | 'refIndex' | 'api' | 'fileUrl'>;
+  value: Omit<PortalContextValue, 'index' | 'refIndex' | 'api' | 'fileUrl' | 'viewState'>;
   children: React.ReactNode;
 }) {
   const { summary, token, header } = value;
@@ -156,7 +170,8 @@ export function PortalProvider({
     [token, header.access, header.require_name]
   );
   const fileUrl = useCallback((path: string) => sharedFileUrl(token, path), [token]);
-  const full = useMemo(() => ({ ...value, index, refIndex, api, fileUrl }), [value, index, refIndex, api, fileUrl]);
+  const [viewState] = useState<ViewStateStore>(() => new Map());
+  const full = useMemo(() => ({ ...value, index, refIndex, api, fileUrl, viewState }), [value, index, refIndex, api, fileUrl, viewState]);
   return <Ctx.Provider value={full}>{children}</Ctx.Provider>;
 }
 

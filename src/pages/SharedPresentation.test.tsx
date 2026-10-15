@@ -152,10 +152,11 @@ describe('Client portal shell', () => {
     expect(container!.querySelector('[data-testid="property-show-more"]')).toBeNull();
   });
 
-  it('answers an unknown item with a not-found page inside the shell, and a revoked link with the plain page', async () => {
+  it('answers an unknown item with its list and a not-found note inside the shell, and a revoked link with the plain page', async () => {
     window.history.replaceState(null, '', `/shared/${TOKEN}/events/no_such_event`);
     await mount();
-    expect(container!.querySelector('h1')!.textContent).toBe('Not found');
+    expect(window.location.pathname).toBe(`/shared/${TOKEN}/events`);
+    expect(container!.querySelector('[role="status"]')!.textContent).toContain('No event “no_such_event” is in this tracking plan.');
     expect(requested.some((u) => u.includes('/card.json'))).toBe(false);
     await act(async () => root!.unmount());
     root = createRoot(container!);

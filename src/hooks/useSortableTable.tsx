@@ -3,10 +3,11 @@
  * time to return to the natural order. One hook for the Events, Properties, Findings, QA runs and
  * Use cases tables; `SortableTh` renders the header cell with the arrow and `aria-sort`.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { hintFor, HintIcon, textOf } from '@/src/components/ui/FieldHint';
 import { useTooltip } from '@/src/components/ui/Tooltip';
 import { sortRows, type SortDir, type SortValue } from '@/src/domain/sortRows';
+import { useViewState } from './useViewState';
 
 export type SortAccessors<T> = Record<string, (row: T) => SortValue>;
 
@@ -17,8 +18,9 @@ export interface SortState {
 }
 
 export function useSortableTable<T>(rows: readonly T[], accessors: SortAccessors<T>) {
-  const [key, setKey] = useState<string | null>(null);
-  const [dir, setDir] = useState<SortDir>('asc');
+  // Kept across visits inside a `ViewStateScope` (the portal lists, T-5-44); plain state otherwise.
+  const [key, setKey] = useViewState<string | null>('sort.key', null);
+  const [dir, setDir] = useViewState<SortDir>('sort.dir', 'asc');
 
   const toggle = (next: string) => {
     if (key !== next) {

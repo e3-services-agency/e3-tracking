@@ -23,6 +23,7 @@ export function toSummary(doc: Partial<TrackingDocument>): TrackingDocumentSumma
       identifiers: e.identifiers,
       certification: e.certification,
       quality: e.quality,
+      expiration: e.expiration,
       variant_names: (e.variants ?? []).map((v) => v.name),
       property_count: (e.properties ?? []).length,
       open_finding_count: (e.findings ?? []).length,

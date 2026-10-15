@@ -3,8 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { SharedGoogleIdentityView } from './SharedGoogleSignIn';
 
-const render = (identity: Parameters<typeof SharedGoogleIdentityView>[0]['identity'], busy = false, error = '') =>
-  renderToStaticMarkup(<SharedGoogleIdentityView identity={identity} busy={busy} error={error} onSignOut={() => {}} onRetry={() => {}} />);
+const render = (identity: Parameters<typeof SharedGoogleIdentityView>[0]['identity'], busy = false, error = '', purpose?: 'comment' | 'access') =>
+  renderToStaticMarkup(<SharedGoogleIdentityView identity={identity} busy={busy} error={error} onSignOut={() => {}} onRetry={() => {}} purpose={purpose} />);
 
 describe('shared identity controls', () => {
   it('retains a full unbroken 80-character verified name with wrapping and reachable guest control', () => {
@@ -25,6 +25,14 @@ describe('shared identity controls', () => {
     expect(html).toContain('Retry sign-in</button>');
     expect(html).toContain('aria-label="Continue with Google"');
     expect(html).toContain('min-w-0 max-w-full break-words');
+  });
+  it('T-5-46: a visitor who cannot comment is signed in, not commenting, and signs out', () => {
+    const html = render({ kind: 'google', verified: true, name: 'Client Reviewer', avatar_url: null }, false, '', 'access');
+    expect(html).toContain('Signed in as Client Reviewer');
+    expect(html).toContain('Sign out</button>');
+    expect(html).toContain('aria-label="Sign-in identity"');
+    expect(html).not.toContain('Commenting as');
+    expect(html).not.toContain('Use guest identity');
   });
   it('announces in-flight changes and prevents repeated sign-out actions', () => {
     const html = render({ kind: 'staff', verified: true, name: 'Jan Pan', avatar_url: 'https://lh3.googleusercontent.com/avatar' }, true);

@@ -1,6 +1,8 @@
-# Sharing (D-48, D-49, D-50, D-60, D-73–D-76)
+# Sharing (D-48, D-49, D-50, D-60, D-73–D-76, D-88)
 
-How a client reads the public documentation, chooses a commenting identity, and participates in shared threads.
+How a client opens the client portal, reads the public documentation, chooses a commenting
+identity, and takes part in shared threads. Clients only read and comment: a share link never
+edits the tracking plan, and there is no editor role (D-88).
 
 ## Creating and rotating a link
 
@@ -19,8 +21,10 @@ Settings page, "Share" block (`src/features/projects/pages/ProjectSettings.tsx`)
 The link itself is `<origin>/tracking-plan/shared/<token>` (`shareUrl` in `routes/projects.ts`,
 built from the request's own host — there is no separate "public base URL" setting). The token is
 stored in plaintext (`projects.share_token`) so Settings can re-display the current link; there is
-no expiry and no required login. Optional Google commenter sign-in does not change link access.
-`share_created_at` is shown next to the link.
+no expiry. Under the default audience (**Anyone with the link**) no login is required and optional
+Google commenter sign-in does not change link access; under **Only listed people** the link needs a
+verified Google sign-in (see "Share audience and members" below). `share_created_at` is shown next
+to the link. Rotating or revoking the link keeps the audience setting and the listed people.
 
 ### Sandbox projects refuse a share link without `force` (D-60)
 
@@ -40,6 +44,62 @@ control, just a confirm dialog in front of the same button.
 
 Both access levels can read permitted comments and use their copy controls. Signing in identifies a
 commenter; it does not upgrade a read link or grant access to the internal app.
+
+## Share audience and members (D-88, T-5-45, migration `0045`)
+
+Settings > Share link > **Who can open the link** (`projects.share_audience`, `SHARE_AUDIENCES` in
+`src/domain/enums.ts`):
+
+- **Anyone with the link** (`anyone_with_link`, the default for every project, including every
+  share that existed before migration `0045`): unchanged behaviour. Whoever holds the link gets the
+  link's access.
+- **Only listed people (Google sign-in)** (`listed_people`): the token alone is not enough. A
+  visitor gets in only with a Google sign-in whose **Google-verified** email is on the project's
+  **Listed people**, or as E3 staff recognised through the Workspace proxy.
+
+**Listed people** (`share_members`: lower-cased `email`, unique per project, `role` `viewer` or
+`commenter`, `added_by`, `created_at`) are managed in the same block: add by email with a role,
+change the role, remove (`POST|PATCH|DELETE /api/projects/:id/share/members[/:memberId]`, staff
+routes). The audience can be set before a link exists (`PATCH /api/projects/:id/share
+{share_audience}`). Each member change and each audience change is a project `update` in
+`change_log` (a `share_members` line in the diff), so internal History shows who changed it.
+
+**Role capping.** A member's effective access is the lower of their role and the link's access
+(`capShareAccess`): a `commenter` on a `read` link reads only; a `viewer` on a `comment` link reads
+only; a `commenter` on a `comment` link comments. Staff verified through the proxy get the link's
+access. There is no editor role, through a member or otherwise.
+
+**What a visitor who is not let in sees.** A signed-out visitor, a visitor signed in with an
+unlisted email, and a visitor whose Google email is not verified all see the same neutral screen,
+"Sign in to open this link" (`src/features/portal/PortalSignIn.tsx`), with no project name, client
+name or logo. `GET /api/shared/:token` answers only `{ sign_in_required: true, signed_in }`; every
+data route (document, summary, cards, findings, comments, history, files, QA reports, identity,
+documentation) and every write route answers the identical 404 `SHARE_NOT_FOUND` body that an
+unknown token gets, so the routes give no signal of who is listed. A signed-in visitor without
+access also sees "The Google account you are signed in with has no access to this link", with
+**Signed in as** and **Sign out** so they can try another account. Only the sign-in routes
+(`/auth/config`, `/auth/google`, `/auth/logout`) work before sign-in.
+
+**Enforcement** is server-side in `middleware/share.ts`: `requireShare` (token plus audience) guards
+every data route; `requireShareToken` (token only) guards the header and the sign-in routes. The
+shared-auth router (`routes/sharedAuth.ts`) also answers 404 for a shut-out visitor on everything
+except the header and `/auth/*`. Membership, the audience and the session are read from the database
+on every request, so removing a person or switching the audience takes effect on their next
+request; signing out deletes the session.
+
+**Where emails are stored, and that they are never public.** A member's email is stored in
+`share_members`. A visitor's email is stored in `comment_auth_sessions.email`, and only when Google
+reports `email_verified: true` (after the audience, issuer, expiry and nonce checks); otherwise the
+column stays empty and the visitor cannot pass a listed-people check. Neither email is part of any
+public response: not the header, the comments, the identity route, the history (project rows,
+which hold the `share_members` diff, are never in the public history) or the documents. Comment
+author names on a share stay the Google display name. `share_members` is in backup and restore
+(not in CSV); sessions and their emails are operational data and stay out of backups. A Google
+session created before migration `0045` carries no email, so a listed visitor signs in once more.
+
+**Staff.** E3 staff open a listed-people link while signed in to the Workspace portal: the
+shared-auth router asks the trusted oauth2-proxy (`AUTH_MODE=proxy`, `COMMENT_STAFF_SESSION=1`,
+`WORKSPACE_DOMAIN`) and never trusts a client-supplied header. Staff do not need to be listed.
 
 ## The public projection
 
@@ -64,14 +124,16 @@ own routes, described below.
 
 ## The shared routes (`routes/shared.ts`, mounted at `/api/shared`, ahead of `optionalAuth`)
 
-Every route requires `requireShare` (`middleware/share.ts`): the token is looked up by exact match
+Every data route requires `requireShare` (`middleware/share.ts`; the header and the sign-in routes
+use `requireShareToken`, see "Share audience and members"): the token is looked up by exact match
 and then re-compared with `node:crypto.timingSafeEqual`, so an unknown token and a wrong-length or
 same-length-but-wrong token behave identically. Unknown or revoked is always 404
 `SHARE_NOT_FOUND` — never 403 — so a leaked or rotated link gives no signal a project ever existed
 at that path.
 
 - `GET /:token` — project header: `{project: {name, client_logo_path}, client: {name}, access,
-  generated_at}`.
+  require_name, generated_at}`, where `access` is the visitor's effective access. For a visitor a
+  listed-people share shuts out, only `{sign_in_required: true, signed_in}`.
 - `GET /:token/tracking-document.json` — the public projection of the tracking document (the
   full download, `?version=1`).
 - `GET /:token/document-summary.json` (T-5-41, D-88) — the same public document with each event
@@ -79,8 +141,19 @@ at that path.
   implementation_method, status, priority, description, sources, identifiers, certification,
   quality, plus `variant_names`, `property_count`, `open_finding_count`). Every other top-level
   section is exactly what `tracking-document.json` carries. The portal loads this first.
+  Since T-5-46 each summary event also carries `expiration` (the card's effective expiration and
+  its source; about 60 bytes per event), so the portal Events table shows the Expiration column.
 - `GET /:token/events/:eventId/card.json` (T-5-41, D-88) — one full public `EventCard`, the same
   object `tracking-document.json` carries for that event. Loaded when a client opens an event.
+- `GET /:token/findings.json` (T-5-42, D-88 amendment 1) — each event's current `findings` (events
+  without any left out) plus `unattached_findings`, from the same light public document as the
+  summary. Loaded when a client opens the QA view.
+- `GET /:token/history` — public change history. With `entity_type` and `entity_id`: one target
+  (see "Identity, catalog and definition discussions" below). With neither (T-5-43): the project's
+  recent public changes, newest first, same row shape, `limit` 1-100 and cursor paging; the
+  overview asks for five.
+- `GET /:token/qa-reports`, `GET /:token/qa-reports/:id`, `GET /:token/findings/:id/history` — the
+  public QA reports and a finding's public history (QA view).
 - `GET /:token/documentation.html` — the public projection of the HTML export.
 - `GET /:token/files/*` — the same decode/traversal checks as the internal `routes/files.ts`,
   scoped to this token's own project (a trigger screenshot, the project logo).
@@ -90,10 +163,11 @@ at that path.
   verified commenter authentication, mounted before the shared router. See
   [Google identity setup](SHARED-GOOGLE-AUTH.md).
 
-Both lazy routes are built from `toPublicTrackingDocument`'s output, never from database rows
-directly: the summary from a light build (no per-event coverage or codegen) run through the
-projection and then reduced to an allowlist of event fields; the card from the projection of a
-document limited to that one event. A field added to the projection's strip list is therefore
+The three lazy routes (`document-summary.json`, `events/:eventId/card.json`, `findings.json`) are
+built from `toPublicTrackingDocument`'s output, never from database rows directly: the summary from
+a light build (no per-event coverage or codegen) run through the projection and then reduced to an
+allowlist of event fields; the card from the projection of a document limited to that one event;
+the findings list from the same light public document as the summary. A field added to the projection's strip list is therefore
 stripped from both automatically. On either route every error, including an unknown, deleted or
 other-project event id, is the identical 404 `SHARE_NOT_FOUND` body.
 
@@ -230,88 +304,101 @@ Share-link visitors have only the restricted root status actions described above
 
 A comment body is Markdown text, stored exactly as typed (the public `GET` is unchanged: Markdown is text). Supported: bold, italic, strikethrough, inline code and code blocks, links, bullet, numbered and task lists, quotes. Raw HTML is never rendered (it shows as text). Links open in a new tab with `rel="noopener noreferrer nofollow"` and external links show their host. Images only render as `![alt](attachment:<id>)` for an image in the visible thread’s attachment pool (resolved to the internal files URL, or the permitted share files URL in the shared view); any other image source shows the alt text only. The body limit is 10,000 characters on both the internal and the shared `POST` (400 `VALIDATION_ERROR`). The composer is the shared `MarkdownEditor` (toolbar, Write/Preview, Ctrl/Cmd+Enter posts).
 
-## The shared view page (`src/pages/SharedProject.tsx`, D-50)
+## The client portal (`src/pages/SharedProject.tsx`, `src/features/portal/`, D-88)
 
-`/tracking-plan/shared/<token>` is matched before `ProtectedRoute` (`src/App.tsx`) and requires no
-staff login. It fetches the project header, public tracking document and permitted comments, using
-one shared comment store rather than a request per entity panel. The page shows the client header
-and logo, navigation, Events, Properties, Use cases, Identity, Consents, Catalogs, Mapping and
-Findings, plus tracking-document JSON and documentation HTML downloads. Empty sections are
-omitted. Invalid or revoked links show the invalid-link page.
+`/tracking-plan/shared/<token>` is matched before `ProtectedRoute` (`src/App.tsx`) and needs no
+staff login. It is a shell with one view per section, built from the internal app's read-only
+table components (`src/features/views/`, T-5-40) fed only through pure adapters from the public
+document shapes (`src/features/views/adapters/document.ts`). Invalid or revoked links show the
+invalid-link page; a listed-people share shows the neutral sign-in screen first.
 
-Events, properties, use cases, catalogs, mappings and finding lists use aligned tables with labeled
-columns, entity icons, full wrapping names/descriptions and compact action columns. Expandable
-detail rows retain the existing document content. Inline `CommentsPanel` instances cover events,
-properties, use cases and requirements. Read access hides posting/reply forms and status controls;
-existing reaction counts remain visible. Reacting requires comment access, and the server rejects
-read-only writes with 403 `SHARE_READ_ONLY`. Optional Google identity controls do not change access.
+### Views and paths
 
-`EventCardView` is the common event-detail renderer behind the internal event card, shared view and
-HTML export (D-50). The shared page consumes only the public projection.
+Paths are `/tracking-plan/shared/<token>/<view>[/<id>]` (`src/sharedRoute.ts`; segments are
+percent-decoded one by one, at most two; an unknown view is the overview). The server serves
+`index.html` for every path under `/tracking-plan/shared/`, including a last segment with a dot
+(`src/backend/static.ts`, `vercel.json`).
 
-## Remaining hosting considerations
+| View | Path | Item path |
+| --- | --- | --- |
+| Overview | `/shared/<token>` | |
+| Events | `/events` | `/events/<event name>`: the event page |
+| Properties | `/properties` | `/properties/<slug>`: the property page |
+| Use cases | `/use-cases` | `/use-cases/<code>` (the id when the code is not unique): the use case page |
+| Identity | `/identity` | `/identity/<rule id>`: the rule's row, marked |
+| Catalogs | `/catalogs` | `/catalogs/<slug>`: the catalog page |
+| Consent categories | `/consents` | `/consents/<slug>`: the category's row, marked |
+| Standard events | `/standard-events` | `/standard-events/<slug>`: the mapping page |
+| QA and findings | `/qa` | finding anchors in the hash |
 
-- **Token hashing**: share tokens are stored in plaintext so Settings can re-display them.
-  Hashing with one-time display would require a separate change to that workflow.
-- **Durable rate limiting**: in-memory per-token counters reset on restart and are not shared
-  across server instances. Durable limits across shared routes remain separate work.
-- **Passphrase**: an optional per-link passphrase, stored hashed and checked once per browser
-  session, remains planned together with token hashing and durable rate limiting.
+The sidebar (the internal sidebar's look and icons, `PortalShell.tsx`) shows the project and client,
+each section with its item count (QA: open findings) and its open comment threads, the JSON and
+HTML downloads and the comment identity. A section with no content is left out; QA is always there.
+Below 1024 px the sidebar is a drawer behind the menu button in the header; the downloads and the
+Google identity controls are inside it (the Google One Tap prompt still appears, since the control
+stays mounted). Navigation uses `pushState`, so the browser's back and forward buttons move between
+views, and a list keeps its search, filters, sort, expanded rows and scroll position when the
+visitor comes back from an item page (`useViewState`, `PortalListScope`).
 
-## Client view layout (T-4-14)
+A path or link naming an item the share does not have (renamed, removed, a typo) lands on its list
+with the note "No <kind> “<name>” is in this tracking plan…" until the visitor moves on.
 
-The shared portal uses tables instead of separate chip-like cards (T-5-12, D-73). Names and
-descriptions wrap in full rather than truncating with ellipses. Entity type icons, classification
-and certification badges, source details, comment counts and copy/link actions occupy consistent
-columns. Tables have their own horizontal scroll regions when a narrow viewport needs them.
-Sidebar labels wrap too.
+### The overview
 
-Expandable events, properties, use cases, catalogs and mappings start collapsed. Global
-**Expand all / Collapse all** controls open or close these rows; local controls operate on their
-section or group. Existing entity links, such as `#event-<name>` and `#property-<slug>`, open and
-scroll to the appropriate row. Comment links additionally open the specific thread and reply.
+The landing view (`views/PortalOverview.tsx`, `overviewModel.ts`) shows: the project and client,
+when the document was generated and when it last changed, the JSON and HTML downloads; **Progress**
+(custom events per status, certified of applicable with a bar, open findings by severity linking to
+QA); **Waiting on you** (the first 10 open comment threads, newest activity first, each linking to
+its item with the comment focused; internal-only threads never appear); **Recent changes** (the five
+newest rows of the project-wide public history: property definitions, identity rules, catalogs and
+catalog fields; events have no public history); and a card per section with its count and open
+threads.
 
-A sticky left navigation becomes a dropdown below 1024px. It lists the available sections and
-groups, with filtering and a highlight for the current section. Group controls work with mouse,
-Enter and Space. Filtering reveals matching children, and clicking a section highlights it until
-the reader scrolls. Section/group headings and scroll offsets account for the page header.
+### Lists, item pages and lazy loading
 
-Speech-bubble buttons open event, property, use-case and requirement discussions inline, showing
-a comment count (`0` muted). Posting/reply forms and status controls require comment access;
-reaction counts remain visible on read links, and reaction writes require comment access. Event
-Implementation details remain behind a Show/Hide toggle, with GTM / Web SDK / Tracking API tabs
-and code-copy feedback. Event property tables retain Payload key, Type, Kind, Required,
-Description and Example columns; additional metadata appears as secondary description lines.
+The portal first loads the header, `document-summary.json` and the permitted comments (one shared
+comment store, not a request per panel). Event cards are fetched only when a client opens an event
+(`card.json`, a loading skeleton while it arrives, **Try again** on failure); `findings.json` and the
+QA reports only when the QA view opens. The full `tracking-document.json` and `documentation.html`
+are download links only; the portal never fetches them.
 
-The Findings summary includes open counts by severity, kind family and comparison, top events by
-open errors, and acknowledged counts when present. It is computed from the public document only
-and can be copied as Markdown. Findings groups and requirement targets keep their same-page
-cross-links. Documentation HTML keeps its export layout; it does not include comments.
+- **Events**: the internal Events table, read-only, with class, source, status, certification,
+  Expiration (from the summary, T-5-46), property and variant counts. The event page renders the
+  shared `EventCardView` (mode `shared`, which never shows agent instructions) with the event's
+  comments on the page (beside the card from 1280 px), copy link, copy as Markdown and copy name.
+- **Properties**: event and customer properties together, grouped as in the internal app, the first
+  100 rows then **Show 100 more** (`PROPERTY_ROW_LIMIT`). The property page shows its definitions
+  and the events that use it.
+- **Use cases**: the use case page shows the narrative (or "No narrative yet"), the documentation
+  link (rendered only for an `http(s)` URL), the requirements with links to their events and
+  properties, the use case's comments on the page and each requirement's comments in a sheet.
+- **Identity**: the identity rules table and the Identification flow paragraph.
+- **Catalogs**, **Consent categories**, **Standard events**: their tables; catalogs and mappings
+  have their own pages.
+- **QA and findings**: the public QA reports and one findings table, the first 100 findings then
+  **Show 100 more** (`PORTAL_ROW_LIMIT`); filters and search run over all findings. A finding a link
+  points at past row 100 is pinned after the first 100 rows, marked and expanded.
 
-### Grouped use cases, consents, mapping and findings (T-4-21)
+Every row and item page has the comment and history actions (`TargetCollaboration`): comments,
+reactions, images and status in a sheet, history in a sheet. Read access hides the posting and reply
+forms and the status controls; the server rejects read-only writes with 403 `SHARE_READ_ONLY`
+whatever the page shows.
 
-The navigation and the page group four more sections the same way as Events: **Use cases** by their `type` (Marketing, Transactional, Other for a use case without one; leaves are the use cases, each with its own Expand all / Collapse all per group), **Consents** by channel (Email, SMS, Push, WhatsApp, Other; leaves are the categories), **Mapping** (one leaf per standard event mapping) and **Findings** (one group per comparison, leaves are the affected events). Consent categories have no channel field, so the channel is derived: the standard key is checked first, then the name, for the keywords whatsapp, sms/mms/text message, email/newsletter, push/browser/mobile app (tested in that order, so "Email notifications" is Email; a bare "notification" counts as Push only when nothing else matched); anything else is Other (`src/domain/consentChannel.ts`). The section ids, nav entries and rendered groups come from one helper (`sharedSectionGroups` in `src/features/shared/viewHelpers.ts`), and a parity test checks nav ids equal rendered ids. When a template is added to a project the dialog asks for the use case Type (marketing or transactional), suggested from the template's message channels and an explicit confirmation-like name (order/shipping/booking confirmation, receipt, invoice, password reset, verification code, double opt-in); the bulk add keeps each template's own type.
+Measured on the merged portal (T-5-42..T-5-45 QA, production build): every view stays under 5,000
+DOM elements (at most 4,183, the ARMEDANGELS QA view with 509 findings; the single page had about
+35,600), and only `/api/shared/<token>/...` requests are made.
 
-### Copy buttons, category badges, cross-links and the naming note (T-4-22)
+### Old links redirect
 
-- **Copy name** buttons sit next to every entity name: event titles, property rows and their definitions, use cases, consent categories, standard event mapping headings (the standard event key), catalog names and catalog fields, and the payload key in event card property tables. They copy the exact name only and show "Copied" or "Copy failed", like the copy-link button.
-- **Category badges** (System customer, Customer, SDK default, Event) show on property rows and in event card property tables; the first two accent categories use the Bloomreach colour variables, the others are neutral. The Kind column stays.
-- **Cross-links** all stay on the page: "Used in" events link to `#event-<slug>`; property keys inside an event card and a catalog's "Properties that look up into this catalog" link to the property's row (`#property-<slug>`, unique per property; following the link opens the row); use case requirement targets for events and properties link to the event card or property. Anything that does not resolve renders as plain text. The anchors are listed by `src/features/shared/references.ts`.
-- **Naming note**: when the project has a naming convention (always, default snake_case) the Events and Properties section headers show "Naming convention: snake_case (system items exempt)". The document carries it as `project.naming_convention` (additive).
-
-### Grouped properties, catalogs and icons (D-64, T-4-20)
-
-The Properties section lists **event and customer properties together**, grouped System customer, Customer, SDK default and Event (Event sub-grouped by kind: event, item, state list, context). Each group has a sticky group header at the same offset as the event groups, with its own Expand all / Collapse all; each property is a collapsed table row (full wrapping name, type and description) that opens to its named definitions and, for an event property, the events that use it. The navigation lists the groups under Properties (and the kind subgroups under Event). A "Copy properties as Markdown" button copies the same grouping (`propertiesToMarkdown`); the HTML export groups the same way.
-
-The Catalogs section is present only when the project has catalogs: one expandable table row per catalog with its kind (product, variant, other), market and language, version (and whether it is live), the number of searchable fields, the lookup key, its mapping role, status, source system and sync method (D-61), a fields table (name, type, lookup key, searchable, description) and the list of event properties that look up into it (`mapped_catalog_field_id`). It is in the navigation and the HTML export. When the project has sources, a "Collected from" line under the Events heading lists each source as "System via method" with its event count, and each event card's Overview shows its sources the same way (D-62); these are client-facing and stay in the public projection. `owner`, `client_name` and `priority` of a catalog are never part of the tracking document, so they are not in the public projection either; `source_system`, `sync_method` and `update_frequency` are kept as client-facing.
-
-Section headers and top-level navigation entries carry the sidebar's icons (Events, Properties, Use cases, Identity, Consents, Catalogs, Mapping, Findings) from one module, `src/components/layout/navIcons.ts`, used by both the sidebar and the shared view.
-
-### Requirement targets and project-level findings (T-4-25)
-
-Every use case requirement row shows a small type label with the sidebar icon (Event, Variant, Property, Customer property, Catalog attribute, Consent; labels in `src/features/shared/requirementTargets.ts`) and its target is a same-page link: an event to its card (`#event-<slug>`); a variant to its event, opened and scrolled to the Variants block (`#variants-event-<slug>`); an event or variant property links both parts (event or variant, then property row `#property-<slug>`); a catalog attribute to its catalog card (`#catalog-<slug>`, one anchor per catalog); a consent to its row in the Consents section (`#consent-<slug>`, the same ids as the navigation). The document gains additive ids: `variant_id`, `catalog_id` (the main catalog of a catalog attribute) and `consent_category_id` on a requirement, and `id` on a consent category; they are not internal fields and stay in the public projection. A target that no longer resolves ("(removed)") is plain text.
-
-The "Not tied to an event" leaf in a findings group is clickable and expands to that comparison's project-level findings: kind (human label, explanation in a tooltip), severity, message and the entity it concerns. A finding with a property or variant links to its row or event; a catalog or consent finding (recognised from its kind prefix, since a finding carries no catalog or consent id) links to the Catalogs or Consents section. The navigation leaf opens and scrolls to that list (`src/features/shared/findingEntity.ts`).
+Links to the retired single page keep working indefinitely (D-88). On load, and on a hash change,
+`legacyAnchorTarget` (`portalModel.ts`) maps every old anchor to its view and item and replaces the
+URL (no extra history entry): `#event-<name>` and `#variants-event-<name>` to the event page (the
+variants block in view), `#property-<slug>`, `#use-case-<id>`, `#consent-<slug>`, `#catalog-<slug>`
+and `#mapping-<slug>` to their item, section and group anchors (`#use-cases`, `#consents`,
+`#mapping`, `#events-…`, `#properties-…`) to their list, and `#findings…` and
+`#current-finding-<id>` to the QA view with the finding in view. Copied comment links (all target
+kinds) open the item with the thread and the target comment focused. An old anchor naming an item
+that is gone lands on the list with the not-found note.
 
 ### Comment identities (T-5-13, T-5-15; D-74, D-76)
 
@@ -330,7 +417,8 @@ without a trusted photo, initials are shown. The existing Internal staff OAuth c
 `/oauth2/callback` remain unchanged.
 
 **Use guest identity** opts out of the shared verified identity and prevents automatic Google
-selection and staff-session reuse. It does not log the user out of Google or the staff portal.
+selection and staff-session reuse. Where the visitor cannot comment (a read link, or the
+listed-people sign-in screen) the same control reads **Signed in as** and **Sign out** (T-5-46). It does not log the user out of Google or the staff portal.
 Google script/network failures leave guest commenting available. Signing in never upgrades share
 access, reveals private fields or creates a staff role. The External GIS flow uses a public client
 ID and no client secret; configuration and real sign-in verification are described in
@@ -353,18 +441,28 @@ JSON, HTML and ordinary entity Markdown exports still exclude comments.
 
 A comment link retains the current share token or uses the internal project Comments page. Its
 versioned fragment identifies the entity, thread root and target comment. On opening, reloading or
-changing the fragment, the page checks those relationships against permitted data, expands the
-containing entity/group and thread, reveals all replies (including a target beyond the first two),
-and focuses/highlights the target. Existing entity anchors still work. Internal Comments-page
-links clear filters that would otherwise hide the target. Invalid, removed or private targets
-show a generic unavailable/invalid notice; revoked shares show the invalid-link page. No internal
-fallback is used to resolve a target from a shared page.
-
+changing the fragment, the portal checks those relationships against permitted data, opens the
+view or item page that holds the target, opens the thread (inline on an event or use case page, in
+a sheet elsewhere), reveals all replies (including a target beyond the first two) and focuses and
+highlights the target. Internal Comments-page links clear filters that would otherwise hide the
+target. Invalid, removed or private targets show a generic unavailable/invalid notice; revoked
+shares show the invalid-link page. No internal fallback is used to resolve a target from a shared
+page.
 
 ### Identity, catalog and definition discussions (T-5-22)
 
-Identity rules, catalogs and each named property definition have comment and history controls in Actions, in both internal and shared views. Counts and discussions refer to that exact target; a definition discussion is separate from its parent property's discussion. The shared page loads comments once and distributes permitted rows to the panels. Copy comment links open the same target and thread, including a definition nested under its property.
+Identity rules, catalogs and each named property definition have comment and history controls in Actions, in both internal and shared views. Counts and discussions refer to that exact target; a definition discussion is separate from its parent property's discussion. The portal loads comments once and distributes permitted rows to the panels. Copy comment links open the same target and thread, including a definition nested under its property.
 
 Internal staff retain discussions after the target is removed. Shared links can read, reply, react, change status or access comment images only while the target and its owning parent remain live in the linked project. Missing, foreign and removed targets return the same public 404. Private threads and the project share-comments setting still apply.
 
-Shared history is available through `GET /api/shared/:token/history?entity_type=<type>&entity_id=<id>`, for the three targets above. It includes only the target's documented public fields and live catalog field changes. Private-only changes are excluded before paging; actors display as Staff or System. Internal history retains its existing staff detail. Done closes the discussion and does not change findings or certification.
+Shared history is available through `GET /api/shared/:token/history?entity_type=<type>&entity_id=<id>`, for the three targets above. It includes only the target's documented public fields and live catalog field changes. Private-only changes are excluded before paging; actors display as Staff or System. Without `entity_type` and `entity_id` the same route returns the project's recent public changes (T-5-43) with the same projection row by row: only identity rules, catalogs, catalog fields and property definitions the share sees today, current names as labels; project and event rows never appear (project rows hold the listed people's emails). Internal history retains its existing staff detail. Done closes the discussion and does not change findings or certification.
+
+## Remaining hosting considerations
+
+- **Token hashing**: share tokens are stored in plaintext so Settings can re-display them.
+  Hashing with one-time display would require a separate change to that workflow.
+- **Durable rate limiting**: in-memory per-token counters reset on restart and are not shared
+  across server instances. Durable limits across shared routes remain separate work.
+- **Passphrase**: an optional per-link passphrase, stored hashed and checked once per browser
+  session, remains planned together with token hashing and durable rate limiting. For a closed
+  audience today, use **Only listed people**.

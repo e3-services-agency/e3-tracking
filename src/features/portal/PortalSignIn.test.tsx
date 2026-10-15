@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SharedProject } from '@/src/pages/SharedProject';
 
 vi.mock('@/src/features/shared-auth/SharedGoogleSignIn', () => ({
-  SharedGoogleSignIn: () => <div aria-label="Comment identity">Continue with Google</div>,
+  SharedGoogleSignIn: ({ purpose }: { purpose?: string }) => <div aria-label="Comment identity" data-purpose={purpose}>Continue with Google</div>,
 }));
 
 const TOKEN = 'listed-share-fixture';
@@ -57,6 +57,8 @@ describe('Portal sign-in screen (listed people)', () => {
     header = { sign_in_required: true, signed_in: true };
     await mount();
     expect(container!.querySelector('[data-testid="portal-sign-in-denied"]')).not.toBeNull();
+    // T-5-46: the identity here only opens the link ("Signed in as", "Sign out"), it does not comment.
+    expect(container!.querySelector('[data-purpose="access"]')).not.toBeNull();
     await act(async () => {
       window.dispatchEvent(new CustomEvent('e3-share-identity-changed', { detail: { token: TOKEN } }));
       await new Promise((resolve) => setTimeout(resolve, 10));

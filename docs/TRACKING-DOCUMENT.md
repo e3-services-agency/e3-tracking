@@ -161,13 +161,17 @@ The client portal loads the document in two steps instead of downloading every c
 - `GET /api/shared/:token/document-summary.json` returns `TrackingDocumentSummary`: the public
   document above with `events[]` replaced by `TrackingDocumentSummaryEvent[]`. Each summary event
   carries `id`, `name`, `business_name`, `class`, `implementation_method`, `status`, `priority`,
-  `description`, `sources`, `identifiers`, `certification` and `quality`, with the same values as
-  the public card, plus `variant_names` (the card's `variants[].name`), `property_count`
-  (`properties.length`) and `open_finding_count` (`findings.length`). Every other top-level section
-  is unchanged. The event fields are an allowlist, so a field added to `EventCard` later does not
+  `description`, `sources`, `identifiers`, `certification`, `quality` and (T-5-46) `expiration`,
+  with the same values as the public card, plus `variant_names` (the card's `variants[].name`),
+  `property_count` (`properties.length`) and `open_finding_count` (`findings.length`). Every other
+  top-level section is unchanged. The event fields are an allowlist, so a field added to `EventCard` later does not
   appear in the summary until it is added to the type.
 - `GET /api/shared/:token/events/:eventId/card.json` returns one public `EventCard`, equal to the
   matching entry of the public `events[]`.
+- `GET /api/shared/:token/findings.json` (T-5-42, D-88 amendment 1) returns `{ events, unattached_findings }`:
+  `id`, `name` and `findings` of each public event that has findings, plus the document's
+  `unattached_findings`, from the same light public document as the summary. The portal QA view
+  reads it.
 
 Both are additive and leave `version` at 1. Internally `buildTrackingDocument(projectId, { light,
 eventIds })` builds them: `light` skips each card's coverage grid and codegen (left empty, then

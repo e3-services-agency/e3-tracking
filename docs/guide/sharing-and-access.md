@@ -5,7 +5,8 @@
 Staff use the configured app sign-in: a local actor in local mode, or the Internal Workspace OAuth
 login on the hosted portal. A share-link visitor does not need staff access. Optional Google
 commenter sign-in supplies a verified identity without granting access to the internal app or
-changing the link’s permissions.
+changing the link’s permissions. On a link limited to listed people, Google sign-in is what opens
+the link (see **Who can open the link** below).
 
 ## Share link
 
@@ -14,23 +15,53 @@ A project can have one **share link**, managed in **Settings**:
 - Generate a link, or generate again to rotate it. Revoke disables it immediately.
 - **Read** access allows viewing and copying permitted content. **Comment** also allows posting,
   replying, reacting and the permitted thread status changes.
-- The link opens public documentation without a required login. Agent instructions, owners,
-  identity notes, the Bloomreach project URL and internal notes are removed.
+- The link opens the client portal. Agent instructions, owners, identity notes, the Bloomreach
+  project URL and internal notes are removed.
 - Sandbox projects require confirmation before a link can be generated.
 
-Anyone holding the link has its access, so share it with the intended audience. Signing in cannot
+Clients only read and comment; no link lets anyone edit the tracking plan. Signing in cannot
 upgrade a read link. See the [Sharing reference](../SHARING.md) for the exact routes and guarantees.
 
-## Browsing the shared portal
+### Who can open the link
 
-Events, properties, use cases, catalogs, mappings and finding lists use aligned tables. Full names
-and descriptions wrap, with entity icons, relevant badges and action columns. Expand a row to read
-its details; use **Expand all / Collapse all** globally or within a group. On narrow screens, table
-regions can scroll horizontally. The navigation groups and filters the available sections, and
-entity links open the relevant row.
+- **Anyone with the link** (the default): whoever holds the link gets its access, with no login.
+  Share it only with the intended audience.
+- **Only listed people (Google sign-in)**: the visitor signs in with Google, and the link opens
+  only when that Google account's verified email is under **Listed people**. Add each person by
+  email as **viewer** (reads) or **commenter** (reads and comments), change a role, or remove them;
+  changes apply on their next page load.
 
-Comment-count buttons open discussions inline on events, properties, use cases and requirements.
-Read links show permitted discussions and copy controls, with no posting or reply editor.
+A person’s access is never more than the link’s: a commenter on a **Read** link can only read.
+Everyone else (signed out, signed in with an unlisted account, or with an unverified Google email)
+sees only "Sign in to open this link", without the project or client name, and every data request
+answers as if the link did not exist. E3 staff signed in to the Workspace portal can always open
+the link and do not need to be listed. Listed emails are never shown on the portal or in any public
+response, and changes to the list appear in the project's internal History. Rotating or revoking
+the link keeps the list.
+
+## Browsing the client portal
+
+The portal opens on an **Overview**: progress (events by status, certified events, open findings by
+severity), **Waiting on you** (open comment threads, newest first, each a link to its item), the
+five most recent changes, and a card per section. The sidebar lists the sections with their counts
+and open threads: Events, Properties, Use cases, Identity, Catalogs, Consent categories, Standard
+events, and QA and findings. Sections without content are left out. The sidebar also has the JSON
+and HTML downloads and the Google identity; below 1024 px it opens from the menu button.
+
+Each section is its own page with the same tables as the internal app, read-only: search, filters
+and column sorting work as there. Properties and findings show 100 rows first, then **Show 100
+more**. Opening an event, a property, a use case, a catalog or a standard event mapping opens its
+own page (the event card loads when you open it). The address bar always names the page, so a
+copied URL or **Copy link** opens the same page, and the browser's back button returns to the list
+with its filters and scroll position.
+
+Links to the old single-page view (for example `#event-cart_update`) still work and open the
+matching page. A link to something that is no longer in the tracking plan opens its list with a
+note saying so.
+
+Comment-count buttons open discussions on every row; on an event or use case page the comments sit
+on the page itself. Read links show permitted discussions and copy controls, with no posting or
+reply editor.
 
 ## Posting identity
 
@@ -51,7 +82,8 @@ trusted staff session may also supply identity. Badges distinguish **Google acco
 **Signed-in account**; identities without a supported photo use initials or an animal icon.
 
 Choose **Use guest identity** to opt out of the shared verified identity and automatic Google
-selection/staff-session reuse. This leaves Google and staff portal login intact. If Google sign-in
+selection/staff-session reuse. Where you cannot comment (a read link, or the sign-in screen of a
+link limited to listed people) the control reads **Signed in as** and **Sign out** instead. This leaves Google and staff portal login intact. If Google sign-in
 is unavailable, guest commenting remains available. **Require a name on the share link** requires
 an explicitly entered guest name or a verified account before posting, replying, reacting or
 changing status; an automatic animal name does not meet that requirement.
@@ -96,8 +128,8 @@ Markdown keeps the body, author, timestamp and permitted attachment references. 
 includes only public content, and image URLs still require the same valid link. Internal copying
 uses the staff view’s file URLs. Copying does not change access or make private images public.
 
-Opening or reloading a comment link expands the containing row and thread, reveals the target
-reply even beyond the first two, and focuses/highlights it. Internal Comments-page links clear
+Opening or reloading a comment link opens the page that holds the comment and its thread, reveals
+the target reply even beyond the first two, and focuses/highlights it. Internal Comments-page links clear
 filters that would hide the target. Removed, private or invalid targets show a generic notice;
 revoked links show the invalid-link page. Existing entity links still work.
 

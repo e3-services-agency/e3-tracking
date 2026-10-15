@@ -9,7 +9,7 @@ has been deployed, pushed or run against GCP.**
 | --- | --- |
 | Live now | `tracking.e3-services.com`, image c5864b1 (digest `sha256:597bc0f2…200c4`), schema `0044_mcp_grant_all_projects.sql` (T-5-38, 2026-10-14) |
 | Merged candidate | `agent-setup` 0599495 (`05994959342002b901af80b7822f8895d0dc311f`, 2026-10-15 17:34): T-5-40..T-5-45, each with reviewer and QA PASS, plus the whole-portal QA PASS |
-| Recommended candidate | `agent-setup` after T-5-46 is committed and merged (this branch, `task/T-5-46-portal-release`): 0599495 plus the T-5-46 docs, the sign-in wording fix and the summary expiration. Its commit id is fixed only at merge time; record the full id then |
+| Recommended candidate | `agent-setup` 15abadb (`15abadb53f8fd5a8ce1688c8c21d77ab5bb637b0`, 2026-10-15 17:58): T-5-46 merged on top of 0599495 (docs, the sign-in wording fix, the summary expiration); reviewer PASS on `git diff 0599495 15abadb`. Later commits on `agent-setup` that only touch `.claude/team/` records change no shipped code |
 | Migrations since live 0044 | exactly one: `0045_share_audience.sql` (additive: `projects.share_audience` with default `anyone_with_link`, new table `share_members`, nullable `comment_auth_sessions.email`). No table rebuild, no data rewrite |
 | Deploy/edge config changes since c5864b1 | none (`git diff c5864b1 0599495 -- deploy/ docker-compose.yml Dockerfile` touches nothing; the Caddyfile's public matcher `/tracking-plan/shared/*` already covers the new deep paths). No new environment variable: listed mode uses the existing `GOOGLE_COMMENT_CLIENT_ID`, `E3_PUBLIC_ORIGIN`, `COMMENT_STAFF_SESSION=1`, `WORKSPACE_DOMAIN` |
 | Also included | two UI commits on `agent-setup` before D-88 with no board record: 7a5ee74 "lighter client portal tables" and 8817e0d "show description and business name in the Events table" (both are in the tree the whole-portal QA tested) |
@@ -64,8 +64,11 @@ v2 views. Old single-page links (`#event-…`, `#property-…`, `#findings…`, 
 Prepared files (on this branch, not run):
 
 - `.claude/team/reports/ops/release-T-5-46-portal-0045.sh`: preflight, snapshot (exit-code-safe),
-  upload of the 0045 maintenance script, `03-deploy.sh <tag> --yes`, smoke. `--dry-run` prints the
-  plan and runs only `03-deploy.sh --dry-run`. Refuses to run for real until `TAG` and
+  upload of the 0045 maintenance script, `03-deploy.sh <tag> --yes`, smoke. `--dry-run` changes nothing
+  but is not offline: its preflight reads `gcloud config get-value project` and the live
+  `/api/health` (read-only), then it prints the plan and runs `03-deploy.sh --dry-run`.
+  `EXPECTED_DIGEST` is only printed, not compared (deploy is by tag), and the 0044 schema and the
+  backup freshness are read off the preflight output by the operator, not enforced (review LOW). Refuses to run for real until `TAG` and
   `EXPECTED_DIGEST` are filled in.
 - `.claude/team/reports/ops/e3-maintenance-portal-schema0045.sh`: the 0044 maintenance script
   for the 0045 state (expects `0045_share_audience.sql`, counts `share_members` too, and on a restore

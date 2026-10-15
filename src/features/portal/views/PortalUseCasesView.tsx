@@ -11,6 +11,7 @@ import { HintTh } from '@/src/components/ui/FieldHint';
 import { MarkdownView } from '@/src/components/ui/MarkdownView';
 import { ENTITY_ICONS, type EntityKind } from '@/src/components/layout/navIcons';
 import { enumLabelOr } from '@/src/domain/enumLabels';
+import { isHttpUrl } from '@/src/domain/url';
 import { useCaseToMarkdown } from '@/src/domain/document/markdown';
 import type { TrackingDocumentUseCase } from '@/src/domain/document/trackingDocument';
 import { requirementTargetView } from '@/src/features/shared/requirementTargets';
@@ -121,7 +122,9 @@ function PortalUseCaseDetail({ pathId }: { pathId: string }) {
         <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
           {uc.type && <span>{USE_CASE_TYPE_LABELS[uc.type] ?? uc.type}</span>}
           {uc.status && <span>{enumLabelOr('status', uc.status)}</span>}
-          {uc.documentation_url && (
+          {/* Writes already require http(s); checked again here because a restored backup or a direct
+              database edit can bypass the write path, and this link is rendered for the public. */}
+          {uc.documentation_url && isHttpUrl(uc.documentation_url) && (
             <a href={uc.documentation_url} target="_blank" rel="noreferrer" className={LINK_CLASS}>
               Documentation
             </a>

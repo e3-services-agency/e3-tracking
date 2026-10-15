@@ -244,6 +244,14 @@ describe('use case page', () => {
     await settle();
     expect(window.location.pathname).toBe(`/shared/${TOKEN}/events/cart_update`);
   });
+
+  it('never renders a documentation link that is not http(s), e.g. from a restored backup', async () => {
+    (doc.use_cases![0] as { documentation_url: string }).documentation_url = 'javascript:alert(1)';
+    await mount(`/shared/${TOKEN}/use-cases/UC-01`);
+    expect(container!.querySelector('h1')!.textContent).toBe('UC-01 — Abandoned cart');
+    expect(container!.querySelector('a[href^="javascript:"]')).toBeNull();
+    expect(Array.from(container!.querySelectorAll('a')).some((a) => a.textContent === 'Documentation')).toBe(false);
+  });
 });
 
 describe('links to items the share does not have', () => {

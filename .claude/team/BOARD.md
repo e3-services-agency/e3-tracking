@@ -4561,3 +4561,112 @@ Merged tree: build, tsc, lint green, 2284 tests / 240 files, no unhandled error 
 
 ### 2026-10-14 | claude-supervisor -> ALL | RELEASE | T-5-38 live (c5864b1, schema 0044)
 Release script stopped after the snapshot step (the snapshot SSH returned non-zero after "Services remain stopped"; set -e aborted before 03-deploy) — the user ran 03-deploy c5864b1 directly; app healthy, digest sha256:597bc0f2…200c4, schema 0044, backup+upload ok, 2 projects / 39 events / FK clean. Live consent page shows the all-projects checkbox; the user's new grant 99c9cc75 has read+write+templates with all_projects=1 and no project rows; older grants revoked. Backlog: release scripts must not `set -e` across the snapshot SSH step (check its exit explicitly and continue to deploy), and the API `projects: "all"` type inconsistency (LOW). HTTPS MCP connector work (T-5-34..T-5-39) complete.
+
+### 2026-10-15 00:10 | claude-supervisor -> ALL | DECISION | T-5-40..T-5-46
+Client portal v2 planned on the user's choice of option B (2026-10-15): D-88 (proposed) and reports/PLAN-CLIENT-PORTAL-V2-2026-10-15.md. Read-only presentational tables shared with the internal app (T-5-40), lazy summary and per-event card share routes (T-5-41), portal shell with one view per section and old-link redirects (T-5-42), overview (T-5-43), detail pages (T-5-44), share audience and members with verified Google email, migration 0045 (T-5-45), integration QA and release (T-5-46). Clients only read and comment. Four open questions for the user listed in the plan; no task starts before the user accepts D-88.
+
+### 2026-10-15 00:11 | claude-supervisor -> ALL | DECISION | T-5-40..T-5-46
+D-88 accepted by the user with the four recommended answers (nothing shown to unlisted visitors in listed mode, event detail as its own page, anyone_with_link default, old hash links redirect indefinitely). DECISIONS.md amendment and PLAN-CLIENT-PORTAL-V2-2026-10-15.md updated. T-5-40 and T-5-41 can start in parallel.
+
+### 2026-10-15 00:31 | implementer -> ALL | INFO | T-5-41
+Starting T-5-41 (posted late: work began about 00:12) on branch task/T-5-41-lazy-share-api off agent-setup, in worktree .claude/worktrees/gallant-diffie-1b1c8f. Backend only; no changes under src/features/views/ or the internal pages (T-5-40 runs in parallel there).
+
+### 2026-10-15 00:32 | implementer -> claude-supervisor | INFO | T-5-41
+Two findings from measuring the sandbox-acme-eu project:
+- The ~1 s build cost was not codegen or coverage. Most of it came from two queries per event-property link: `getEventWithProperties` called `getPropertyById` and `getDefinitionById` for every link, in card building, observation resolution and finding-name resolution. One preloaded property map and one definition map on `EventCardBuildContext` now serve all three. The full document output is byte-identical before and after on both local projects. The light build (no coverage or codegen) still saves about 100 ms on top of that.
+- The summary is 298,162 bytes, against the 250 KB target (down from 1,227,638). Events are only 34 KB of it. `event_properties` is 206 KB (547 properties, 565 definitions), and the brief keeps every non-event section unchanged. Meeting 250 KB means slimming `event_properties` in the summary, for example by dropping single `general` definitions or moving definitions to a lazy route. That needs a decision; not done.
+
+### 2026-10-15 00:33 | implementer -> reviewer | HANDOFF | T-5-41
+Task: T-5-41 Lazy share API
+Branch: task/T-5-41-lazy-share-api (uncommitted; the user has not asked for a commit). Worktree .claude/worktrees/gallant-diffie-1b1c8f
+Changed:
+- src/backend/routes/shared.ts: `GET /:token/document-summary.json` and `GET /:token/events/:eventId/card.json` behind requireShare. Any error, or an unknown/deleted/other-project event id, returns the identical 404 SHARE_NOT_FOUND body. no-store comes from the existing router-level header.
+- src/backend/services/document.service.ts: `buildTrackingDocument(projectId, { light, eventIds })` (the default call is unchanged); `buildEventCard(..., { light })` skips coverage and codegen; `toTrackingDocumentSummary` (an allowlist of event fields taken from `toPublicTrackingDocument` output); `buildPublicTrackingDocumentSummary` and `buildPublicEventCard`, both run through `toPublicTrackingDocument`; preloaded `propertiesById`/`definitionsById` on the context, passed to card building, `buildPropertyNameResolver` and `resolveObservationsInScope`.
+- src/backend/services/eventResolution.ts: `createEventResolver` takes optional preloaded property and definition maps.
+- src/backend/dal/event.dal.ts: `getEventWithProperties` takes an optional `propertiesById`.
+- src/domain/document/trackingDocument.ts: additive `TrackingDocumentSummaryEvent` and `TrackingDocumentSummary`.
+- src/backend/routes/__tests__/sharedLazy.route.test.ts (new, 7 tests): shape; other sections equal the full public download; the card equals the full public entry; every stripped key or value is absent (agent_instructions and internal_* keys at any depth; identity_note and owners keys absent from summary events; secret values for identity_note, owners, agent_instructions, bloomreach_project_url, use case internal_notes and internal_url absent from both); identical 404 for unknown, deleted and other-project events, bad, revoked and malformed tokens, and extra path segments; no-store on all.
+- src/backend/services/document.service.publicProjection.test.ts: +4 tests. A future internal_* key on a card or property never reaches either route; the summary is an allowlist; buildPublicEventCard returns null for an unknown id; a light build differs from a full build only in coverage and codegen.
+- docs/SHARING.md and docs/TRACKING-DOCUMENT.md: both routes, their derivation, and the summary shape.
+Measured (sandbox-acme-eu, copy of data/e3-tracking.sqlite, median of 5 in-process builds):
+- full public document: 776 ms before, 332 ms after, 1,227,638 bytes (unchanged)
+- summary: 225 ms, 298,162 bytes
+- one card: 153 ms, 11,416 bytes
+Live check: this branch ran on port 3011 against a copy of the local DB, with the share token read from Settings → Share in the browser (never printed). Results: summary 200, 62 events, other sections equal the full download; card 200 and equal to the full entry; unknown event and bad token both return the identical 404; no-store on all; no forbidden keys. Port 3001 (main checkout code) returns 404 for the new routes until this branch merges.
+How to verify:
+1. `npx vitest run --pool=forks src/backend/routes/__tests__/sharedLazy.route.test.ts src/backend/services/document.service.publicProjection.test.ts`
+2. Run the API from this branch. On the sandbox share link, GET /api/shared/<token>/document-summary.json: each event has only the 15 listed keys, and the response is about 298 KB.
+3. GET /api/shared/<token>/events/<an event id from the summary>/card.json: equals that event in tracking-document.json.
+4. GET .../events/does-not-exist/card.json and .../events/<id>/card.json with a bad token: both return the identical 404 body.
+5. tracking-document.json and documentation.html: unchanged.
+Tests: `npx vitest run --pool=forks` -> 236 files passed, 5 failed (2277 tests passed, 7 failed). The 7 are unrelated:
+- caddyEdge, mcpSmoke (6) and backupRestore (1) time out under full-suite load and pass when rerun alone.
+- CommentBody and CommentIdentity fail only in this worktree: react-syntax-highlighter does not resolve through the node_modules junction. Both pass in the main checkout.
+`npx tsc --noEmit`, `npm run lint` and `npm run build` pass.
+Known gaps: the summary is 298 KB, over the 250 KB target (see the INFO above). The card keeps `identity_note: null` and `owners: {business: null, technical: null}` exactly as the public tracking-document.json does, so it stays a valid EventCard for EventCardView; these keys carry no value but are not deleted from the card.
+Decisions needed: whether to slim `event_properties` in the summary to reach 250 KB.
+
+### 2026-10-15 00:47 | implementer -> ALL | INFO | T-5-40
+Started T-5-40 (shared presentational views, D-88) on branch task/T-5-40-shared-views, worktree .claude/worktrees/fervent-ramanujan-fb231e. Runs alongside T-5-41 (backend only). Coordination with the identification-flow session: in src/pages/IdentityRules.tsx I only change the rules-table block and lines 1-12, never the flow block, loader or codegen. IdentityView takes the flow as a `flow` slot and does not import IdentificationFlowView. I do not touch fieldHints.ts or trackingDocument.ts.
+
+### 2026-10-15 00:47 | implementer -> reviewer | HANDOFF | T-5-40
+Task: T-5-40 Shared read-only presentational tables (src/features/views/)
+Branch: task/T-5-40-shared-views (uncommitted, as instructed)
+Changed:
+- src/features/views/types.ts: row types per section and the ViewSlots props (rows, rowActions, onOpen, commentCount, readOnly, empty, toolbarExtra, commentsInActions)
+- src/features/views/viewModel.ts: pure density storage (localStorage key e3.views.density, try/catch), search and filter helpers
+- src/features/views/ViewParts.tsx: frame, toolbar (search, filter selects, Compact/Comfortable toggle), faint dash, ActionsCell (comment count above zero always visible, other actions in .row-actions), ViewRow (opens on click, ignores clicks on its own controls and text selection), RowName (button when openable)
+- src/features/views/{EventsTable,PropertiesTable,UseCasesTable,IdentityView,CatalogsTable,ConsentTable,StandardEventsTable}.tsx: one table per section, no fetching, no editors. Read-only mode drops planning columns (priority, owner, status where the document lacks it) and reorder controls and does not truncate text. IdentityView has flow and codegen slots.
+- src/features/views/adapters/document.ts: TrackingDocument to rows (whitelisted fields only); adapters/internal.ts: REST rows to rows; index.ts barrel
+- src/features/views/{viewModel.test.ts,adapters/adapters.test.ts,views.test.tsx}: 22 tests
+- src/index.css: .row-idle (comment count steps aside on hover when the actions carry their own comment control)
+- src/pages/{Events,Properties,UseCases,IdentityRules,Catalogs,ConsentCategories,StandardEvents}.tsx: tables replaced by the views. REST loading, editor Sheets, useStore navigation and selectedItemIdToEdit deep links unchanged. New per page: density toggle; status/source/class/category/kind/type/mapping filters where missing. Events: View card moves to the hover actions; description is one line (beside the name in compact, below it in comfortable).
+How to verify:
+1. Open each of the seven pages on sandbox-acme-eu (catalogs and identity rules are empty there; armedangels has 34 catalogs and 11 rules locally).
+2. Toggle Compact/Comfortable, reload: the choice persists (one setting for all tables).
+3. Events: class filter defaults to Custom; Expand all variants; row click opens Edit Event; hover shows View card, which opens the card.
+4. Properties: category groups collapse, definition count expands sub-rows, row hover shows Definitions / Used by / Delete, scope filter still refetches.
+5. Identity rules: arrows reorder; Set by / Carried by open the editor at that section; Catalogs and Identity show comments/history in the hover actions with a visible count when above zero.
+6. Standard events: Mapped / Not mapped filter; row opens the mapping sheet. Use cases: row opens the detail page.
+Tests: npx vitest run --pool=forks -> Test Files 5 failed | 238 passed (243), Tests 5 failed | 2290 passed (2295). The failures are in files this task does not touch: caddyEdge and mcpSmoke (Docker/timeout), CommentBody and CommentIdentity (react-syntax-highlighter does not resolve from a worktree; both pass in the main checkout), tools.test.ts update_observation (load flake; 21/21 pass when rerun alone). src/pages/Properties.hierarchy.test.tsx passes unchanged. npx tsc --noEmit, npm run lint and npm run build pass (tsc needs api/_backend, which npm run build generates).
+Known gaps: The portal (SharedProject.tsx) is not wired; that is T-5-42. Under 1,280 px the Events and Identity tables scroll sideways, as before. The page loaders still have no stale-response guard: switching project by URL before the first load settles can show the previous project's identity rules and flow until reload. This was already the case before this task. Vite's watcher does not see edits in this worktree path, so restart the dev server after each change.
+Decisions needed: none
+
+### 2026-10-15 08:06 | claude-supervisor -> reviewer | INFO | T-5-41
+User accepted the 298 KB document summary for now (target was 250 KB; the remainder is event_properties, which can load per view later). Reviewer runs on T-5-40 and T-5-41 next. Note for both reviews: in a worktree without its own node_modules, CommentBody.test.tsx and CommentIdentity.test.tsx fail to load react-syntax-highlighter from the parent checkout; both pass in the main checkout, so judge the suite on the merged tree.
+
+### 2026-10-15 08:20 | reviewer -> claude-supervisor | PASS | T-5-41
+Verdict PASS. Read the diff and every changed file path; reran checks in the worktree: tsc --noEmit clean, npm run lint clean, vitest forks 2284 tests pass, 239 of 241 files pass (the two failures are the known CommentBody/CommentIdentity react-syntax-highlighter worktree load errors; one vitest-worker onTaskUpdate timeout reported as an unhandled error after all tests passed, environment noise on this machine).
+Verified: both routes sit behind requireShare in routes/shared.ts; summary = toTrackingDocumentSummary(toPublicTrackingDocument(...)) with an event field allowlist, card = toPublicTrackingDocument(...).events[0], so no raw DAL rows; every error path (catch, null card for unknown/deleted/other-project id, malformed escape, revoked token) is the same 404 SHARE_NOT_FOUND; other-project ids cannot match because the card is filtered from the project's own ctx.events; Cache-Control no-store asserted; privacy tests cover agent_instructions, identity_note, owners, bloomreach_project_url, internal_* on both routes. Light mode and eventIds default off, buildEventCard/buildTrackingDocument defaults unchanged; propertiesById/definitionsById preloads are equivalent to getPropertyById/getDefinitionById (same non-deleted, project-scoped rows, bundle_ids included), so tracking-document.json, documentation.html, internal card, MCP and comparison callers are unaffected. Types additive; SHARING.md and TRACKING-DOCUMENT.md updated.
+Findings: no HIGH or MEDIUM. LOW: none blocking. LOW (note): the summary route builds a full ctx per request (no caching); acceptable for now. T-5-41 moved to QA.
+
+### 2026-10-15 08:20 | reviewer -> supervisor | REVIEW | T-5-40
+PASS. Reviewed the uncommitted diff on task/T-5-40-shared-views (worktree fervent-ramanujan-fb231e) plus src/features/views/. Re-ran: npx tsc --noEmit 0 errors; npm run lint (tsc + lint:colors) pass; npx vitest run --pool=forks (maxForks=3): 2295 tests pass, 241/243 files; the only 2 failing files are CommentBody.test.tsx and CommentIdentity.test.tsx (known worktree react-syntax-highlighter resolution, untouched by this task). fieldHintsCoverage and Properties.hierarchy tests pass. SharedProject.tsx and src/features/shared are untouched; no raw hex in src/features/views.
+Checked against acceptance: views are presentational (no fetch, no editors); document and internal adapters are pure and unit-tested (adapters.test.ts, viewModel.test.ts, views.test.tsx); all seven pages keep REST loading, Sheets, store navigation, sorting, search, variant expansion, copy name, View card (now a .row-actions hover action, reachable by tab through :focus-within and always visible on hover:none), comment counts, empty and no-match states; density persisted in try/catch.
+Findings (none blocking):
+- LOW src/pages/Events.tsx:104 - expirationSummary is now dead code (nothing references it) and duplicates expirationFromInternal in src/features/views/adapters/internal.ts; remove it, plus any now-unused imports (Input, React.Fragment users) in Events.tsx.
+- LOW src/features/views/ViewParts.tsx:152 - ViewRow is not used with onOpen in IdentityView.tsx:~137, so identity rows open only from the name button, matching old behaviour; fine, noted only so T-5-42 does not assume whole-row click there.
+- LOW src/index.css:138-146 - .row-actions is opacity 0 only, so hidden Delete (Properties) stays clickable by an invisible hit area; acceptable per convention, consider pointer-events if it ever bites.
+
+### 2026-10-15 08:18 | qa-tester -> ALL | PASS | T-5-41
+Tested the worktree API (branch task/T-5-41-lazy-share-api, port 3011, scratch copy of the local DB) on sandbox-acme-eu. (1) document-summary.json: 200, no-store, 291.2 KB, 62 events with light fields only (no codegen/properties/coverage/variants/payload), all 19 top-level sections present as in the full document. (2) card.json for 3 events: 200, no-store, equal to the matching entry in tracking-document.json (11.1, 12.8, 1.4 KB). (3) Identical 404 SHARE_NOT_FOUND + no-store for unknown event id, armedangels event id, malformed %ZZ (event id and token), wrong token, revoked token (nulled on the scratch copy, restored). (4) tracking-document.json structurally equal to main API 3001 ignoring generated_at; documentation.html identical apart from the Generated timestamp (with E3_FILES_PATH pointed at the main data/files; without it the worktree cwd has no files, an environment artefact, not a defect). (5) Avg of 5 runs: summary 242 ms, full document 379 ms, card 135 ms. (6) Portal check skipped: needs a frontend proxy change. Note, not a failure: the deep scan finds the keys bloomreach_project_url, identity_note and owners present but blanked (null / {business:null,technical:null}); this is the pre-existing public projection, identical on main 3001 and in the full download; no values leak, no agent_instructions or internal_* keys.
+
+### 2026-10-15 08:22 | implementer -> reviewer | INFO | T-5-40
+Fixed two LOW review findings (uncommitted, branch task/T-5-40-shared-views). The identity row click is left as is, as asked.
+1. src/pages/Events.tsx: removed the dead `expirationSummary` (now `expirationFromInternal` in src/features/views/adapters/internal.ts) and the unused `useRef` import.
+2. src/index.css (`@media (hover: hover)` block): `.row-actions` now has `pointer-events: none` while hidden. The same tr:hover / tr:focus-within / tr[data-shared-expanded] rules restore `pointer-events: auto`, so these also apply to the portal's SharedEntityRow. Touch screens (hover: none) are untouched. Browser check: a hidden Delete has pointer-events none; focusing a hidden action reveals the actions (opacity 1, pointer-events auto).
+Tests: npx tsc --noEmit and npm run lint pass. npx vitest run --pool=forks --poolOptions.forks.maxForks=3 -> Test Files 2 failed | 241 passed (243), Tests 2295 passed (2295). The 2 failures are the known CommentBody/CommentIdentity worktree load errors.
+
+### 2026-10-15 08:34 | qa-tester -> ALL | PASS | T-5-40
+Browser QA of the uncommitted worktree (Vite 3007, baseline main checkout Vite 3008, shared API 3001; both Vite processes stopped by PID). Sandbox "Acme EU" plus ARMEDANGELS (has catalogs/identity data) used; temp edits (checkout business name/description, 3 comments) reverted/deleted.
+- Rows and columns match baseline on all seven pages (Events 42 custom rows, Properties 652, Use cases 5/35, Standard events 12, Consent 1/6, Identity 11, Catalogs 34). Additions as designed: description/business name under names, search/filters on Catalogs, Identity, Consent, Standard events. Actions column replaces the old Card column.
+- Search, filters, sort (Events, Properties, Use cases), no-match rows and empty states (Catalogs, Identity on sandbox) show. Density toggle changes row heights, persists in localStorage e3.views.density and survives reload.
+- Row/name click opens the right editor Sheet: Events, Properties, Catalogs, Consent (name cell, as baseline), Identity (name and Set by/Carried by cells, as baseline), Standard events (Map dialog shows cart_update), Use cases (detail page).
+- Events: Expand all variants (+2 rows, cart_update[action=add]), "View card" opens the card, description and business name render and are searchable.
+- Properties: Used by dialog -> event card jump works, Expand all definitions, Delete hidden = opacity 0 and pointer-events none (computed style, 41 of 42 rows; only the hovered row is active), shown on hover and on keyboard Tab focus; delete confirm cancelled, nothing deleted.
+- Comment counts above zero stay visible (opacity 1) on Catalogs and Identity rows while the other actions are hidden.
+- Client portal (read link on sandbox) renders. Console: no errors.
+Not covered: empty state of Events, Properties, Use cases, Consent, Standard events (no empty project available), Use case sort beyond Code. Evidence screenshots (in the Browser pane, not saved to files): Events page with business name row, Properties page with descriptions.
+
+### 2026-10-15 09:19 | claude-supervisor -> ALL | MERGE | T-5-40, T-5-41
+Merged into agent-setup at the user's request: 7b15d9e (T-5-40) via 7e6a4c1 and 3173a34 (T-5-41) via 57d798e, both reviewer PASS and QA PASS. Merged tree: npm run build and npm run lint green; npx vitest run --pool=forks 244 files / 2317 tests pass (one run showed a single intermittent vitest unhandled error after all tests passed, the rerun was clean). Not pushed, not released. T-5-42 (portal shell and routing) is unblocked.

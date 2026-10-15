@@ -13,8 +13,8 @@
 set -uo pipefail
 cd "$(dirname "$0")/../../../.."
 . .claude/team/reports/ops/gcloud-wrapper.sh
-TAG=REPLACE_WITH_TAG
-EXPECTED_DIGEST=REPLACE_WITH_SHA256_DIGEST
+TAG=15abadb
+EXPECTED_DIGEST=sha256:398cfbf8992f9406f4f8d73974484b39e88eb7ae3bd91f948d45d52042bcc66f
 DRY_RUN=0
 [ "${1:-}" = --dry-run ] && DRY_RUN=1
 SSH=(gcloud compute ssh e3-tracking --tunnel-through-iap --zone europe-west1-b --project e3-tracking)

@@ -126,13 +126,28 @@ body {
 /* Row actions (copy, link, Markdown) stay out of the way until the row is hovered, focused or
    expanded; touch screens without hover always show them. */
 @media (hover: hover) {
+  /* Hidden actions are also unclickable; keyboard focus still reaches them and reveals the row's
+     actions through :focus-within (T-5-40 review). */
   .row-actions {
     opacity: 0;
+    pointer-events: none;
     transition: opacity 120ms ease-in-out;
   }
   tr:hover .row-actions,
   tr:focus-within .row-actions,
   tr[data-shared-expanded] .row-actions {
     opacity: 1;
+    pointer-events: auto;
+  }
+  /* A comment count beside actions that carry their own comment control steps aside while those
+     actions show (T-5-40). */
+  tr:hover .row-idle,
+  tr:focus-within .row-idle {
+    display: none;
+  }
+}
+@media (hover: none) {
+  .row-idle {
+    display: none;
   }
 }

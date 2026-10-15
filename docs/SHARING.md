@@ -72,7 +72,15 @@ at that path.
 
 - `GET /:token` — project header: `{project: {name, client_logo_path}, client: {name}, access,
   generated_at}`.
-- `GET /:token/tracking-document.json` — the public projection of the tracking document.
+- `GET /:token/tracking-document.json` — the public projection of the tracking document (the
+  full download, `?version=1`).
+- `GET /:token/document-summary.json` (T-5-41, D-88) — the same public document with each event
+  reduced to its light fields (`TrackingDocumentSummaryEvent`: id, name, business_name, class,
+  implementation_method, status, priority, description, sources, identifiers, certification,
+  quality, plus `variant_names`, `property_count`, `open_finding_count`). Every other top-level
+  section is exactly what `tracking-document.json` carries. The portal loads this first.
+- `GET /:token/events/:eventId/card.json` (T-5-41, D-88) — one full public `EventCard`, the same
+  object `tracking-document.json` carries for that event. Loaded when a client opens an event.
 - `GET /:token/documentation.html` — the public projection of the HTML export.
 - `GET /:token/files/*` — the same decode/traversal checks as the internal `routes/files.ts`,
   scoped to this token's own project (a trigger screenshot, the project logo).
@@ -81,6 +89,13 @@ at that path.
 - `GET /:token/auth/config`, `POST /:token/auth/google` and `POST /:token/auth/logout` — optional
   verified commenter authentication, mounted before the shared router. See
   [Google identity setup](SHARED-GOOGLE-AUTH.md).
+
+Both lazy routes are built from `toPublicTrackingDocument`'s output, never from database rows
+directly: the summary from a light build (no per-event coverage or codegen) run through the
+projection and then reduced to an allowlist of event fields; the card from the projection of a
+document limited to that one event. A field added to the projection's strip list is therefore
+stripped from both automatically. On either route every error, including an unknown, deleted or
+other-project event id, is the identical 404 `SHARE_NOT_FOUND` body.
 
 Unknown, revoked and malformed share tokens return the same 404 `SHARE_NOT_FOUND` body,
 including malformed percent-escapes caught by the router. Other failures retain their appropriate

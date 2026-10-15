@@ -63,6 +63,7 @@ import {
   type EventCard,
   type EventCardAllowedValue,
   type EventCardContext,
+  type EventCardCodegen,
   type EventCardCoverage,
   type EventCardFinding,
   type EventCardProperty,
@@ -72,6 +73,8 @@ import {
   type EventCardVariant,
   type FindingSeverityCounts,
   type TrackingDocument,
+  type TrackingDocumentSummary,
+  type TrackingDocumentSummaryEvent,
 } from '../../domain/document/trackingDocument';
 import type { StandardEventMappingRow } from '../dal/standard-event-mapping.dal';
 
@@ -146,14 +149,18 @@ function sampleFromAttached(attached: AttachedPropertyForCodegen[]): Record<stri
 }
 
 /** Per-project cache: (event_id, property_id) -> property name, for resolving rule expressions and field maps to readable names without a `getEventWithProperties` re-read per rule. */
-function buildPropertyNameResolver(projectId: string): (eventId: string, propertyId: string) => string {
+function buildPropertyNameResolver(
+  projectId: string,
+  propertiesById?: Map<string, PropertyDAL.PropertyRow>,
+  definitionsById?: Map<string, PropertyDefinitionDAL.PropertyDefinitionRow>
+): (eventId: string, propertyId: string) => string {
   const cache = new Map<string, Map<string, string>>();
   // T-4-22: a finding with no event (e.g. a customer property `naming_violation`) or whose property
   // is no longer linked to its event still resolves to the property's name, not its raw id.
   let projectNames: Map<string, string> | null = null;
   const projectName = (propertyId: string): string | undefined => {
     if (!projectNames) {
-      projectNames = new Map(PropertyDAL.listProperties(projectId).map((p) => [p.id, p.name]));
+      projectNames = new Map([...(propertiesById?.values() ?? PropertyDAL.listProperties(projectId))].map((p) => [p.id, p.name]));
     }
     return projectNames.get(propertyId);
   };
@@ -163,7 +170,7 @@ function buildPropertyNameResolver(projectId: string): (eventId: string, propert
     if (!names) {
       names = new Map<string, string>();
       try {
-        const { properties } = EventDAL.getEventWithProperties(projectId, eventId);
+        const { properties } = EventDAL.getEventWithProperties(projectId, eventId, definitionsById, propertiesById);
         for (const link of properties) names.set(link.property_id, link.property.name);
       } catch {
         // event_id no longer resolves (deleted); leave the cache empty, callers fall back to the raw id.
@@ -236,8 +243,12 @@ interface ResolvedObservationForCard {
   timestamp: number;
 }
 
-function resolveObservationsInScope(projectId: string): ResolvedObservationForCard[] {
-  const resolve = createEventResolver(projectId);
+function resolveObservationsInScope(
+  projectId: string,
+  propertiesById?: Map<string, PropertyDAL.PropertyRow>,
+  definitionsById?: Map<string, PropertyDefinitionDAL.PropertyDefinitionRow>
+): ResolvedObservationForCard[] {
+  const resolve = createEventResolver(projectId, propertiesById, definitionsById);
   return ObservationDAL.listObservationsInScope(projectId).map((o) => {
     const resolution = resolve(o.event_type, o.properties_json);
     return {
@@ -287,6 +298,9 @@ export interface EventCardBuildContext {
    * once and passed to every `getEventWithProperties` call in this file so `buildEventCard`/
    * `buildTrackingDocument` never run one definition query per link. */
   definitionsById: Map<string, PropertyDefinitionDAL.PropertyDefinitionRow>;
+  /** T-5-41: every non-deleted property of the project by id, loaded once (one query plus one
+   * bundle query) and passed to `getEventWithProperties`, instead of two queries per link. */
+  propertiesById: Map<string, PropertyDAL.PropertyRow>;
   /** D-63 (T-4-17): bundle names per property id (comma-joined), for `EventCardProperty.bundle`. */
   bundleNameByPropertyId: Map<string, string>;
   /** D-63: the project's `kind = 'context'` event properties, for the `sdk_auto` default properties snippet. */
@@ -317,7 +331,11 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
   const allMappings = StandardEventMappingDAL.listStandardEventMappings(projectId);
 
   const observationsByEventId = new Map<string, ResolvedObservationForCard[]>();
-  for (const o of resolveObservationsInScope(projectId)) {
+  // T-5-41: one property and one definition query for the whole context (observation resolution,
+  // finding names, cards), instead of one of each per event-property link.
+  const propertiesById = new Map(PropertyDAL.listProperties(projectId).map((p) => [p.id, p]));
+  const definitionsById = PropertyDefinitionDAL.listAllDefinitionsById(projectId);
+  for (const o of resolveObservationsInScope(projectId, propertiesById, definitionsById)) {
     if (!o.event_id) continue;
     const bucket = observationsByEventId.get(o.event_id);
     if (bucket) bucket.push(o);
@@ -394,8 +412,9 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     openFindings,
     openFindingsByEventId,
     acknowledgedFindingsByEventId,
-    nameOf: buildPropertyNameResolver(projectId),
-    definitionsById: PropertyDefinitionDAL.listAllDefinitionsById(projectId),
+    nameOf: buildPropertyNameResolver(projectId, propertiesById, definitionsById),
+    definitionsById,
+    propertiesById,
     bundleNameByPropertyId: new Map([...bundleNames].map(([id, names]) => [id, names.join(', ')])),
     projectContextProperties,
     hardIdKey: identifierRows.find((i) => i.type === 'hard')?.name ?? identityRules.find((r) => r.identity_type === 'hard')?.identifier_name ?? null,
@@ -623,12 +642,51 @@ function computeExpiration(event: EventRow, project: ProjectDAL.ProjectRow): Eve
   return { effective: null, source: null };
 }
 
+/** The card's coverage summary. `observationsForEvent` is already filtered to this event
+ * (`observationsByEventId`/single-event fallback), so this is an O(this event's observations) pass,
+ * not an O(project observations) one (WARNING 5). */
+function buildCardCoverage(
+  eventId: string,
+  variants: VariantRow[],
+  contextColumns: CoverageContextProperty[],
+  observationsForEvent: ResolvedObservationForCard[]
+): EventCardCoverage {
+  const coverageObservations: CoverageObservation[] = observationsForEvent.map((o) => ({
+    event_id: o.event_id,
+    variant_id: o.variant_id,
+    properties: o.properties,
+    context_values: o.context_values,
+    timestamp: o.timestamp,
+  }));
+  const grid = computeEventCoverage(
+    eventId,
+    variants.map((v) => ({ id: v.id, name: v.name })),
+    contextColumns,
+    coverageObservations
+  );
+  return {
+    rows: grid.rows,
+    columns: grid.columns.map((c) => ({ property_id: c.property_id, name: c.name, payload_key: c.payload_key, values: c.values })),
+    observed_count: grid.cells.length,
+    unobserved_count: grid.unobserved.length,
+  };
+}
+
+/** T-5-41 (D-88): `light` skips the two per-event costs the share summary never shows -- the
+ * coverage grid and the codegen snippets -- and leaves both as empty placeholders. Every other card
+ * field is built exactly as for a full card. */
+export interface BuildEventCardOptions {
+  light?: boolean;
+}
+
+const EMPTY_COVERAGE: EventCardCoverage = { rows: [], columns: [], observed_count: 0, unobserved_count: 0 };
+
 /** Builds the full `EventCard` for one event (plan "Event card and tracking document"). `ctx` is
  * the shared, project-wide context (WARNING 5 fix round); omit it for a single-event call (the
  * `GET /events/:id/card` route), which then builds its own one-off context. */
-export function buildEventCard(projectId: string, eventId: string, ctx?: EventCardBuildContext): EventCard {
+export function buildEventCard(projectId: string, eventId: string, ctx?: EventCardBuildContext, options: BuildEventCardOptions = {}): EventCard {
   const context = ctx ?? buildEventCardContext(projectId);
-  const { event, properties } = EventDAL.getEventWithProperties(projectId, eventId, context.definitionsById);
+  const { event, properties } = EventDAL.getEventWithProperties(projectId, eventId, context.definitionsById, context.propertiesById);
   const project = context.project;
   const variants = VariantDAL.listVariants(projectId, eventId);
   const mappingsForEvent = context.allMappings.filter((m) => m.event_id === eventId);
@@ -672,27 +730,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     values: c.values,
   }));
 
-  // Already filtered to this event (`observationsByEventId`/single-event fallback above), so this
-  // is an O(this event's observations) pass, not an O(project observations) one (WARNING 5).
-  const coverageObservations: CoverageObservation[] = observationsForEvent.map((o) => ({
-    event_id: o.event_id,
-    variant_id: o.variant_id,
-    properties: o.properties,
-    context_values: o.context_values,
-    timestamp: o.timestamp,
-  }));
-  const grid = computeEventCoverage(
-    eventId,
-    variants.map((v) => ({ id: v.id, name: v.name })),
-    contextColumns,
-    coverageObservations
-  );
-  const coverage: EventCardCoverage = {
-    rows: grid.rows,
-    columns: grid.columns.map((c) => ({ property_id: c.property_id, name: c.name, payload_key: c.payload_key, values: c.values })),
-    observed_count: grid.cells.length,
-    unobserved_count: grid.unobserved.length,
-  };
+  const coverage = options.light ? EMPTY_COVERAGE : buildCardCoverage(eventId, variants, contextColumns, observationsForEvent);
 
   const rules: EventCardRule[] = RuleDAL.listRulesByEvent(projectId, eventId).map((rule: RuleRow) => ({
     id: rule.id,
@@ -728,15 +766,13 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     })
     .filter((v): v is { code: string | null; name: string; level: string } => v !== null);
 
-  // F2 (D-63): with variants, the card's snippets show the first variant's discriminator values
-  // as literals ('add', 'success'); without variants a discriminator falls back to its first allowed value.
-  const attachedForCodegen =
-    variants.length > 0 ? attachedPropertiesForVariant(properties, variants[0]) : properties.map(toAttachedPropertyForCodegen);
   const identifierEvent = { ...event, source_ids: (context.sourcesByEventId.get(event.id) ?? []).map((s) => s.id) };
   const identifiers = effectiveEventIdentifiers(identifierEvent, context.identityRules, context.allSources, context.identifiers);
-  const codegenSnippets = buildCodegenV2(
+  // F2 (D-63): with variants, the card's snippets show the first variant's discriminator values
+  // as literals ('add', 'success'); without variants a discriminator falls back to its first allowed value.
+  const codegenSnippets: EventCardCodegen = options.light ? { gtm: '', web_sdk: '', tracking_api: '' } : buildCodegenV2(
     event.name,
-    attachedForCodegen,
+    variants.length > 0 ? attachedPropertiesForVariant(properties, variants[0]) : properties.map(toAttachedPropertyForCodegen),
     {
       method: event.implementation_method,
       dlEventName: event.dl_event_name,
@@ -864,13 +900,22 @@ export function buildUnattachedFindings(ctx: EventCardBuildContext): EventCardFi
 /** `GET /export/tracking-document.json` per the schema, `version: 1` (D-34). Custom events first,
  * then sdk/platform (plan: "events: EventCard[] (custom first, then sdk/platform with a reduced
  * card)"). Builds one `EventCardBuildContext` (WARNING 5 fix round) and reuses it for every card
- * plus the mapping/variant lookups below, instead of a fresh project-wide pass per event. */
-export function buildTrackingDocument(projectId: string): TrackingDocument {
+ * plus the mapping/variant lookups below, instead of a fresh project-wide pass per event.
+ *
+ * T-5-41 (D-88): `options.light` builds every card light (no coverage, no codegen; see
+ * `BuildEventCardOptions`), and `options.eventIds` limits `events` to those ids (an unknown id is
+ * simply absent). Both exist only for the lazy share routes below; every other section is built the
+ * same way regardless, and the default call is unchanged. */
+export function buildTrackingDocument(
+  projectId: string,
+  options: { light?: boolean; eventIds?: readonly string[] } = {}
+): TrackingDocument {
   const project = ProjectDAL.getProjectWithClient(projectId);
   const ctx = buildEventCardContext(projectId);
-  const events = ctx.events;
+  const only = options.eventIds ? new Set(options.eventIds) : null;
+  const events = only ? ctx.events.filter((e) => only.has(e.id)) : ctx.events;
   const orderedEventIds = [...events.filter((e) => e.class === 'custom'), ...events.filter((e) => e.class !== 'custom')].map((e) => e.id);
-  const eventCards = orderedEventIds.map((id) => buildEventCard(projectId, id, ctx));
+  const eventCards = orderedEventIds.map((id) => buildEventCard(projectId, id, ctx, { light: options.light }));
 
   // D-62 (T-4-11B): the project's sources with how many events use each.
   const sourceRows = SourceDAL.listSources(projectId);
@@ -1132,4 +1177,53 @@ export function toPublicTrackingDocument(doc: TrackingDocument): TrackingDocumen
       owners: { business: null, technical: null },
     })) as unknown as TrackingDocument['events'],
   };
+}
+
+// ---------------------------------------------------------------------------
+// Lazy share routes (T-5-41, D-88)
+// ---------------------------------------------------------------------------
+
+/**
+ * Reduces an already-public document to the summary shape: each event keeps only the light fields
+ * named in `TrackingDocumentSummaryEvent` (an allowlist, so a field added to `EventCard` later never
+ * reaches the summary by default), every other section is passed through as is. Takes the output
+ * of `toPublicTrackingDocument`, never a raw build, so the summary cannot carry anything the public
+ * projection strips.
+ */
+export function toTrackingDocumentSummary(publicDoc: TrackingDocument): TrackingDocumentSummary {
+  return {
+    ...publicDoc,
+    events: publicDoc.events.map(
+      (e): TrackingDocumentSummaryEvent => ({
+        id: e.id,
+        name: e.name,
+        business_name: e.business_name,
+        class: e.class,
+        implementation_method: e.implementation_method,
+        status: e.status,
+        priority: e.priority,
+        description: e.description,
+        sources: e.sources,
+        identifiers: e.identifiers,
+        certification: e.certification,
+        quality: e.quality,
+        variant_names: e.variants.map((v) => v.name),
+        property_count: e.properties.length,
+        open_finding_count: e.findings.length,
+      })
+    ),
+  };
+}
+
+/** `GET /api/shared/:token/document-summary.json`: light cards (no coverage, no codegen) through the
+ * same `toPublicTrackingDocument` projection as the full download, then `toTrackingDocumentSummary`. */
+export function buildPublicTrackingDocumentSummary(projectId: string): TrackingDocumentSummary {
+  return toTrackingDocumentSummary(toPublicTrackingDocument(buildTrackingDocument(projectId, { light: true })));
+}
+
+/** `GET /api/shared/:token/events/:eventId/card.json`: one full card, taken from the
+ * `toPublicTrackingDocument` output of a document limited to that event. `null` for an id that is
+ * not an event of this project (unknown, deleted, or another project's). */
+export function buildPublicEventCard(projectId: string, eventId: string): EventCard | null {
+  return toPublicTrackingDocument(buildTrackingDocument(projectId, { eventIds: [eventId] })).events[0] ?? null;
 }

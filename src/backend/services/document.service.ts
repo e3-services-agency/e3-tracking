@@ -38,6 +38,8 @@ import { createEventResolver } from './eventResolution';
 import { computeCertification } from '../../domain/certification';
 import { computeEventCoverage, type CoverageContextProperty, type CoverageObservation } from '../../domain/coverage';
 import { buildTargetLabelResolver } from './requirements-matrix.service';
+import { loadFindingPriorityContext } from './findingPriority.service';
+import { findingPriorityFields, type FindingPriorityContext } from '../../domain/findingPriority';
 import {
   buildCodegenV2,
   jsonSampleValueForProperty,
@@ -294,6 +296,10 @@ export interface EventCardBuildContext {
    * though they are excluded from `openFindings`/`EventCard.findings[]`. */
   acknowledgedFindingsByEventId: Map<string, FindingRow[]>;
   nameOf: (eventId: string, propertyId: string) => string;
+  /** D-89 (T-5-47): batched inputs of the finding priority rule (events, variants, live R
+   * requirements, use case codes), built once per context; every `EventCardFinding` gets its
+   * `priority`/`priority_rank`/`priority_reasons` from it in memory. */
+  priorityContext: FindingPriorityContext;
   /** Fix round WARNING 3: every non-deleted `property_definitions` row of the project, loaded
    * once and passed to every `getEventWithProperties` call in this file so `buildEventCard`/
    * `buildTrackingDocument` never run one definition query per link. */
@@ -327,7 +333,8 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
   const project = ProjectDAL.getProjectOrThrow(projectId);
   const events = EventDAL.listEvents(projectId);
   const eventNameById = new Map(events.map((e) => [e.id, e.name]));
-  const variantNameById = new Map(VariantDAL.listVariantsByProject(projectId).map((v) => [v.id, v.name]));
+  const allVariants = VariantDAL.listVariantsByProject(projectId);
+  const variantNameById = new Map(allVariants.map((v) => [v.id, v.name]));
   const allMappings = StandardEventMappingDAL.listStandardEventMappings(projectId);
 
   const observationsByEventId = new Map<string, ResolvedObservationForCard[]>();
@@ -413,6 +420,7 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     openFindingsByEventId,
     acknowledgedFindingsByEventId,
     nameOf: buildPropertyNameResolver(projectId, propertiesById, definitionsById),
+    priorityContext: loadFindingPriorityContext(projectId, { events, variants: allVariants }),
     definitionsById,
     propertiesById,
     bundleNameByPropertyId: new Map([...bundleNames].map(([id, names]) => [id, names.join(', ')])),
@@ -472,6 +480,9 @@ const SEVERITY_RANK: Record<string, number> = { error: 0, warning: 1, info: 2 };
  * more useful default reading order for a consumer than an arbitrary DB tie order. */
 function sortEventCardFindings(findings: EventCardFinding[]): EventCardFinding[] {
   return [...findings].sort((a, b) => {
+    // D-89 (T-5-47): priority order first (priority, severity, tier, event priority, finding number).
+    const byPriority = (a.priority_rank ?? Number.MAX_SAFE_INTEGER) - (b.priority_rank ?? Number.MAX_SAFE_INTEGER);
+    if (byPriority !== 0) return byPriority;
     const bySeverity = (SEVERITY_RANK[a.severity] ?? 3) - (SEVERITY_RANK[b.severity] ?? 3);
     if (bySeverity !== 0) return bySeverity;
     if (a.comparison !== b.comparison) return a.comparison < b.comparison ? -1 : 1;
@@ -502,7 +513,8 @@ function sortEventCardFindings(findings: EventCardFinding[]): EventCardFinding[]
 function toEventCardFinding(
   finding: FindingRow,
   nameOf: (eventId: string, propertyId: string) => string,
-  variantNameById: Map<string, string>
+  variantNameById: Map<string, string>,
+  priorityContext: FindingPriorityContext
 ): EventCardFinding {
   return {
     id: finding.id,
@@ -521,6 +533,7 @@ function toEventCardFinding(
     qa_run_id: finding.qa_run_id,
     first_seen: finding.first_seen_at,
     last_seen: finding.last_seen_at,
+    ...findingPriorityFields(finding, priorityContext),
   };
 }
 
@@ -702,7 +715,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
   const openFindingsForEvent = context.openFindingsByEventId.get(eventId) ?? [];
   const acknowledgedFindingsForEvent = context.acknowledgedFindingsByEventId.get(eventId) ?? [];
   const quality = { ...tallyFindings(openFindingsForEvent), acknowledged: tallySeverityOnly(acknowledgedFindingsForEvent) };
-  const findings = sortEventCardFindings(openFindingsForEvent.map((f) => toEventCardFinding(f, nameOf, variantNameById)));
+  const findings = sortEventCardFindings(openFindingsForEvent.map((f) => toEventCardFinding(f, nameOf, variantNameById, context.priorityContext)));
   const openErrorFindingCount = quality.open.error;
   // D-42 (T-2-09 fix round): a person resolving a finding by hand is an acknowledgement, not a
   // fix -- it still blocks certification while the fingerprint keeps reproducing.
@@ -893,7 +906,7 @@ export function buildUnattachedFindings(ctx: EventCardBuildContext): EventCardFi
   return sortEventCardFindings(
     ctx.openFindings
       .filter((f) => !f.event_id || !eventIds.has(f.event_id))
-      .map((f) => toEventCardFinding(f, ctx.nameOf, ctx.variantNameById))
+      .map((f) => toEventCardFinding(f, ctx.nameOf, ctx.variantNameById, ctx.priorityContext))
   );
 }
 
@@ -1088,8 +1101,11 @@ export function buildTrackingDocument(
     ),
   }));
 
-  const findingsSummary = tallyFindings(ctx.openFindings);
   const unattachedFindings = buildUnattachedFindings(ctx);
+  // D-89 (T-5-47): open P1 findings across the whole project, from the same rows as the counts
+  // above (so it does not shrink when `options.eventIds` limits `events`).
+  const openP1Count = ctx.openFindings.filter((f) => findingPriorityFields(f, ctx.priorityContext).priority === 'P1').length;
+  const findingsSummary = { ...tallyFindings(ctx.openFindings), open_p1_count: openP1Count };
 
   const eventTypeLimit = LimitsService.getEventTypeLimitSummary(projectId);
   const propertyLimits = LimitsService.getEventPropertyLimitSummaries(projectId);
@@ -1211,6 +1227,7 @@ export function toTrackingDocumentSummary(publicDoc: TrackingDocument): Tracking
         variant_names: e.variants.map((v) => v.name),
         property_count: e.properties.length,
         open_finding_count: e.findings.length,
+        open_p1_count: e.findings.filter((f) => f.priority === 'P1').length,
       })
     ),
   };
@@ -1224,7 +1241,9 @@ export function buildPublicTrackingDocumentSummary(projectId: string): TrackingD
 
 /** T-5-42 (D-88): the portal QA view's current findings. The summary keeps only a count per event,
  * so this route carries each event's `findings` (events without any are left out) and
- * `unattached_findings`, taken from the same light `toPublicTrackingDocument` output as the summary. */
+ * `unattached_findings`, taken from the same light `toPublicTrackingDocument` output as the summary.
+ * D-89 (T-5-47): each list is in priority order, and events are ordered by their best finding's
+ * `priority_rank` (ties keep the document order), so the events with P1 findings come first. */
 export interface PublicFindingsList {
   events: Pick<EventCard, 'id' | 'name' | 'findings'>[];
   unattached_findings: TrackingDocument['unattached_findings'];
@@ -1233,7 +1252,11 @@ export interface PublicFindingsList {
 export function buildPublicFindings(projectId: string): PublicFindingsList {
   const doc = toPublicTrackingDocument(buildTrackingDocument(projectId, { light: true }));
   return {
-    events: doc.events.filter((e) => e.findings.length > 0).map((e) => ({ id: e.id, name: e.name, findings: e.findings })),
+    events: doc.events
+      .filter((e) => e.findings.length > 0)
+      .map((e, index) => ({ event: { id: e.id, name: e.name, findings: e.findings }, best: e.findings[0]?.priority_rank ?? Number.MAX_SAFE_INTEGER, index }))
+      .sort((a, b) => a.best - b.best || a.index - b.index)
+      .map(({ event }) => event),
     unattached_findings: doc.unattached_findings,
   };
 }

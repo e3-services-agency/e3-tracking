@@ -221,7 +221,7 @@ describe('GET /api/shared/:token/document-summary.json (T-5-41)', () => {
       [
         'id', 'name', 'business_name', 'class', 'implementation_method', 'status', 'priority', 'description',
         'sources', 'identifiers', 'certification', 'quality', 'expiration', 'variant_names', 'property_count',
-        'open_finding_count',
+        'open_finding_count', 'open_p1_count',
       ].sort()
     );
     const fullCart = fullEvents.find((e: { name: string }) => e.name === 'cart_update');

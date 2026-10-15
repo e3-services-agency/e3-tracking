@@ -36,6 +36,14 @@ QA round without going through the web UI.
   rows are attributed to the calling agent automatically. The QA evidence tools
   (`submit_observation`, `submit_observations_batch`, `finish_qa_run`) are excluded from `change_log`
   (D-44); the definition write tools below are attributed to `agent_name`.
+- Finding priority (D-89, T-5-47): `list_findings` rows carry `priority` (`P1`-`P4`),
+  `priority_rank` and `priority_reasons`, derived at read time by `src/domain/findingPriority.ts`
+  (severity x the event's tier: transactional `server_api` event, then required by a live use case
+  at level R, then event priority critical/high; see `docs/TRACKING-DOCUMENT.md`), and come back in
+  priority order (lowest `priority_rank` first, the same as the internal `GET /findings` default). The
+  optional `priority` input (`"P1,P2"`) keeps only those priorities; an unknown value is a
+  `PRIORITY_INVALID` tool error. `get_event_card` and `get_tracking_document` carry the same three
+  fields on every finding, and `findings_summary.open_p1_count`.
 
 ## Definition write tools (T-5-01)
 

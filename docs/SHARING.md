@@ -118,6 +118,11 @@ The shared routes never serve the same document the internal app sees. `toPublic
 internal note. `triggers[]` (screenshots, D-50), `use_case.documentation_url`, property
 `definitions[]` (D-58) and the new `id` fields on `TrackingDocumentUseCase`/
 `TrackingDocumentRequirement` (D-49, T-4-04, additive) are unaffected — they are public by design.
+So are the finding priority fields (D-89, T-5-47): `priority`, `priority_rank` and
+`priority_reasons` on every finding, `findings_summary.open_p1_count` and the summary's per-event
+`open_p1_count`. The reasons name only the severity, the tier ("Transactional backend event"), use
+case codes and the event priority value, all of which the public document already carries; a use
+case's name is used only when it has no code.
 
 Comments are never part of the tracking document or the HTML export at all (D-49) — they are their
 own routes, described below.
@@ -139,7 +144,8 @@ at that path.
 - `GET /:token/document-summary.json` (T-5-41, D-88) — the same public document with each event
   reduced to its light fields (`TrackingDocumentSummaryEvent`: id, name, business_name, class,
   implementation_method, status, priority, description, sources, identifiers, certification,
-  quality, plus `variant_names`, `property_count`, `open_finding_count`). Every other top-level
+  quality, plus `variant_names`, `property_count`, `open_finding_count` and, since D-89 (T-5-47),
+  `open_p1_count`). Every other top-level
   section is exactly what `tracking-document.json` carries. The portal loads this first.
   Since T-5-46 each summary event also carries `expiration` (the card's effective expiration and
   its source; about 60 bytes per event), so the portal Events table shows the Expiration column.
@@ -147,13 +153,17 @@ at that path.
   object `tracking-document.json` carries for that event. Loaded when a client opens an event.
 - `GET /:token/findings.json` (T-5-42, D-88 amendment 1) — each event's current `findings` (events
   without any left out) plus `unattached_findings`, from the same light public document as the
-  summary. Loaded when a client opens the QA view.
+  summary. Loaded when a client opens the QA view. Since D-89 (T-5-47) every finding carries
+  `priority` (P1-P4), `priority_rank` and `priority_reasons`, each list is in priority order and the
+  events are ordered by their best finding, so events with P1 findings come first.
 - `GET /:token/history` — public change history. With `entity_type` and `entity_id`: one target
   (see "Identity, catalog and definition discussions" below). With neither (T-5-43): the project's
   recent public changes, newest first, same row shape, `limit` 1-100 and cursor paging; the
   overview asks for five.
 - `GET /:token/qa-reports`, `GET /:token/qa-reports/:id`, `GET /:token/findings/:id/history` — the
-  public QA reports and a finding's public history (QA view).
+  public QA reports and a finding's public history (QA view). Since D-89 (T-5-47) a report item's
+  `recorded` carries `priority`, `priority_rank` and `priority_reasons` as they were when the report
+  was captured; reports captured before that have none of the three.
 - `GET /:token/documentation.html` — the public projection of the HTML export.
 - `GET /:token/files/*` — the same decode/traversal checks as the internal `routes/files.ts`,
   scoped to this token's own project (a trigger screenshot, the project logo).

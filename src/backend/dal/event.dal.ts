@@ -414,6 +414,16 @@ export function listEvents(projectId: string): EventWithCounts[] {
   });
 }
 
+/** D-89 (T-5-47): the few event columns the finding priority rule reads, for every live event of the
+ * project in one query (lighter than `listEvents`, which also counts properties). */
+export function listEventPriorityFacts(
+  projectId: string
+): { id: string; name: string; class: string; priority: string | null; implementation_method: string }[] {
+  return getDb()
+    .prepare('SELECT id, name, class, priority, implementation_method FROM events WHERE project_id = ? AND deleted_at IS NULL')
+    .all(projectId) as { id: string; name: string; class: string; priority: string | null; implementation_method: string }[];
+}
+
 export function getEventById(projectId: string, eventId: string): EventRow | null {
   const db = getDb();
   const row = db

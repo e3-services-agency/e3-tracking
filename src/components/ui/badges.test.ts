@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CategoryBadge,
   ClassBadge,
+  FindingPriorityBadge,
   KindBadge,
   PriorityBadge,
   SeverityBadge,
@@ -15,6 +16,17 @@ import { REQUIREMENT_TARGET_KINDS } from '@/src/domain/enums';
 const html = (el: React.ReactElement) => renderToStaticMarkup(el);
 
 describe('badge vocabulary', () => {
+  it('gives finding priorities the red/amber/blue/neutral tones, a focusable reasons tooltip, and nothing without a priority (T-5-48)', () => {
+    expect(html(React.createElement(FindingPriorityBadge, { priority: 'P1' }))).toContain('bg-red-50');
+    expect(html(React.createElement(FindingPriorityBadge, { priority: 'P2' }))).toContain('bg-amber-50');
+    expect(html(React.createElement(FindingPriorityBadge, { priority: 'P3' }))).toContain('bg-blue-50');
+    expect(html(React.createElement(FindingPriorityBadge, { priority: 'P4' }))).toContain('bg-gray-50');
+    const withReasons = html(React.createElement(FindingPriorityBadge, { priority: 'P1', reasons: ['Error: blocks certification', 'Transactional backend event'] }));
+    expect(withReasons).toContain('tabindex="0"');
+    expect(withReasons).toContain('P1<span class="sr-only"> priority</span>');
+    expect(withReasons).toContain('bg-red-50');
+    expect(html(React.createElement(FindingPriorityBadge, { priority: undefined }))).toBe('');
+  });
   it('gives sdk and platform classes the Bloomreach accent and custom the neutral style', () => {
     expect(html(React.createElement(ClassBadge, { eventClass: 'sdk' }))).toContain('--brand-bloomreach');
     expect(html(React.createElement(ClassBadge, { eventClass: 'platform' }))).toContain('--brand-bloomreach');

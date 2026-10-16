@@ -65,18 +65,18 @@ const table = (onNavigate = vi.fn()) => <SharedFindingsTable events={[event]} un
 describe('Shared current Findings table', () => {
   it('uses the shared semantic table, full wrapping content and a single five-column workflow', async () => {
     await mount(table());
-    expect(Array.from(container.querySelectorAll('thead th')).map(th => th.textContent)).toEqual(['Number', 'Severity', 'Event', 'Message', 'Actions']);
+    expect(Array.from(container.querySelectorAll('thead th')).map(th => th.textContent)).toEqual(['Number', 'Priority', 'Severity', 'Event', 'Message', 'Actions']);
     const region = container.querySelector('[aria-label="Individual finding discussions table"]')!;
     expect(region.className).toContain('overflow-x-auto'); expect(region.getAttribute('tabindex')).toBe('0');
     expect(region.querySelector('table')!.className).toContain('text-sm');
     const rows = region.querySelectorAll('tbody tr'); expect(rows).toHaveLength(2);
     expect(rows[0].id).toBe(`current-finding-${first.id}`); expect(rows[1].id).toBe(`current-finding-${second.id}`);
     expect(rows[0].querySelector('th[scope="row"]')!.textContent).toBe(firstNumber);
-    expect(rows[0].children[1].textContent).toBe('Error'); expect(rows[1].children[1].textContent).toBe('Warning');
-    expect(rows[0].children[2].textContent).toBe(eventName); expect(rows[1].children[2].textContent).toBe('Not tied to an event');
-    expect(rows[0].children[3].textContent).toContain(message);
-    expect(rows[0].children[3].className).toContain('[overflow-wrap:anywhere]');
-    expect(rows[0].children[4].querySelector('div')!.className).toContain('flex-wrap');
+    expect(rows[0].children[2].textContent).toBe('Error'); expect(rows[1].children[2].textContent).toBe('Warning');
+    expect(rows[0].children[3].textContent).toBe(eventName); expect(rows[1].children[3].textContent).toBe('Not tied to an event');
+    expect(rows[0].children[4].textContent).toContain(message);
+    expect(rows[0].children[4].className).toContain('[overflow-wrap:anywhere]');
+    expect(rows[0].children[5].querySelector('div')!.className).toContain('flex-wrap');
     expect(requested).toEqual([]); // No new status/private-data lookup.
   });
   it('expands original comparison/context and existing family next step without changing action targets', async () => {
@@ -332,6 +332,25 @@ describe('Findings past the portal row limit (T-5-42)', () => {
     await act(async () => container.querySelector<HTMLButtonElement>('[data-testid="finding-show-more"] button')!.click());
     expect(rowsOf()).toHaveLength(141);
     expect(container.querySelector('[data-testid="finding-show-more"]')).toBeNull();
+  });
+
+  it('orders by priority_rank, filters by priority over every finding and follows a findings-priority-P1 link (T-5-48)', async () => {
+    // The long-named event's 20 findings (numbers 121-140) are P1, ranked before the 121 unranked ones.
+    const p1 = later.map((f, i) => ({ ...f, priority: 'P1', priority_rank: i + 1, priority_reasons: ['Error: blocks certification', 'Transactional backend event'] }));
+    servedDoc = { ...bigDoc(), events: [emptyEventCard({ id: 'event-a', name: 'event_a', findings: many }), { ...event, findings: p1 }] };
+    await mountPortal(`${PORTAL}/qa`);
+    expect(rowsOf()).toHaveLength(PORTAL_ROW_LIMIT);
+    expect(rowsOf()[0].id).toBe('current-finding-f-121');
+    expect(rowsOf()[0].querySelector('[data-testid="finding-priority-badge"]')!.textContent).toContain('P1');
+    expect(rowsOf()[20].querySelector('[data-testid="finding-priority-badge"]')).toBeNull();
+    const control = container.querySelector<HTMLSelectElement>('select[id$="-priority"]')!;
+    await act(async () => { control.value = 'P1'; control.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(rowsOf()).toHaveLength(20);
+    expect(container.querySelector('[role="status"]')!.textContent).toBe('Showing 20 of 141 findings');
+    await act(async () => { control.value = ''; control.dispatchEvent(new Event('change', { bubbles: true })); });
+    await changeHash('#findings-priority-P1');
+    expect(control.value).toBe('P1');
+    expect(rowsOf()).toHaveLength(20);
   });
 
   it('opens a copied #current-finding link to row 140: pinned, marked, expanded and scrolled to', async () => {

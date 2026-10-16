@@ -343,7 +343,8 @@ export function sameTarget(target: PortalTarget, view: PortalView, id: string | 
 /**
  * Finding-table navigation for a QA anchor: `findings` (the table), `findings-<comparison>` (one
  * comparison), `findings-<comparison>-<event anchor>` or `-project` (one event, or the findings tied
- * to no event), `current-finding-<id>` (one finding). `null` for anything else.
+ * to no event), `current-finding-<id>` (one finding), `findings-priority-<P1..P4>` (one priority,
+ * T-5-48). `null` for anything else.
  */
 export function findingNavigationForAnchor(
   anchor: string,
@@ -354,6 +355,8 @@ export function findingNavigationForAnchor(
   if (anchor === 'findings' || anchor === 'current-findings-table') return { revision };
   if (anchor.startsWith('current-finding-')) return { revision, findingId: strip(anchor, 'current-finding-') };
   if (!anchor.startsWith('findings-')) return null;
+  const priority = /^findings-priority-(P[1-4])$/.exec(anchor)?.[1];
+  if (priority) return { revision, priority };
   // Longest comparison first: one comparison name may prefix another.
   for (const comparison of [...comparisons].sort((a, b) => b.length - a.length)) {
     const group = `findings-${comparison}`;

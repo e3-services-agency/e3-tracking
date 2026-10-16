@@ -200,6 +200,8 @@ describe('finding anchors filter the QA table', () => {
     expect(findingNavigationForAnchor('findings-definition_vs_observations-project', comparisons, index.eventIdByAnchor, 4)).toEqual({ revision: 4, comparison: 'definition_vs_observations', eventId: PROJECT_FINDINGS });
     expect(findingNavigationForAnchor('current-finding-f9', comparisons, index.eventIdByAnchor, 5)).toEqual({ revision: 5, findingId: 'f9' });
     expect(findingNavigationForAnchor('finding-f9', comparisons, index.eventIdByAnchor, 6)).toBeNull();
+    expect(findingNavigationForAnchor('findings-priority-P1', comparisons, index.eventIdByAnchor, 7)).toEqual({ revision: 7, priority: 'P1' });
+    expect(findingNavigationForAnchor('findings-priority-P9', comparisons, index.eventIdByAnchor, 8)).toBeNull();
   });
 });
 

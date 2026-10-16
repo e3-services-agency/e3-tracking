@@ -1,7 +1,7 @@
 /**
  * Portal overview, the landing view (T-5-43, D-88 plan section 5): the project, when it last
  * changed, the downloads, progress (custom events by status, certified out of applicable, open
- * findings by severity), what is waiting on the client (open comment threads and the five latest
+ * findings by severity, and the open P1 count linking to the QA view filtered to P1, T-5-48), what is waiting on the client (open comment threads and the five latest
  * public changes) and one card per section. Data: the summary, the public comments, and the
  * project-wide form of `GET /api/shared/:token/history`; nothing else.
  */
@@ -9,7 +9,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Download } from 'lucide-react';
 import { SHARED_SECTION_ICONS } from '@/src/components/layout/navIcons';
 import { Button } from '@/src/components/ui/Button';
-import { SeverityBadge, StatusBadge } from '@/src/components/ui/badges';
+import { FindingPriorityBadge, SeverityBadge, StatusBadge } from '@/src/components/ui/badges';
 import { openThreadCount, shareApiUrl, usePortal } from '../PortalContext';
 import { PORTAL_VIEW_ICON_KEYS, PortalLink, PortalPage, VIEW_COMMENT_TYPES } from '../PortalParts';
 import { PORTAL_VIEW_LABELS } from '../portalModel';
@@ -87,6 +87,11 @@ function Progress() {
             <SeverityBadge severity={severity} /> <span className="tabular-nums">{open[severity]}</span>
           </span>
         ))}
+        {summary.findings_summary.open_p1_count !== undefined && (
+          <PortalLink to={{ view: 'qa', id: null, hash: '#findings-priority-P1' }} className="inline-flex items-center gap-1 text-[var(--color-info)] hover:underline" data-testid="overview-open-p1">
+            <span aria-hidden="true"><FindingPriorityBadge priority="P1" /></span> <span>Open P1</span> <span className="tabular-nums">{summary.findings_summary.open_p1_count}</span>
+          </PortalLink>
+        )}
       </p>
     </section>
   );

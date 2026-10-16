@@ -7,7 +7,8 @@ import type { EntityKind } from '@/src/components/layout/navIcons';
 /** Semantic shared lists: fixed column allocation keeps long names independent of badges/actions.
  * A keyboard-scrollable region preserves readable columns on narrow screens. */
 export function SharedEntityTable({ label, columns, children }: {
-  label: string; columns: { label: string; width?: string }[]; children: React.ReactNode;
+  /** `content` replaces the header text (e.g. a `GlossaryTerm`); the hint still comes from `label`. */
+  label: string; columns: { label: string; width?: string; content?: React.ReactNode }[]; children: React.ReactNode;
 }) {
   return (
     <div role="region" aria-label={`${label} table`} tabIndex={0} className="overflow-x-auto rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] shadow-sm focus-visible:outline-2 focus-visible:outline-[var(--color-info)]">
@@ -15,7 +16,7 @@ export function SharedEntityTable({ label, columns, children }: {
         <caption className="sr-only">{label}</caption>
         <colgroup>{columns.map((c) => <col key={c.label} style={c.width ? { width: c.width } : undefined} />)}</colgroup>
         <thead className="border-b bg-gray-50 text-sm text-gray-500">
-          <tr>{columns.map((c) => <HintTh key={c.label} scope="col" hintScope="Shared" className="px-4 py-2 text-xs font-medium">{c.label}</HintTh>)}</tr>
+          <tr>{columns.map((c) => <HintTh key={c.label} scope="col" hint={c.label} hintScope="Shared" className="px-4 py-2 text-xs font-medium">{c.content ?? c.label}</HintTh>)}</tr>
         </thead>
         <tbody className="divide-y">{children}</tbody>
       </table>

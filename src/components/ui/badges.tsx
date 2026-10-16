@@ -11,6 +11,7 @@ import { PROPERTY_KIND_LABELS } from '@/src/domain/propertyCategory';
 import { enumLabel, TARGET_KIND_LABELS } from '@/src/domain/enumLabels';
 import type { PropertyKind } from '@/src/domain/enums';
 import { isSourceColor, sourceViaLabel } from '@/src/domain/sources';
+import { Tooltip } from './Tooltip';
 import {
   CATEGORY_ICONS,
   CLASS_ICONS,
@@ -161,6 +162,38 @@ export function SeverityBadge({ severity, className = '' }: { severity: string; 
     <Badge tone={SEVERITY_TONE[severity] ?? 'neutral'} icon={SEVERITY_ICONS[severity]} className={className}>
       {enumLabel('severity', severity)}
     </Badge>
+  );
+}
+
+const FINDING_PRIORITY_TONE: Record<string, BadgeTone> = { P1: 'red', P2: 'amber', P3: 'blue', P4: 'neutral' };
+
+/**
+ * Finding priority (D-89, T-5-48): P1-P4 as derived by the backend (never recomputed here), the
+ * reasons in the shared Tooltip, which is focusable, so the reasons are keyboard reachable. A
+ * finding without a priority (an older QA report item) renders nothing.
+ */
+export function FindingPriorityBadge({
+  priority,
+  reasons,
+  className = '',
+}: {
+  priority: string | null | undefined;
+  reasons?: string[] | null;
+  className?: string;
+}) {
+  if (!priority) return null;
+  const tone = FINDING_PRIORITY_TONE[priority] ?? 'neutral';
+  // Two elements per badge: the portal QA table renders up to 100 of them (T-5-42 DOM budget).
+  const text = <>{priority}<span className="sr-only"> priority</span></>;
+  if (!reasons || reasons.length === 0) return <Badge testId="finding-priority-badge" tone={tone} className={className}>{text}</Badge>;
+  return (
+    <Tooltip
+      testId="finding-priority-badge"
+      content={reasons.join('; ')}
+      className={`inline-flex items-center whitespace-nowrap rounded border px-1.5 py-0.5 text-xs font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${BADGE_TONE_CLASS[tone]} ${className}`}
+    >
+      {text}
+    </Tooltip>
   );
 }
 

@@ -81,7 +81,7 @@ const OPEN = /<(FieldLabel|HintTh|SortableTh)(\s(?:[^<>]|=>|\{[^{}]*\})*?)>/g;
 describe('page-scoped hints (F2)', () => {
   const SCOPED: [string, string][] = [
     ['Properties', 'Kind'], ['UseCases', 'Status'], ['Identity', 'Type'], ['Identity', 'Name'], ['Sources', 'Name'],
-    ['Catalogs', 'Priority'], ['Identity', 'Priority'], ['UseCases', 'Priority'], ['Catalogs', 'Description'],
+    ['Catalogs', 'Priority'], ['Identity', 'Priority'], ['UseCases', 'Priority'], ['Findings', 'Priority'], ['Catalogs', 'Description'],
     ['Identity', 'Description'], ['UseCases', 'Description'], ['UseCases', 'Level'], ['Sources', 'Method'],
     ['Properties', 'Actions'], ['Sources', 'Actions'], ['UseCases', 'Actions'], ['Events', 'Actions'],
   ];

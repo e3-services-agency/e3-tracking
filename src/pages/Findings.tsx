@@ -4,13 +4,15 @@ import {TargetCollaboration,useProjectComments} from '@/src/features/comments/Ta
 import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
 import { EnumSelect } from '@/src/components/ui/EnumSelect';
 import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
-import { SeverityBadge, StatusBadge } from '@/src/components/ui/badges';
+import { FindingPriorityBadge, SeverityBadge, StatusBadge } from '@/src/components/ui/badges';
 /**
  * Findings page (T-1-09, D-07 simplified UI; T-2-04 adds comparison 4, `data_manager`): a table of
  * findings from every comparison engine `POST /comparison/run` orchestrates, with filters
  * (comparison, kind, severity, event, status), from `enums.ts` — never hardcoded. Reads
  * `pendingFindingsRunId` from the store once (set by `QaRuns.tsx`'s "View findings for this run"
  * and by `Import.tsx`'s customer-events-export apply) to pre-filter by the observation's run.
+ * T-5-48 (D-89): a Priority column and filter; the natural order is the backend's priority order
+ * (`priority_rank`), never recomputed here.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -22,7 +24,7 @@ import { useProjectShell } from '@/src/features/projects/context/ProjectShellCon
 import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
-import { COMPARISON_IDS, FINDING_KINDS, FINDING_SEVERITIES, FINDING_STATUSES } from '@/src/domain/enums';
+import { COMPARISON_IDS, FINDING_KINDS, FINDING_PRIORITIES, FINDING_SEVERITIES, FINDING_STATUSES } from '@/src/domain/enums';
 import { showEmptyState, showLoadingPlaceholder } from '@/src/domain/loadingState';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 
@@ -40,6 +42,10 @@ interface FindingRow {
   message: string | null;
   status: string;
   last_seen_at: string;
+  /** D-89 (T-5-47): derived by the backend at read time. */
+  priority?: string;
+  priority_rank?: number;
+  priority_reasons?: string[];
 }
 
 /** T-2-09: the rule name for rule-kind findings, echoed onto `expected_json.rule_name`
@@ -72,6 +78,7 @@ export function Findings() {
   const [comparison, setComparison] = useState('');
   const [kind, setKind] = useState('');
   const [severity, setSeverity] = useState('');
+  const [priority, setPriority] = useState('');
   const [eventId, setEventId] = useState('');
   const [status, setStatus] = useState('open');
   // Starts `true`: the mount effect below fires a load immediately whenever the project context is
@@ -106,6 +113,7 @@ export function Findings() {
 
   const eventNameById = useMemo(() => new Map(events.map((e) => [e.id, e.name])), [events]);
   const { sorted: sortedFindings, sort } = useSortableTable(findings, {
+    priority: (f) => f.priority_rank ?? null,
     severity: (f) => ({ error: 1, warning: 2, info: 3 } as Record<string, number>)[f.severity] ?? 9,
     kind: (f) => f.kind,
     rule: (f) => ruleNameOf(f),
@@ -134,6 +142,7 @@ export function Findings() {
       if (comparison) params.set('comparison', comparison);
       if (kind) params.set('kind', kind);
       if (severity) params.set('severity', severity);
+      if (priority) params.set('priority', priority);
       if (eventId) params.set('event_id', eventId);
       if (status) params.set('status', status);
       if (runIdFilter) params.set('qa_run_id', runIdFilter);
@@ -170,7 +179,7 @@ export function Findings() {
     } finally {
       if (token === loadTokenRef.current) setLoading(false);
     }
-  }, [hasValidProjectContext, activeProjectId, comparison, kind, severity, eventId, status, runIdFilter]);
+  }, [hasValidProjectContext, activeProjectId, comparison, kind, severity, priority, eventId, status, runIdFilter]);
 
   useEffect(() => {
     load();
@@ -260,6 +269,13 @@ export function Findings() {
             </select>
           </div>
           <div className="space-y-1">
+            <FieldLabel className="text-xs font-medium text-gray-500" hint="Priority" hintScope="Findings">Priority</FieldLabel>
+            <select value={priority} onChange={(e) => setPriority(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
+              <option value="">All</option>
+              {FINDING_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
             <FieldLabel className="text-xs font-medium text-gray-500" hint="Severity" hintScope="Findings">Severity</FieldLabel>
             <EnumSelect kind="severity" values={FINDING_SEVERITIES} emptyLabel="All" value={severity} onChange={(e) => setSeverity(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm" />
           </div>
@@ -285,6 +301,7 @@ export function Findings() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
+                <SortableTh sort={sort} column="priority" className="px-6 py-3 font-medium text-gray-500" hint="Priority" hintScope="Findings"><GlossaryTerm glossaryKey="finding_priority">Priority</GlossaryTerm></SortableTh>
                 <SortableTh sort={sort} column="severity" className="px-6 py-3 font-medium text-gray-500" hint="Severity" hintScope="Findings">Severity</SortableTh>
                 <SortableTh sort={sort} column="kind" className="px-6 py-3 font-medium text-gray-500" hint="Kind" hintScope="Findings">Kind</SortableTh>
                 <SortableTh sort={sort} column="rule" className="px-6 py-3 font-medium text-gray-500" hint="Rule" hintScope="Findings">Rule</SortableTh>
@@ -299,6 +316,9 @@ export function Findings() {
             <tbody className="divide-y">
               {sortedFindings.map((f) => (
                 <tr key={f.id}>
+                  <td className="px-6 py-4">
+                    <FindingPriorityBadge priority={f.priority} reasons={f.priority_reasons} />
+                  </td>
                   <td className="px-6 py-4">
                     <SeverityBadge severity={f.severity} />
                   </td>
@@ -337,7 +357,7 @@ export function Findings() {
               ))}
               {showEmptyState(loading, findings.length) && (
                 <EmptyState
-                  colSpan={9}
+                  colSpan={10}
                   message="No findings match these filters. Run a comparison to check the current definition, mapping and observations."
                   actionLabel="Run comparison"
                   onAction={() => void runComparison()}
@@ -345,7 +365,7 @@ export function Findings() {
               )}
               {showLoadingPlaceholder(loading, findings.length) && (
                 <tr>
-                  <td colSpan={9} className="px-6 py-8 text-center text-gray-400">
+                  <td colSpan={10} className="px-6 py-8 text-center text-gray-400">
                     Loading…
                   </td>
                 </tr>

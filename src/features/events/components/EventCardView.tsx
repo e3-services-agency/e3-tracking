@@ -32,7 +32,7 @@ import { CodegenTabs } from '@/src/features/shared/CodegenTabs';
 import { hasCodegen, type CodegenData } from '@/src/features/shared/codegenMethodTabs';
 import { TriggersBlock } from '@/src/features/shared/TriggersBlock';
 import { derivedMetricsText, eventCardVisibility, variantsAnchor } from '@/src/features/shared/viewHelpers';
-import { CategoryBadge, ClassBadge, KindBadge, PriorityBadge, RoleBadge, SeverityBadge, StatusBadge } from '@/src/components/ui/badges';
+import { CategoryBadge, ClassBadge, FindingPriorityBadge, KindBadge, PriorityBadge, RoleBadge, SeverityBadge, StatusBadge } from '@/src/components/ui/badges';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import type { PropertyCategory } from '@/src/domain/propertyCategory';
 import { displaySampleValue } from '@/src/domain/examples';
@@ -144,6 +144,10 @@ export interface EventCardData {
     qa_run_id: string | null;
     first_seen: string;
     last_seen: string;
+    /** D-89 (T-5-47): derived by the backend; the card already lists findings in this order. */
+    priority?: string;
+    priority_rank?: number;
+    priority_reasons?: string[];
   }[];
   agent_instructions: string | null;
   codegen: CodegenData;
@@ -230,6 +234,8 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
   const showNames = anyNameDiffersFromKey(card.properties);
   const shared = mode === 'shared';
   const visible = eventCardVisibility(card);
+  // D-89 (T-5-48): the backend's rank, never recomputed; a stable sort keeps an unranked card's order.
+  const findings = [...card.findings].sort((a, b) => (a.priority_rank ?? Number.MAX_SAFE_INTEGER) - (b.priority_rank ?? Number.MAX_SAFE_INTEGER));
   /** First property cell: the key (a link when the caller supplies one), the category badge and the copy-name button. */
   const keyCell = (p: EventCardData['properties'][number]) => (
     <span key={p.property_id} className="inline-flex flex-wrap items-center gap-1.5">
@@ -494,13 +500,14 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           />
         )}
         {card.findings.length === 0 && <p className="text-sm text-gray-500 mt-3">No open findings.</p>}
-        {card.findings.length > 0 && (
+        {findings.length > 0 && (
           <div className="mt-3">
             {shared ? (
               <Table
-                head={['Severity', 'Kind', 'Property / variant', 'Message']}
-                wideColumns={[3]}
-                rows={card.findings.map((f) => [
+                head={[PRIORITY_HEAD, 'Severity', 'Kind', 'Property / variant', 'Message']}
+                wideColumns={[4]}
+                rows={findings.map((f) => [
+                  <FindingPriorityBadge key="pr" priority={f.priority} reasons={f.priority_reasons} />,
                   <SeverityBadge key="sv" severity={f.severity} />,
                   <FindingTerm key="k" kind={f.kind} />,
                   [f.property, f.variant].filter(Boolean).join(' / ') || '—',
@@ -509,9 +516,10 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
               />
             ) : (
             <Table
-              head={['Severity', 'Kind', 'Comparison', 'Rule', 'Property', 'Variant', 'Message', 'Expected', 'Actual', 'QA run', 'First seen', 'Last seen']}
-              wideColumns={[6]}
-              rows={card.findings.map((f) => [
+              head={[PRIORITY_HEAD, 'Severity', 'Kind', 'Comparison', 'Rule', 'Property', 'Variant', 'Message', 'Expected', 'Actual', 'QA run', 'First seen', 'Last seen']}
+              wideColumns={[7]}
+              rows={findings.map((f) => [
+                <FindingPriorityBadge key="pr" priority={f.priority} reasons={f.priority_reasons} />,
                 <SeverityBadge key="sv" severity={f.severity} />,
                 <FindingTerm key="k" kind={f.kind} />,
                 <FindingTerm key="c" comparison={f.comparison} />,
@@ -642,17 +650,25 @@ export function StandardMappingBlock({
   );
 }
 
-export function Table({ head, rows, wideColumns = [] }: { head: string[]; rows: React.ReactNode[][]; wideColumns?: number[] }) {
+/** A header cell: plain text, or a label (the hint key) shown as other content, e.g. a `GlossaryTerm`. */
+const PRIORITY_HEAD: TableHead = { label: 'Finding priority', content: <GlossaryTerm glossaryKey="finding_priority">Priority</GlossaryTerm> };
+
+export type TableHead = string | { label: string; content: React.ReactNode };
+
+export function Table({ head, rows, wideColumns = [] }: { head: TableHead[]; rows: React.ReactNode[][]; wideColumns?: number[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-xs">
         <thead className="bg-gray-50 border-b">
           <tr>
-            {head.map((h, j) => (
-              <HintTh key={h} hint={h} className={`px-3 py-2 font-medium text-gray-500 ${wideColumns.includes(j) ? 'w-full' : ''}`} hintScope="Events">
-                {h}
-              </HintTh>
-            ))}
+            {head.map((h, j) => {
+              const label = typeof h === 'string' ? h : h.label;
+              return (
+                <HintTh key={label} hint={label} className={`px-3 py-2 font-medium text-gray-500 ${wideColumns.includes(j) ? 'w-full' : ''}`} hintScope="Events">
+                  {typeof h === 'string' ? h : h.content}
+                </HintTh>
+              );
+            })}
           </tr>
         </thead>
         <tbody className="divide-y">

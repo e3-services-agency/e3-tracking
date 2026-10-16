@@ -40,7 +40,7 @@ const doc = (): Partial<TrackingDocument> => ({
     emptyEventCard({ id: 'ev-session', name: 'session_start', class: 'sdk', status: 'implemented', certification: { applicable: false, certified: false, reasons: [] } }),
   ],
   catalogs: [], identity_rules: [], use_cases: [], consent_categories: [], standard_event_mappings: [], unattached_findings: [],
-  findings_summary: { open: { error: 3, warning: 1, info: 0 }, by_comparison: {} },
+  findings_summary: { open: { error: 3, warning: 1, info: 0 }, by_comparison: {}, open_p1_count: 2 },
 });
 
 const comment = (id: string, over: Record<string, unknown>) => ({
@@ -95,6 +95,10 @@ describe('Portal overview', () => {
     expect(q('[data-testid="overview-severity-error"]')!.textContent).toMatch(/3$/);
     expect(q('[data-testid="overview-severity-warning"]')!.textContent).toMatch(/1$/);
     expect(q('[data-testid="overview-severity-info"]')!.textContent).toMatch(/0$/);
+    // T-5-48: the open P1 count from the summary, linking to the QA view filtered to P1.
+    const p1 = q('[data-testid="overview-open-p1"]') as HTMLAnchorElement;
+    expect(p1.textContent).toMatch(/Open P1\s*2$/);
+    expect(p1.getAttribute('href')).toMatch(/\/qa#findings-priority-P1$/);
   });
 
   it('lists open threads newest activity first, linking to their targets, never internal or closed ones', async () => {

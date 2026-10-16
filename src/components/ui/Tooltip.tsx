@@ -58,11 +58,11 @@ export function useTooltip(content: React.ReactNode | undefined) {
   return { anchorRef, triggerProps, portal, enabled };
 }
 
-export function Tooltip({ content, children, className }: { content: React.ReactNode | undefined; children: React.ReactNode; className?: string }) {
+export function Tooltip({ content, children, className, testId }: { content: React.ReactNode | undefined; children: React.ReactNode; className?: string; testId?: string }) {
   const { anchorRef, triggerProps, portal } = useTooltip(content);
   return (
     <>
-      <span ref={anchorRef} className={className} tabIndex={triggerProps.onFocus ? 0 : undefined} {...triggerProps}>{children}</span>
+      <span ref={anchorRef} data-testid={testId} className={className} tabIndex={triggerProps.onFocus ? 0 : undefined} {...triggerProps}>{children}</span>
       {portal}
     </>
   );

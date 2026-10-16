@@ -16,7 +16,16 @@ describe('Public finding ordering and filters', () => {
     const rows = sharedFindingRows([{ id: 'event', name: 'Checkout', findings: [finding('event-finding', 9, 'error')] }], [finding('project', 10, 'warning')]);
     const label = '#' + '009';
     expect(filterSharedFindings(rows, { ...EMPTY_FINDING_FILTERS, search: label }).map(row => row.finding.id)).toEqual(['event-finding']);
-    expect(filterSharedFindings(rows, { search: 'Finding ' + label, severity: 'error', eventId: 'event', comparison: 'definition_vs_mapping' })).toHaveLength(1);
+    expect(filterSharedFindings(rows, { search: 'Finding ' + label, severity: 'error', eventId: 'event', comparison: 'definition_vs_mapping', priority: '' })).toHaveLength(1);
     expect(filterSharedFindings(rows, { ...EMPTY_FINDING_FILTERS, search: label, eventId: '__project__' })).toHaveLength(0);
+  });
+  it('orders by the backend priority_rank, unranked findings last by severity, and filters by priority (T-5-48)', () => {
+    const ranked = (id: string, seq: number, severity: EventCardFinding['severity'], priority: string, priority_rank: number): EventCardFinding =>
+      ({ ...finding(id, seq, severity), priority, priority_rank, priority_reasons: [] } as EventCardFinding);
+    const rows = sharedFindingRows([{ id: 'purchase', name: 'purchase', findings: [ranked('p1-warn-rank', 7, 'warning', 'P2', 200)] }],
+      [finding('legacy-error', 1, 'error'), ranked('p1', 9, 'error', 'P1', 100), ranked('p4', 2, 'error', 'P4', 900)]);
+    expect(rows.map(row => row.finding.id)).toEqual(['p1', 'p1-warn-rank', 'p4', 'legacy-error']);
+    expect(filterSharedFindings(rows, { ...EMPTY_FINDING_FILTERS, priority: 'P1' }).map(row => row.finding.id)).toEqual(['p1']);
+    expect(filterSharedFindings(rows, { ...EMPTY_FINDING_FILTERS, priority: 'P1', severity: 'warning' })).toHaveLength(0);
   });
 });

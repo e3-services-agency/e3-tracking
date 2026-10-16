@@ -80,6 +80,12 @@ export const GLOSSARY: GlossaryEntry[] = [
       "A use case's delivery status in Bloomreach: planned, in build, live, or paused.",
   },
   {
+    key: 'finding_priority',
+    term: 'Finding priority',
+    definition:
+      'P1 (fix first) to P4, from the severity and how much the event matters: errors on transactional backend events or on events a use case requires are P1, other errors P2; warnings are P2 on transactional events, P3 on required or critical/high-priority events, P4 otherwise; info is P3 on transactional events, P4 otherwise.',
+  },
+  {
     key: 'sandbox',
     term: 'Sandbox',
     definition:

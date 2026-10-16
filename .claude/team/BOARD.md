@@ -4966,3 +4966,77 @@ Reviewer LOW tests added (tests only, no code change, uncommitted). src/domain/f
 
 ### 2026-10-15 22:23 | claude-supervisor -> ALL | MERGE | T-5-47
 At the user's request: 97f451c (T-5-47, incl. the two reviewer-requested DB-level tests) merged into agent-setup via 75b0320 (no conflicts). Merged tree: npm run build and npm run lint green; npx vitest run --pool=forks (2 workers) 253 files / 2464 tests pass, no unhandled error. Not pushed, not released (live stays 15abadb / 0045). Notes from QA kept for later: the armedangels GET /findings went 20 -> 36 ms (response 430 -> 491 KB), non-blocking; recomputing comparison on a sandbox copy raised stored open findings 75 -> 408 (mostly P4 missing_event), not caused by this task and not yet investigated. T-5-48 (priority UI) is unblocked.
+
+### 2026-10-15 22:41 | implementer -> ALL | INFO | T-5-48
+Starting T-5-48 (finding priority UI, D-89) on task/T-5-48-priority-ui off agent-setup 62e5228, worktree .claude/worktrees/inspiring-wescoff-7eaba0.
+
+### 2026-10-15 23:31 | implementer -> reviewer | HANDOFF | T-5-48
+Task: T-5-48 Finding priority in the UI
+Branch: task/T-5-48-priority-ui (off agent-setup 62e5228; uncommitted, commit only on the user's word)
+Changed:
+- src/components/ui/badges.tsx: `FindingPriorityBadge` (P1 red, P2 amber, P3 blue, P4 neutral); reasons in the shared Tooltip, focusable (tabindex 0, opens on keyboard focus); two DOM elements per badge; renders nothing without a priority.
+- src/components/ui/Tooltip.tsx: optional `testId`.
+- src/domain/glossary.ts: "Finding priority" entry (the matrix in one sentence). src/domain/fieldHints.ts: `Findings.Priority`, `Shared.Priority`, `Finding priority` hints; fieldHintsCoverage.test.ts SCOPED gains Findings/Priority.
+- src/pages/Findings.tsx: Priority column first (GlossaryTerm header, sortable by `priority_rank`), natural order = backend priority order, Priority filter sent as `?priority=`; severity/other filters and Resolve/Reopen unchanged.
+- src/features/shared/sharedFindingsModel.ts: rows ordered by `priority_rank` (unranked after, by severity then number); `priority` filter; `FindingNavigation.priority`.
+- src/features/shared/SharedFindingsTable.tsx: Priority column + filter over all findings ("Showing N of M" respects it), P1 total in the totals line; 100-row cap, pinned deep-linked row and old anchors unchanged. SharedEntityTable.tsx: optional column `content` (hint still from the label).
+- src/features/portal/portalModel.ts: anchor `#findings-priority-P1..P4` filters the QA table (an old single-page link with it routes to /qa too).
+- src/features/portal/views/PortalOverview.tsx: "Open P1 <n>" from `findings_summary.open_p1_count`, linking to qa#findings-priority-P1 (hidden when the field is absent).
+- src/features/events/components/EventCardView.tsx: Priority column (both modes; portal event page included), findings sorted by `priority_rank`; `Table` head accepts {label, content}.
+- src/features/findings/QaReports.tsx: "Recorded priority" badge per item from the frozen `recorded.priority`/`priority_reasons`; older items show nothing.
+- Tests: badges.test.ts, sharedFindingsModel.test.ts, SharedFindingsTable.test.tsx (6 columns; new P1 order/filter/anchor test over 141 rows), portalModel.test.ts, PortalOverview.test.tsx.
+How to verify:
+1. Scratch copy of data/e3-tracking.sqlite, API on a free port (E3_DB_PATH, PORT), Vite from the worktree with the proxy pointed there. Note: vite.config.ts ignores `**/.claude/**`, which includes every worktree, so HMR never sees edits there; restart Vite (or override server.watch) after changing files.
+2. /p/sandbox-acme-eu/findings: Priority column, P1 first (19 P1, 21 P2, 35 P4 open); Priority=P1 shows 19 rows with Resolve buttons; hover or Tab to a badge shows reasons (e.g. "Error: blocks certification; Transactional backend event; Required by UC-02").
+3. Event card view_item: Priority P1,P1,P2,P2,P3,P4 in that order; purchase 7x P1.
+4. Portal sandbox overview: "Open P1 19" -> /qa#findings-priority-P1: filter P1, "Showing 19 of 75 findings". Portal events/purchase: Priority column.
+5. QA reports: ARMEDANGELS Report #005 (510 items, pre-T-5-47) shows no badges and no error; on a scratch DB, Run comparison on sandbox then open the new report: badges P1 19 / P2 27 / P3 4 / P4 358.
+6. 375 px: internal Findings and event card, portal QA, overview and event page have no page-level horizontal scroll (tables scroll in their region). ARMEDANGELS portal QA view: 4,521 DOM elements with 100 rows (cap 5,000).
+Tests: npx vitest run --pool=forks --poolOptions.forks.maxForks=2 -> 251 passed / 2 failed files (CommentBody, CommentIdentity load errors, known) | 2456 tests passed, 1 error (onTaskUpdate timeout, known); after the last badge/overview edits, the 90 affected files rerun: 863/863 pass. npm run build, npx tsc --noEmit and npm run lint (incl. color lint) pass.
+Known gaps: the internal Findings page filters keep their existing pattern (FieldLabel without htmlFor), so the new Priority select has no programmatic label, like its neighbours. The QA report item list keeps its frozen capture order (not resorted by priority). The internal shell at 375 px still opens with the sidebar expanded (pre-existing).
+Decisions needed: none
+
+### 2026-10-16 reviewer -> ALL | PASS | T-5-48
+Reviewed task/T-5-48-priority-ui (uncommitted, base 62e5228). Verified in the worktree: npm run build, npx tsc --noEmit, npm run lint (colors) green; 32 files / 230 tests pass (components, fieldHintsCoverage, glossary, portal, shared, shared-auth, events, findings, pages incl. SharedFindingsTable, PortalOverview, portalModel, sharedFindingsModel, QaReports, badges).
+Checks: (1) no client-side tier or matrix logic: grep finds no computeFindingPriority/server_api/tier in the diff; sorting uses priority_rank (sharedFindingsModel.ts, EventCardView.tsx, Findings.tsx column accessor), unranked rows sort last, no crash. (2) FindingPriorityBadge (badges.tsx) uses BadgeTone classes, reasons in the shared Tooltip, focusable; Tooltip.tsx change is only an optional testId, other tooltips unaffected. (3) Findings page: Priority column, default order = backend priority, ?priority= filter, other filters and Resolve/Reopen untouched, hints present. (4) Portal QA: filter runs over all rows, "Showing N of M" respects it, cap/Show more/pinned row/old anchors intact (test added), colSpan updated; SharedEntityTable `content` is optional and additive. (5) EventCardView badge per finding in rank order, only public fields. (6) Overview Open P1 from findings_summary.open_p1_count, hidden when absent; #findings-priority-P1 parsed before the comparison loop, old anchors unaffected. (7) QaReports shows recorded priority only when present; older reports render; item order kept as captured, acceptable (a frozen report should not reorder). (8) glossary finding_priority, GlossaryTerm in headers, no raw hex. (9) no new routes or public fields.
+Findings (none blocking):
+- LOW src/pages/Findings.tsx:~271: Priority select has no programmatic label (FieldLabel without htmlFor), same as its sibling selects; acceptable, worth a later sweep for the whole page.
+- LOW no tests for the badge in EventCardView, the QaReports recorded-priority line, or the Findings page priority column/filter; only the portal table, overview, model and badge are covered.
+- LOW src/features/portal/views/PortalOverview.tsx:90: the P1 badge is aria-hidden inside the link, text "Open P1 n" still reads correctly.
+Browser QA at desktop and 375 px remains for qa-tester.
+
+### 2026-10-16 22:07 | claude-supervisor -> reviewer | HANDOFF | T-5-49
+Task: T-5-49 enum selects wear their badge (user request 2026-10-16: the event editor showed 'Server API', 'Custom', 'Critical' and 'Planned' twice, as a select plus a badge beside it).
+Branch: task/T-5-49-enum-select-tags (worktree .claude/worktrees/t549, off agent-setup 62e5228), uncommitted.
+Changed: src/components/ui/EnumSelect.tsx (enumBadgeStyle(kind, value) -> tone and icon, the same as EnumBadge; the select gets the badge tone classes via cn/twMerge, a left icon and a chevron, appearance-none; options stay white; no badge beside it; plain select for an empty value, a kind without a badge, or showBadge=false), src/components/ui/badges.tsx (PRIORITY_TONE, STATUS_TONE, SEVERITY_TONE, TARGET_KIND_TONE exported), new src/components/ui/EnumSelect.test.tsx. All 16 EnumSelect call sites inherit it with no change.
+Checks: tsc, lint, src/components/ui + fieldHintsCoverage 29/29; browser on a scratch DB copy: purchase editor shows one 'Server API' and one 'Custom' control, Priority 'Critical' renders red with its icon, empty Priority stays a plain select, no console errors (only HMR websocket noise). Not caused by this task: the Edit Event sheet scrolls horizontally and is clipped at 375 px.
+Overlap: T-5-48 (in QA, uncommitted) also edits badges.tsx (adds FindingPriorityBadge); hunks are separate.
+
+### 2026-10-16 22:45 | reviewer -> claude-supervisor | PASS | T-5-49
+Reviewed uncommitted worktree t549 (EnumSelect.tsx, badges.tsx, EnumSelect.test.tsx). build, tsc, lint (no hex) green; vitest 14 files / 76 tests pass.
+Verified: enumBadgeStyle matches EnumBadge in tone and icon for all 9 badge kinds (priority, status, class, property_kind, severity, target_kind, implementation, level, catalog_kind); use_case_type, data_type, scope, origin_type, mapping_role return null -> plain select. twMerge: badge border/bg/text override the callers' gray classes, width/height/rounding kept, pl-8/pr-8 added after px-*, so padding is right at h-8/h-9/h-10 sites. Icon/chevron aria-hidden, pointer-events-none; select stays native; options white/gray-900. Empty value, showBadge=false, unknown value -> plain select with caller classes untouched; value/onChange/...rest pass through. Callers set no focus classes, so nothing is stripped; native outline remains.
+- EnumSelect.tsx:67 LOW: uncontrolled selects (UseCases.tsx:680-694 use defaultValue) have value undefined -> always plain, never wear the badge. Same as before (no badge then either), but the inconsistency with the controlled ones is visible on the use case page. Optional follow-up: switch them to value.
+- EnumSelect.tsx:82 LOW: the plain-path wrapper dropped gap-2 (harmless, no sibling now).
+- Merge risk vs T-5-48: LOW. badges.tsx hunks (export keyword on four consts) are separate lines from FindingPriorityBadge additions; expect a clean or trivial merge.
+Browsers ignore option colour on some platforms (macOS native popup); the open list may then take the tone colour there. Cosmetic only.
+
+### 2026-10-16 22:43 | claude-supervisor -> ALL | INFO | T-5-49
+Review LOW (defaultValue selects never wore the badge, UseCases.tsx:680-694) fixed in the worktree: EnumSelect mirrors an uncontrolled select's picked value in local state for styling only (the DOM keeps its own value; controlled callers unchanged; onChange still passed through). New test: a defaultValue select wears its badge and renders no value attribute. tsc, lint, src/components/ui 24/24. Browser check of the use case editor pending (T-5-48 QA is using port 3001). Still uncommitted, T-5-49 stays in QA.
+
+### 2026-10-16 22:46 | qa-tester -> ALL | PASS | T-5-48
+Browser QA of task/T-5-48-priority-ui (uncommitted worktree inspiring-wescoff-7eaba0) on a scratch copy of the main DB (API 3001, Vite 3011, both stopped, scratch DB and a stale worktree data/ folder from an earlier attempt deleted). Projects sandbox-acme-eu and armedangels.
+- Internal Findings: Priority column first with P1-P4 badges; default order P1, P2, P4 (sandbox; counts 19/21/35 equal GET /findings). Hover and Tab on a badge show the reasons ("Error: blocks certification; Transactional backend event; Required by UC-02"). Priority filter combined with event (P1+purchase = 7), severity (P2+error = 19, equals API). Resolve (P1 finding, resolved_by user) and Reopen both work, state reverted. Header GlossaryTerm tooltip shows on keyboard focus.
+- Event card view_item: P1,P1,P2,P2 in priority order, same as the tracking document; purchase 7x P1.
+- Portal QA (sandbox, armedangels): Priority column, priority order; P1 filter shows "Showing 19 of 75" (armedangels 14 of 509, equals open_p1_count) over all findings; 100-row cap with "Show 100 more" (200 after one click); #current-finding-<id> for a P4 finding at rank 450 is pinned as row 101 with bg-amber-50 highlight; #findings and #findings-data_manager-event-purchase ("Showing 9 of 509") still work; DOM 4,521 elements by default (8,573 only after Show more to 200 rows).
+- Overview: "Open P1" 19 (sandbox) / 14 (armedangels) equals document-summary.json; link opens qa#findings-priority-P1 with the filter set. Portal event page view_item: P1,P1,P2,P2.
+- QA reports: after Run comparison on the scratch sandbox, Report #001 shows "Recorded priority" on all 408 items (counts 19/27/4/358 as the handoff); armedangels reports #005 (510 items) and #001 render without errors and without badges.
+- Help glossary has "Finding priority".
+- 375 px (iframe, 5 pages: internal Findings, portal QA sandbox and armedangels, overview, event page): documentElement scrollWidth equals clientWidth, no element wider than the viewport outside a scroller.
+- Console: no errors; API log clean.
+Notes, non-blocking: (1) the UI Priority filter is a single select (All, P1..P4); "P1+P2" is only possible through the API (?priority=P1,P2 returns 40 on sandbox). (2) The deep-linked finding sits at row 101 and the page itself was not scrolled (scrollY 0) in my iframe-free check; I did not verify scroll-into-view visually. (3) Screenshots are inline in the QA session only: findings-page-priority-header-tooltip, portal-qa-375px-sandbox (not saved to disk).
+
+### 2026-10-16 22:47 | claude-supervisor -> ALL | INFO | T-5-49
+Browser check of the defaultValue fix (scratch DB copy): in the use case create form, Priority starts as a plain select ('—') and becomes the amber 'High' tag once chosen. Preview stopped, scratch DB and temporary launch entry removed. T-5-49 ready for commit and merge on the user's go-ahead.
+
+### 2026-10-16 23:09 | claude-supervisor -> ALL | MERGE | T-5-48, T-5-49
+At the user's request: d0ae940 (T-5-48 priority UI) merged via 058c51a; af1e493 (T-5-49 enum selects wear their badge, incl. the defaultValue fix) merged via 7bbf8df (one conflict in src/components/ui/badges.tsx: T-5-48's FindingPriorityBadge and T-5-49's exported tone maps, both kept). Merged tree: npm run build and npm run lint green; npx vitest run --pool=forks (2 workers) 254 files / 2471 tests pass plus the known intermittent onTaskUpdate timeout. T-5-48 and T-5-49 DONE. Not pushed, not released (live stays 15abadb / 0045); T-5-47..T-5-49 ship together on the user's go-ahead.

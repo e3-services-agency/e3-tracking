@@ -94,7 +94,7 @@ export function CategoryBadge({ category, className = '' }: { category: Property
   );
 }
 
-const PRIORITY_TONE: Record<string, BadgeTone> = { critical: 'red', high: 'amber', medium: 'blue', low: 'neutral' };
+export const PRIORITY_TONE: Record<string, BadgeTone> = { critical: 'red', high: 'amber', medium: 'blue', low: 'neutral' };
 
 export function PriorityBadge({ priority, className = '' }: { priority: string | null | undefined; className?: string }) {
   if (!priority) return <span className="text-gray-400">—</span>;
@@ -105,7 +105,7 @@ export function PriorityBadge({ priority, className = '' }: { priority: string |
   );
 }
 
-const STATUS_TONE: Record<string, BadgeTone> = {
+export const STATUS_TONE: Record<string, BadgeTone> = {
   planned: 'neutral',
   in_review: 'amber',
   implemented: 'green',
@@ -154,7 +154,7 @@ export function RoleBadge({ role, className = '' }: { role: string; className?: 
   );
 }
 
-const SEVERITY_TONE: Record<string, BadgeTone> = { error: 'red', warning: 'amber', info: 'blue' };
+export const SEVERITY_TONE: Record<string, BadgeTone> = { error: 'red', warning: 'amber', info: 'blue' };
 
 export function SeverityBadge({ severity, className = '' }: { severity: string; className?: string }) {
   return (
@@ -164,7 +164,7 @@ export function SeverityBadge({ severity, className = '' }: { severity: string; 
   );
 }
 
-const TARGET_KIND_TONE: Record<string, BadgeTone> = {
+export const TARGET_KIND_TONE: Record<string, BadgeTone> = {
   customer_property: 'purple',
   event: 'blue',
   variant: 'blue',

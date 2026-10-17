@@ -8,6 +8,27 @@ import { newId } from '../db/util';
 import { listProjects } from '../dal/project.dal';
 import { MCP_SCOPES } from '../../mcp/toolPolicy';
 export const CLAUDE_CALLBACK = 'https://claude.ai/api/mcp/auth_callback';
+/** Callback classes are policy, not proof of the registering application's identity. */
+export function mcpCallbackKind(uri: string): 'claude' | 'codex' | null {
+    if (uri === CLAUDE_CALLBACK)
+        return 'claude';
+    // Check the raw URI before URL parsing can normalize alternate hosts, dot segments,
+    // escaped paths, credentials or fragments. Native Codex uses an optional callback ID.
+    const native = /^http:\/\/127\.0\.0\.1(?::([1-9][0-9]{0,4}))?\/callback(?:\/[A-Za-z0-9_-]{1,128})?$/.exec(uri);
+    return native && native[0] === uri && (!native[1] || Number(native[1]) <= 65535) ? 'codex' : null;
+}
+/** RFC 8252 permits a different listener port, never a different host or callback path. */
+export function mcpRedirectMatches(requested: string, registered: string): boolean {
+    const kind = mcpCallbackKind(requested);
+    if (!kind || kind !== mcpCallbackKind(registered))
+        return false;
+    if (kind === 'claude')
+        return requested === registered;
+    return new URL(requested).pathname === new URL(registered).pathname;
+}
+export function clientRedirectMatches(client: OAuthClientInformationFull, requested: string): boolean {
+    return client.redirect_uris.length === 1 && mcpRedirectMatches(requested, client.redirect_uris[0]);
+}
 export const CONSENT_COOKIE = '__Secure-e3-mcp-consent';
 export const MANAGEMENT_COOKIE = '__Secure-e3-mcp-management';
 export interface McpHttpConfig {
@@ -37,15 +58,17 @@ export const escapeHtml = (v: unknown) => String(v).replace(/[&<>"']/g, c => ({ 
 export function staffPage(title: string, body: string) { return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)} | E3 Tracking</title><style>body{font:16px system-ui;max-width:850px;margin:3rem auto;padding:1rem;color:#172038;background:#f8fafc}main{background:white;border:1px solid #cbd5e1;border-radius:12px;padding:2rem}label{display:block;margin:.8rem 0}button{padding:.6rem 1rem;margin:.4rem}a{color:#006bda}fieldset{margin:1rem 0}small{color:#475569}</style></head><body><main><a href="/tracking-plan/">E3 Tracking</a><h1>${escapeHtml(title)}</h1>${body}</main></body></html>`; }
 /** Same-origin browser request: exact canonical Origin, or an absent/`null` Origin vouched for by Sec-Fetch-Site on the canonical Host (Chrome sends `null` on same-origin form posts under some referrer policies). */
 export function sameOriginRequest(req: Request, config: McpHttpConfig) { const origin = req.headers.origin; if (origin === config.origin) return req.headers.host === new URL(config.origin).host; return (origin === undefined || origin === 'null') && req.headers['sec-fetch-site'] === 'same-origin' && req.headers.host === new URL(config.origin).host; }
-export function browserHeaders(res: Response) { res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https://claude.ai/api/mcp/auth_callback; frame-ancestors 'none'; base-uri 'none'"); res.setHeader('X-Frame-Options', 'DENY'); res.setHeader('Referrer-Policy', 'same-origin'); }
+export function browserHeaders(res: Response, callback = CLAUDE_CALLBACK) { if (!mcpCallbackKind(callback)) throw new InvalidRequestError('Invalid callback.'); res.setHeader('Content-Security-Policy', `default-src 'none'; style-src 'unsafe-inline'; form-action 'self' ${callback}; frame-ancestors 'none'; base-uri 'none'`); res.setHeader('X-Frame-Options', 'DENY'); res.setHeader('Referrer-Policy', 'same-origin'); }
+export function getMcpClient(id: string): OAuthClientInformationFull | undefined {
+    const row = getDb().prepare('SELECT metadata_json FROM mcp_oauth_clients WHERE id=?').get(id) as { metadata_json: string } | undefined;
+    return row ? JSON.parse(row.metadata_json) as OAuthClientInformationFull : undefined;
+}
 export function oauthProvider(config: McpHttpConfig): OAuthServerProvider {
     const clientsStore = {
-        getClient(id: string) { const row = getDb().prepare('SELECT metadata_json FROM mcp_oauth_clients WHERE id=?').get(id) as {
-            metadata_json: string;
-        } | undefined; return row ? JSON.parse(row.metadata_json) as OAuthClientInformationFull : undefined; },
+        getClient: getMcpClient,
         registerClient(client: Omit<OAuthClientInformationFull, 'client_id' | 'client_id_issued_at'>): OAuthClientInformationFull {
-            if (client.token_endpoint_auth_method !== 'none' || client.redirect_uris.length !== 1 || client.redirect_uris[0] !== CLAUDE_CALLBACK || client.response_types?.some(t => t !== 'code') || client.grant_types?.some(t => !['authorization_code', 'refresh_token'].includes(t)) || client.client_name && client.client_name.length > 100 || client.scope?.split(' ').some(s => !(MCP_SCOPES as readonly string[]).includes(s)))
-                throw new InvalidClientMetadataError('Only public Claude hosted clients are supported.');
+            if (client.token_endpoint_auth_method !== 'none' || client.redirect_uris.length !== 1 || !mcpCallbackKind(client.redirect_uris[0]) || client.response_types?.some(t => t !== 'code') || client.grant_types?.some(t => !['authorization_code', 'refresh_token'].includes(t)) || client.client_name && client.client_name.length > 100 || client.scope?.split(' ').some(s => !(MCP_SCOPES as readonly string[]).includes(s)))
+                throw new InvalidClientMetadataError('Only public Claude hosted or Codex loopback clients are supported.');
             if (client.client_uri || client.logo_uri || client.tos_uri || client.policy_uri || client.jwks_uri || client.jwks)
                 throw new InvalidClientMetadataError('Remote client metadata is not supported.');
             OAuth.prune();
@@ -53,7 +76,7 @@ export function oauthProvider(config: McpHttpConfig): OAuthServerProvider {
                 n: number;
             }).n >= 500)
                 throw new TooManyRequestsError('Registration capacity reached.');
-            const record: OAuthClientInformationFull = { client_id: newId(), client_id_issued_at: OAuth.now(), client_name: 'Claude hosted connector', redirect_uris: [CLAUDE_CALLBACK], grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], token_endpoint_auth_method: 'none' };
+            const record: OAuthClientInformationFull = { client_id: newId(), client_id_issued_at: OAuth.now(), client_name: mcpCallbackKind(client.redirect_uris[0]) === 'claude' ? 'Claude hosted connector' : 'Codex native connector', redirect_uris: [client.redirect_uris[0]], grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], token_endpoint_auth_method: 'none' };
             getDb().prepare('INSERT INTO mcp_oauth_clients VALUES(?,?,?)').run(record.client_id, JSON.stringify(record), OAuth.now());
             return record;
         }
@@ -64,7 +87,7 @@ export function oauthProvider(config: McpHttpConfig): OAuthServerProvider {
             const owner = res.locals.mcpStaff as string | undefined;
             if (!owner)
                 throw new InvalidRequestError('Staff authentication required.');
-            if (params.redirectUri !== CLAUDE_CALLBACK || params.resource?.href !== config.resource || !/^[A-Za-z0-9_-]{43}$/.test(params.codeChallenge) || params.state && params.state.length > 512)
+            if (!clientRedirectMatches(client, params.redirectUri) || params.resource?.href !== config.resource || !/^[A-Za-z0-9_-]{43}$/.test(params.codeChallenge) || params.state && params.state.length > 512)
                 throw new InvalidRequestError('Invalid authorization binding.');
             const requested = [...new Set(params.scopes?.length ? params.scopes : ['projects:read'])];
             if (requested.some(s => !(MCP_SCOPES as readonly string[]).includes(s)) || requested.includes('projects:write') && !requested.includes('projects:read'))
@@ -72,9 +95,12 @@ export function oauthProvider(config: McpHttpConfig): OAuthServerProvider {
             const request = { ...params, resource: config.resource, scopes: requested };
             const pending = OAuth.putPending(owner, client.client_id, request);
             res.cookie(CONSENT_COOKIE, pending.cookie, { httpOnly: true, secure: true, sameSite: 'lax', path: '/mcp/oauth', maxAge: 600000 });
-            browserHeaders(res);
+            browserHeaders(res, params.redirectUri);
+            const isClaude = mcpCallbackKind(params.redirectUri) === 'claude';
+            const clientLabel = isClaude ? 'Claude' : 'Codex';
+            const callbackLabel = isClaude ? 'the hosted Claude callback' : 'a native application callback on your own computer';
             const projects = requested.includes('projects:read') ? listProjects() : [];
-            res.type('html').send(staffPage('Connect Claude to E3 Tracking', `<p>Signed in as <strong>${escapeHtml(owner)}</strong>. This request uses the hosted Claude callback at <strong>claude.ai/api/mcp/auth_callback</strong>.</p><p>Choose the projects this connection may read. New projects are not added automatically unless you tick the all-projects option. You can revoke this connection later.</p><form method="post" action="/mcp/oauth/consent"><input type="hidden" name="csrf" value="${pending.csrf}"><fieldset><legend>Projects</legend>${requested.includes('projects:read') ? '<label><input type="checkbox" name="all_projects" value="yes"> All projects, including ones created later</label><p>Explicit selection is recommended. With this option the connection also reaches projects added after approval.</p>' : ''}${projects.map(p => `<label><input type="checkbox" name="project" value="${p.id}"> ${escapeHtml(p.client?.name ?? '')} / ${escapeHtml(p.name)}</label>`).join('')}</fieldset>${requested.includes('projects:write') ? '<label><input type="checkbox" name="write" value="yes"> Allow changes, observation submissions and comparisons for these projects (including dry runs).</label>' : ''}${requested.includes('templates:read') ? '<label><input type="checkbox" name="templates" value="yes"> Allow reading the global use case template library.</label>' : ''}${requested.includes('projects:write') || requested.includes('templates:read') ? '' : '<p>This request is read-only. Changes require a new request and your explicit approval.</p>'}<button type="submit" name="decision" value="approve">Approve connection</button><button type="submit" name="decision" value="deny">Deny</button></form><p><a href="/mcp/connections">Manage my connections</a></p>`));
+            res.type('html').send(staffPage(`Connect ${clientLabel} to E3 Tracking`, `<p>Signed in as <strong>${escapeHtml(owner)}</strong>. This request uses ${callbackLabel}: <strong>${escapeHtml(params.redirectUri)}</strong>. The client label describes its callback type; it does not verify the application publisher.</p><p>Choose the projects this connection may read. New projects are not added automatically unless you tick the all-projects option. You can revoke this connection later.</p><form method="post" action="/mcp/oauth/consent"><input type="hidden" name="csrf" value="${pending.csrf}"><fieldset><legend>Projects</legend>${requested.includes('projects:read') ? '<label><input type="checkbox" name="all_projects" value="yes"> All projects, including ones created later</label><p>Explicit selection is recommended. With this option the connection also reaches projects added after approval.</p>' : ''}${projects.map(p => `<label><input type="checkbox" name="project" value="${p.id}"> ${escapeHtml(p.client?.name ?? '')} / ${escapeHtml(p.name)}</label>`).join('')}</fieldset>${requested.includes('projects:write') ? '<label><input type="checkbox" name="write" value="yes"> Allow changes, observation submissions and comparisons for these projects (including dry runs).</label>' : ''}${requested.includes('templates:read') ? '<label><input type="checkbox" name="templates" value="yes"> Allow reading the global use case template library.</label>' : ''}${requested.includes('projects:write') || requested.includes('templates:read') ? '' : '<p>This request is read-only. Changes require a new request and your explicit approval.</p>'}<button type="submit" name="decision" value="approve">Approve connection</button><button type="submit" name="decision" value="deny">Deny</button></form><p><a href="/mcp/connections">Manage my connections</a></p>`));
         },
         async challengeForAuthorizationCode(client, code) { OAuth.revokeIfReplayed(client.client_id, code); return OAuth.codeInfo(client.client_id, code).challenge; },
         async exchangeAuthorizationCode(client, code, _verifier, redirect, resource) { if (resource?.href !== config.resource)

@@ -11,7 +11,7 @@ import { isTrustedPeer } from '../middleware/auth';
 import * as OAuth from '../dal/mcp-oauth.dal';
 import { getDb } from '../db';
 import { listProjects } from '../dal/project.dal';
-import { sameOriginRequest, mcpConfig, oauthProvider, staffPage, browserHeaders, escapeHtml, CONSENT_COOKIE, type McpHttpConfig } from '../services/mcpOAuth.service';
+import { sameOriginRequest, mcpCallbackKind, clientRedirectMatches, getMcpClient, mcpConfig, oauthProvider, staffPage, browserHeaders, escapeHtml, CONSENT_COOKIE, type McpHttpConfig } from '../services/mcpOAuth.service';
 import { authorizeHttpTool, McpAuthorizationError, MCP_SCOPES } from '../../mcp/toolPolicy';
 import { withHttpMcpContext, type HttpMcpContext } from '../../mcp/httpContext';
 import { registerTools } from '../../mcp/registerTools';
@@ -103,7 +103,29 @@ export function createMcpHttpRouter(testConfig?: McpHttpConfig) {
     router.use('/mcp/oauth/register', express.json({ limit: '8kb' }), clientRegistrationHandler({ clientsStore: provider.clientsStore, rateLimit: false }));
     router.use('/mcp/oauth/token', express.urlencoded({ extended: false, limit: '8kb', parameterLimit: 20 }), tokenHandler({ provider, rateLimit: false }));
     router.use('/mcp/oauth/revoke', express.urlencoded({ extended: false, limit: '8kb', parameterLimit: 20 }), revocationHandler({ provider, rateLimit: false }));
-    router.use('/mcp/oauth/authorize', express.urlencoded({ extended: false, limit: '8kb', parameterLimit: 20 }), authorizationHandler({ provider, rateLimit: false }));
+    router.use('/mcp/oauth/authorize', express.urlencoded({ extended: false, limit: '8kb', parameterLimit: 20 }), async (req: Request, res: Response, next: NextFunction) => {
+        // The SDK's loopback comparison normalizes URLs and ignores credentials/fragments.
+        // Reject those inputs locally before its error path could redirect to them.
+        const input = (req.method === 'POST' ? req.body : req.query) ?? {};
+        const redirect = input.redirect_uri;
+        try {
+            if (redirect !== undefined) {
+                if (typeof redirect !== 'string' || !mcpCallbackKind(redirect)) {
+                    deny(res, 400, 'invalid_request');
+                    return;
+                }
+                const client = typeof input.client_id === 'string' ? await provider.clientsStore.getClient(input.client_id) : undefined;
+                if (client && !clientRedirectMatches(client, redirect)) {
+                    deny(res, 400, 'invalid_request');
+                    return;
+                }
+            }
+            next();
+        }
+        catch (error) {
+            next(error);
+        }
+    }, authorizationHandler({ provider, rateLimit: false }));
     router.post('/mcp/oauth/consent', express.urlencoded({ extended: false, limit: '8kb', parameterLimit: 150 }), (req, res) => {
         if (!sameOriginRequest(req, config)) {
             deny(res, 403, 'invalid_consent');
@@ -126,7 +148,8 @@ export function createMcpHttpRouter(testConfig?: McpHttpConfig) {
                     resource: string;
                     scopes: string[];
                 };
-                if (params.redirectUri !== 'https://claude.ai/api/mcp/auth_callback' || params.resource !== config.resource)
+                const client = getMcpClient(pending.client_id);
+                if (!client || !clientRedirectMatches(client, params.redirectUri) || params.resource !== config.resource)
                     throw new Error();
                 const url = new URL(params.redirectUri);
                 if (params.state)
@@ -134,7 +157,7 @@ export function createMcpHttpRouter(testConfig?: McpHttpConfig) {
                 if (req.body.decision === 'deny') {
                     OAuth.consumePending(rawCookie, owner, csrf);
                     url.searchParams.set('error', 'access_denied');
-                    return url.href;
+                    return { target: url.href, callback: params.redirectUri };
                 }
                 const allProjects = req.body.all_projects === 'yes';
                 // With the all-projects option, any per-project selection is discarded.
@@ -163,10 +186,11 @@ export function createMcpHttpRouter(testConfig?: McpHttpConfig) {
                 OAuth.consumePending(rawCookie, owner, csrf);
                 const code = OAuth.createGrant(owner, pending.client_id, config.resource, scopes, ids as string[], params.redirectUri, params.codeChallenge, allProjects);
                 url.searchParams.set('code', code);
-                return url.href;
+                return { target: url.href, callback: params.redirectUri };
             }).immediate();
             res.clearCookie(CONSENT_COOKIE, { path: '/mcp/oauth', secure: true, httpOnly: true, sameSite: 'lax' });
-            res.redirect(302, result);
+            browserHeaders(res, result.callback);
+            res.redirect(302, result.target);
         }
         catch {
             deny(res, 400, 'invalid_consent');
@@ -199,7 +223,7 @@ export function createMcpHttpRouter(testConfig?: McpHttpConfig) {
         const owner = res.locals.mcpStaff as string;
         const p = { csrf: mgmtCsrf(owner) };
         browserHeaders(res);
-        res.type('html').send(staffPage('My Claude connections', `<p>Connections owned by ${escapeHtml(owner)}. Revocation stops every access and refresh token immediately. Project backups never contain connector credentials.</p>${safeConnections(owner).map(g => `<section><h2>${escapeHtml(g.client_name)}</h2><p>${escapeHtml(g.projects === 'all' ? 'All projects (including future ones)' : g.projects.map(p => p.name).join(', '))} / ${escapeHtml(g.scopes.join(', '))}</p><p>${g.revoked ? 'Revoked' : 'Expires ' + new Date(g.expires_at * 1000).toISOString()}</p>${g.revoked ? '' : `<form method="post" action="/mcp/connections"><input type="hidden" name="csrf" value="${p.csrf}"><input type="hidden" name="id" value="${g.id}"><button>Revoke connection</button></form>`}</section>`).join('') || '<p>No connections yet.</p>'}`));
+        res.type('html').send(staffPage('My MCP connections', `<p>Connections owned by ${escapeHtml(owner)}. Revocation stops every access and refresh token immediately. Project backups never contain connector credentials.</p>${safeConnections(owner).map(g => `<section><h2>${escapeHtml(g.client_name)}</h2><p>${escapeHtml(g.projects === 'all' ? 'All projects (including future ones)' : g.projects.map(p => p.name).join(', '))} / ${escapeHtml(g.scopes.join(', '))}</p><p>${g.revoked ? 'Revoked' : 'Expires ' + new Date(g.expires_at * 1000).toISOString()}</p>${g.revoked ? '' : `<form method="post" action="/mcp/connections"><input type="hidden" name="csrf" value="${p.csrf}"><input type="hidden" name="id" value="${g.id}"><button>Revoke connection</button></form>`}</section>`).join('') || '<p>No connections yet.</p>'}`));
     });
     router.post('/mcp/connections', express.urlencoded({ extended: false, limit: '8kb' }), (req, res) => {
         if (!sameOriginRequest(req, config)) {

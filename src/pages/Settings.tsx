@@ -25,7 +25,7 @@ export function Settings() {
         <section className="rounded-lg border bg-white p-5 space-y-2">
           <h2 className="text-lg font-semibold">Claude connector</h2>
           <p className="text-sm text-gray-600">On deployments with HTTPS MCP enabled, connect Claude with selected projects and review or revoke your connections. Reading is the initial permission; changes require explicit approval.</p>
-          <a href="/mcp/connections" className="text-blue-600 hover:underline">My Claude connections</a>
+          <a href="/mcp/connections" className="text-blue-600 hover:underline">My MCP connections</a>
         </section>
         <ProjectSettings />
         <IdentifiersBlock projectId={activeProjectId} />

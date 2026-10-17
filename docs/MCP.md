@@ -283,17 +283,32 @@ afterwards is a normal local-to-VM round trip. If a session hangs, run the print
 stderr (IAP permission `roles/iap.tunnelResourceAccessor`, OS Login, passwordless `sudo` for the user (`roles/compute.osAdminLogin`, or docker group membership), `.env` on the VM).
 
 
-## Claude HTTPS connector (D-87)
+## HTTPS connectors for Claude and Codex (D-87)
 
-The optional remote endpoint is `https://tracking.e3-services.com/mcp`. In Claude, add a custom connector with that URL and choose **Register automatically**. The app supplies OAuth discovery and registers only public hosted clients with the exact callback `https://claude.ai/api/mcp/auth_callback`; there is no client secret to copy. Workspace sign-in protects the approval page. Google tokens are never accepted as MCP bearer credentials.
+The optional remote endpoint is `https://tracking.e3-services.com/mcp`. In Claude, add a custom connector with that URL and choose **Register automatically**. The app supplies OAuth discovery and registers public clients with either the exact Claude callback `https://claude.ai/api/mcp/auth_callback` or the Codex native loopback callback described below; there is no client secret to copy. Workspace sign-in protects the approval page. Google tokens are never accepted as MCP bearer credentials.
 
 The connector requests all supported scopes up front (`projects:read projects:write templates:read` in the first 401 challenge), but the consent page grants only what you tick. Select the projects and approve or deny explicitly. Project write (changes, observation submission, comparison, mutation dry-runs) and global template access are opt-in checkboxes, unticked by default; the read-only sentence appears only when neither was requested. A grant without write cannot see write tools in `tools/list`. Changing a project's selection requires new consent; new projects are not added automatically unless the all-projects option was ticked. Unselected projects are terminal denials, not invitations to expand permissions. `tools/list` is filtered by the grant's scopes (10 tools for a read-only grant), and every call is checked before dispatch and at execution. Transport arrays are rejected; every nested `batch_apply` operation is preauthorized before its first write.
 
-Settings links to **My Claude connections** at `/mcp/connections`. This staff-owned page shows granted projects, scopes and expiry, and permits CSRF-protected revocation of your own connections. Staff API equivalents are `GET /api/mcp/connections` and `POST /api/mcp/connections` with the returned CSRF value, management cookie and exact application Origin. Revocation immediately invalidates the family's access and refresh tokens. Ordinary restart preserves connections and their revocations.
+Settings links to **My MCP connections** at `/mcp/connections`. This staff-owned page shows granted projects, scopes and expiry, and permits CSRF-protected revocation of your own connections. Staff API equivalents are `GET /api/mcp/connections` and `POST /api/mcp/connections` with the returned CSRF value, management cookie and exact application Origin. Revocation immediately invalidates the family's access and refresh tokens. Ordinary restart preserves connections and their revocations.
 
 Authorization requests expire after 10 minutes, codes after 5 minutes, access tokens after at most 15 minutes, and refresh families after 30 days absolute. Codes are consumed once; refresh tokens rotate once. Reusing a consumed refresh token revokes the whole grant, including all access tokens. Only hashes of opaque cookies, CSRF values, codes and tokens are stored. Operational audit contains event/tool metadata, not arguments, payloads or credentials. Registrations, pending requests, grants, tokens and audit have storage bounds. Portable project backups exclude every `mcp_oauth_*` table. Each remote connection's automatic QA run is isolated durably by grant and project; stdio retains its process-local behavior. Remote audit actors always come from the verified Workspace grant, even when `agent_name` is omitted or forged.
 
 Enable only with `E3_MCP_HTTP_ENABLED=1`, an exact HTTPS `E3_PUBLIC_ORIGIN`, `WORKSPACE_DOMAIN`, production `AUTH_MODE=proxy` and a correctly scoped `TRUSTED_PROXY_CIDR`. The default is disabled. Use the reviewed narrow Caddy routes: only the MCP resource, OAuth metadata and registration/token/revocation endpoints bypass browser forward-auth. Consent and connection management remain Workspace protected. Public machine routes strip browser cookies and caller/Google identity headers; only `/mcp` preserves its dedicated Authorization header. Unsupported methods, unexpected Host/Origin and malformed/bounded request bodies fail closed.
+
+### Codex HTTPS setup (T-5-52)
+
+Add the hosted server once, then complete Workspace sign-in and the E3 consent page:
+
+```sh
+codex mcp add e3-tracking --url https://tracking.e3-services.com/mcp
+codex mcp login e3-tracking
+```
+
+If `e3-tracking` is already configured with that URL, run only the login command. No Google token, client secret, SSH tunnel or local database configuration is needed. Select the allowed projects on E3's consent page. Write and global template access remain separate unchecked opt-ins. The native callback returns to the computer running Codex; finish the flow on that computer.
+
+Codex registers `http://127.0.0.1[:port]/callback` or `/callback/<callbackID>` with dynamic client registration and PKCE S256. Only the literal IPv4 loopback host and a bounded URL-safe callback ID are accepted. The authorization listener may use a different port (RFC 8252); the registered callback path must still match exactly. Authorization codes bind to the exact URI, including port, approved for that request. Other hosts, callback paths, userinfo, queries, fragments and normalized alternate host spellings are rejected. The consent page displays the actual destination; the fixed client label identifies the callback class, not a verified application publisher.
+
+A failure mentioning `Only public Claude hosted clients are supported` indicates an older server release, not a missing local secret. After the compatible release is deployed, retry `codex mcp login e3-tracking`. For an existing unwanted grant, revoke it under **My MCP connections** and sign in again. Discovery does not advertise issuer-response support or client metadata documents; Codex uses its server-specific callback and dynamic registration. This does not enable ChatGPT hosted connectors or arbitrary OAuth clients. See [official Codex MCP setup](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
 
 ### Full-database recovery
 

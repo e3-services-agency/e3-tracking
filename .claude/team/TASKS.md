@@ -4,6 +4,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 
 | ID | Phase | Title | Owner | Depends on | Status | Acceptance |
 |----|-------|-------|-------|------------|--------|------------|
+| T-5-52 | 5 | Codex native OAuth compatibility | codex_oauth_implementer | T-5-35/36 | QA (released30a9714; user browser grant pending) | Strict native callback binding, preserved Claude/security contracts, independent review/QA and clean scoped release; see report |
 | T-0-01 | 0 | Scaffold agents, skills, team files, CLAUDE.md | supervisor | - | DONE | see below |
 | T-0-02 | 0 | Read-only repository audit | repo-auditor | T-0-01 | DONE | see below |
 | T-0-03 | 0 | Target model and phased plan | architect | T-0-02 | DONE | see below |
@@ -275,3 +276,6 @@ Detailed acceptance criteria per task live in `reports/PLAN-PHASE2-2026-09-25.md
 - From the user's sandbox review (2026-09-29): (a) event card certification is only a small header badge; add a prominent certification block with the reasons and what would flip it, plus the glossary tooltip; (b) Settings share block gains an "Open shared view" button (preview what the client sees) next to the copy link; (c) the sandbox generator adds sample comments (client comment via share on cart_update, an internal reply, an internal-only note after T-4-10, one requirement comment) -- do (c) together with the T-4-10 sandbox backup regeneration.
 - From T-4-09 QA/review: create-project modal silently no-ops when the key is empty (add a validation message); getting-started shows 2/9 on an empty project (client_and_project, property_types_reviewed vacuously true), consider requiring at least one property; sandbox create offers no client choice (D-60 says chosen client or auto Sandboxes); empty-state flashes before the first fetch on Events/Properties/Catalogs/IdentityRules/ConsentCategories/UseCases (add a loading guard); comparison_run step = any finding row exists (a clean run never completes it); a backup taken of a sandbox restores as a sandbox (document in EXPORTS.md); glossary tooltip sweep beyond the first three spots (Properties Definition, Events Variant, Findings Acknowledged, UseCases Activation after T-4-06).
 - From T-4-08 QA: the project-create modal once ignored the first submit (key field empty); check ProjectShellContext create form in T-4-09.
+
+## T-5-52 Codex native OAuth compatibility
+Source accepted, independently reviewed and QA-tested; released clean30a9714 on0045. Details: reports/RELEASE-CODEX-MCP-2026-10-18.md. User native OAuth project/scope consent and authenticated native read proof pending. The unrelated native-file intake report remains proposal-only.

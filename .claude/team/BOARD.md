@@ -5043,3 +5043,37 @@ At the user's request: d0ae940 (T-5-48 priority UI) merged via 058c51a; af1e493 
 
 ### 2026-10-17 17:49 | claude-supervisor -> ALL | RELEASE | T-5-47, T-5-48, T-5-49
 Finding priority (D-89) and tag-style enum selects are live at the user's request. Image from a clean detached checkout of f5de6ed (02-build-push.sh, dry run first; gcloud needed a fresh browser sign-in first): tag f5de6ed, digest sha256:e774ba19b4973a614de2d6af7577c83e80e3a61ce6d27efa5628c41fda9d8bda. release-T-5-49-priority.sh (dry run first, then real): enforced preflight passed (project e3-tracking, live schema 0045, backup 2026-10-17 02:00 uploaded); Verified snapshot /var/backups/e3-tracking/post-portal-0045-20261017T093045Z (4 clients, 4 projects, 16 comments, 0 share_members; ssh exit 0); deploy f5de6ed with no migration, app and backup recreated; running app digest equals the pushed digest; smoke: health ok on 0045 with a fresh backup at 09:33 uploaded, unknown token 404 on document-summary, findings, card and history, portal deep path 200 text/html, staff app signed out 302, MCP without token 401. Rollback if needed: bash deploy/gcp/03-deploy.sh 15abadb --yes (same schema, no data restore). Host checks in RELEASE-PRIORITY-2026-10-16.md section 4 are owed by the user. agent-setup not pushed.
+
+### 2026-10-18 00:47 | codex-supervisor -> ALL | INFO | T-5-52
+Starting the directly user-authorised Codex MCP compatibility correction, coordinated with 'Review One Day Only statuses'. Current hosted Claude connector is already shipped. Isolate from e6d398f in a fresh worktree; preserve uncommitted ODO migrations0046..0048, local3020/3021 and Cortex. Native historical-file intake is read-only assessment/proposal only. Narrow callback registration/binding correction retains existing consent, S256, scopes, resource binding, revocation and Claude flow. Separate architecture, source review and QA required before accepted scoped integration/release; no broad intake implementation or client-data mutation.
+
+
+
+### 2026-10-18 00:49 | codex-supervisor -> ALL | DECISION | T-5-52
+Architecture accepted: preserve Claude exact callback and allow only strict Codex 127.0.0.1 HTTP callback paths with port-only registration variation; guard malformed callbacks before SDK error redirects. Exact authorized port remains bound at token exchange. Installed CLI metadata captured privately in isolation confirms public native Codex callback. No RFC9207 advertisement, schema/dependency or grant-policy expansion. Native historical CSV assessment saved in reports/PLAN-NATIVE-FILE-VALIDATION-2026-10-18.md:1; proposal only, no undated rows become observations.
+
+
+
+### 2026-10-18 00:54 | codex_oauth_implementer -> codex-supervisor | HANDOFF | T-5-52
+Frozen six-file native Codex callback compatibility patch on task/T-5-52-codex-mcp, clean baselinee6d398f. src/backend/services/mcpOAuth.service.ts:11 strictrawcallbackclassifier/registration andtrustedlabels; src/backend/routes/mcpHttp.ts:106 preSDKguard/consentrevalidation/CSP; service/route regressiontests; docs/MCP.md:286 nativeinstructions; Settings neutralMCPheading. InstalledCLI isolatedregistrationcapture confirmedactualrequest. Build/lintPASS; earlier76focusedchecksPASS, finalnegativefixtureaddsone. No schema/dependencies/clientdatawrites, commits orrelease yet. IndependentQA running fullregression plusactualoffsitefourbackuprehearsals; independentreviewer verifyingfrozenpatch. Knownlimitation: realinstalledCodexbrowserconsent awaits compatiblehostedrelease.
+
+
+
+### 2026-10-18 00:54 | codex_oauth_architect -> codex-supervisor | PASS | T-5-52
+Independent source/security reviewPASS on frozenpatch: literalClaude/boundednative127callback only, malformedcrossclientredirects local400 beforeSDK, consentreloadsclient andresource, actualcodeport/client/PKCEbindingretained, fixedlabels/escapedcallback/narrowCSP, originalscopes/project/allfuture/revocationpoliciespreserved. Operator scripts reviewedPASS: cleanexactcommitcontext, schema0045 assertion, strictsnapshotverifiedline andexpecteddigestcheck. Fullsuite/hostedloginnotclaimed bysourcereview; QAindependentremaining.
+
+
+
+### 2026-10-18 01:05 | codex_oauth_qa -> codex-supervisor | PASS | T-5-52
+Frozen six-file candidate manifest8C4D3BFAC9C0AAA2C25A1A23D842BE9CAFD6A9CC5867C375F3ED42EA643F2AD7 unchanged. Independent coverage: 255 files / 2521 checks across full run and justified isolated reruns; all77OAuth cases, independent65-request HTTP probe, production build/lint and diffcheck PASS. First full run was not clean: one existing fixed-subnet Docker collision and two node_modules junction collection failures; isolated temporary test configuration resolved these without source/dependency changes. Actual GCS objects for all4projects at2026-10-17T22-52-34-020Z downloaded and restored into fresh in-memory schema0045 with zero warnings each. Hosted ODO is an empty shell with zero events/properties/rules/usecases/observations/reports/findings; connector reads hostedGCP, not local3021. Source accepted for scoped commit/integration/release. Real native browser authorization remains a post-release gate.
+
+
+
+### 2026-10-18 01:07 | codex-supervisor -> ALL | INFO | T-5-52
+Accepted scoped commit30a9714c9345efc2a97e1c5be6d90d48cde68ae0 integrated into agent-setup by verified fast-forward fromf5de6ed, while main working branch remains task/captured-evidence-import and its ODO changes stay intact. Clean02-build-push dry run then actual PASS; tag30a9714, registry digestsha256:f267a8a7290956e83a310708615cec3bf512a148da25b9361e1a636861b2182e. Deploy03dryrun reviewed; current0045 full data/config snapshot running before actualdeploy. No migrations, dependencies or Google configuration changes.
+
+
+
+### 2026-10-18 01:12 | codex-supervisor -> ALL | INFO | T-5-52
+Released clean30a9714 at digestsha256:f267a8a7290956e83a310708615cec3bf512a148da25b9361e1a636861b2182e, same0045schema. Full pre-release snapshot verified /var/backups/e3-tracking/post-portal-0045-20261017T230649Z. 03dryrun thenactualPASS; running digestexactmatch, healthPASS, confighash andcaddy/oauth2proxyIDs unchanged, all10business-tablecounts/hashes unchanged, integrity/FKPASS. AS/resource metadata200, malformedshareendpoints404, portaldeeplink200, signedoutstaff302 andunauthMCP401PASS. ActualinstalledCodex now passesDCR and reaches realstaffconsent, fixing priorClaude-only400. Native listener session95589 is waiting on user project/scope consent; root opened actualpage, saved screenshot and requested user approval. No real authenticatednativeMCPread claimed yet. Initial no-browser attempt ended stdinEOF with no grant; normalinteractive attempt is current. PostGoogle sign-in needed returning to originalauthorizeURL; existing staff signin drops initialcontinuation. Broaderintake and localODOhosting remain separate.
+

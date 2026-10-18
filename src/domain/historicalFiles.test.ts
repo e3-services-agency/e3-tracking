@@ -9,6 +9,24 @@ describe('bounded historical CSV lexical checks', () => {
     const csv = parseHistoricalCsv('\uFEFFpurchase_id,value,note\r\na,\'-2.50,"first, second"\r\nb,3,"line\nwith ""quotes"""\r\n');
     expect(csv.rows).toEqual([['a', "'-2.50", 'first, second'], ['b', '3', 'line\nwith "quotes"']]);
   });
+  it.each([
+    ['a,b\r\n"x\r\ny",z\r\n\r\nq,\r\n', [['x\r\ny', 'z'], [''], ['q', '']]],
+    ['a,b\n"""",""', [['"', '']]],
+    ['a,b\n"""",x', [['"', 'x']]],
+    ['a,b\nx,', [['x', '']]],
+    ['\uFEFFa\n""', [['']]],
+    ['a\n\n', [['']]],
+  ])('preserves source-span boundaries and empty records: %s', (text, rows) => {
+    expect(parseHistoricalCsv(text as string).rows).toEqual(rows);
+  });
+  it.each(['a\n"x" ', 'a\n"x""', 'a\r\n"x"\ty'])('still rejects malformed closed/escaped quote boundaries: %s', text => expect(() => parseHistoricalCsv(text)).toThrow());
+  it('counts decoded escaped quotes and UTF-16 code units at the exact field limit', () => {
+    const limit = 1048576;
+    expect(parseHistoricalCsv('a\n"' + '""'.repeat(limit) + '"').rows[0][0]).toBe('"'.repeat(limit));
+    expect(() => parseHistoricalCsv('a\n"' + '""'.repeat(limit + 1) + '"')).toThrow('field limit');
+    expect(parseHistoricalCsv('a\n' + '😀'.repeat(limit / 2)).rows[0][0].length).toBe(limit);
+    expect(() => parseHistoricalCsv('a\n' + '😀'.repeat(limit / 2) + 'x')).toThrow('field limit');
+  });
   it.each(['a,a\n1,2', 'a;b\n1;2', 'a,b\n"unclosed', 'a,b\n"x"suffix,y', 'a,b\nx"y,z', 'a,\n1,2'])('rejects invalid syntax/headers %s', text => expect(() => parseHistoricalCsv(text)).toThrow());
   it('bounds field allocation before parsing an oversized value', () => expect(() => parseHistoricalCsv('a\n' + 'x'.repeat(1048577))).toThrow('field limit'));
   it('uses declared CSV decoding, with no silent coercion or unsafe precision', () => {

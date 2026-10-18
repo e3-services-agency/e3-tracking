@@ -44,23 +44,29 @@ export interface HistoricalResult {
 export function parseHistoricalCsv(text: string): HistoricalCsv {
   if (text.includes('\u0000')) throw new Error('CSV contains a NUL byte.');
   text = text.replace(/^\uFEFF/, '');
-  const records: string[][] = []; let row: string[] = [], field = '', quoted = false, closed = false, cells = 0;
-  const finishField = () => { row.push(field); field = ''; closed = false; cells++; if (row.length > HISTORICAL_FILE_POLICY.maxColumns || cells > HISTORICAL_FILE_POLICY.maxCells) throw new Error('CSV column/cell limit exceeded.'); };
-  const finishRow = () => { finishField(); records.push(row); row = []; if (records.length > HISTORICAL_FILE_POLICY.maxRows + 1) throw new Error('CSV record limit exceeded.'); };
+  // Keep contiguous source spans rather than retaining one cons-string node per character.
+  const records: string[][] = []; let row: string[] = [], fieldStart = 0, fieldEnd: number | null = null, fieldLength = 0, escaped = false, quoted = false, closed = false, cells = 0;
+  const finishField = (end: number) => {
+    const raw = text.slice(fieldStart, fieldEnd ?? end);
+    row.push(escaped ? raw.replace(/""/g, '"') : raw);
+    fieldStart = end + 1; fieldEnd = null; fieldLength = 0; escaped = false; closed = false;
+    cells++; if (row.length > HISTORICAL_FILE_POLICY.maxColumns || cells > HISTORICAL_FILE_POLICY.maxCells) throw new Error('CSV column/cell limit exceeded.');
+  };
+  const finishRow = (end: number) => { finishField(end); records.push(row); row = []; if (records.length > HISTORICAL_FILE_POLICY.maxRows + 1) throw new Error('CSV record limit exceeded.'); };
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
     if (quoted) {
-      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else { quoted = false; closed = true; } }
-      else field += c;
-    } else if (c === ',') finishField();
-    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; finishRow(); }
+      if (c === '"') { if (text[i + 1] === '"') { escaped = true; fieldLength++; i++; } else { quoted = false; closed = true; fieldEnd = i; } }
+      else fieldLength++;
+    } else if (c === ',') finishField(i);
+    else if (c === '\n' || c === '\r') { const end = i; if (c === '\r' && text[i + 1] === '\n') i++; finishRow(end); fieldStart = i + 1; }
     else if (closed) throw new Error('CSV contains characters after a closed quote.');
-    else if (c === '"') { if (field !== '') throw new Error('CSV contains a quote inside an unquoted field.'); quoted = true; }
-    else field += c;
-    if (field.length > HISTORICAL_FILE_POLICY.maxFieldCharacters) throw new Error('CSV field limit exceeded.');
+    else if (c === '"') { if (fieldLength !== 0) throw new Error('CSV contains a quote inside an unquoted field.'); quoted = true; fieldStart = i + 1; }
+    else fieldLength++;
+    if (fieldLength > HISTORICAL_FILE_POLICY.maxFieldCharacters) throw new Error('CSV field limit exceeded.');
   }
   if (quoted) throw new Error('CSV contains an unclosed quote.');
-  if (field !== '' || row.length || closed || text.endsWith(',')) finishRow();
+  if (fieldLength !== 0 || row.length || closed || text.endsWith(',')) finishRow(text.length);
   const [headers, ...rows] = records;
   if (!headers?.length || headers.length > HISTORICAL_FILE_POLICY.maxColumns || headers.some(h => !h || h.length > 128 || /[;\u0000-\u001f\u007f]/.test(h)) || new Set(headers).size !== headers.length)
     throw new Error('CSV headers must be nonempty, unique and bounded.');

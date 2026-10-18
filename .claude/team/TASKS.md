@@ -4,8 +4,8 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 
 | ID | Phase | Title | Owner | Depends on | Status | Acceptance |
 |----|-------|-------|-------|------------|--------|------------|
-| T-5-53 | 5 | Hosted ODO integration and scoped promotion | codex_oauth_implementer | T-5-50/51/52 | QA | D-90; preserve existing target identity and all native decisions/source/links; exact diff, transactional receipt and recovery gates |
-| T-5-54 | 5 | Native historical-source-file validation and MCP | codex_oauth_qa (implementer) | T-5-53 | QA | D-90; actual source bytes, explicit mappings/skips, immutable native receipts, scoped MCP and verified live readback |
+| T-5-53 | 5 | Hosted ODO integration and scoped promotion | codex_oauth_implementer | T-5-50/51/52 | DONE | D-90; preserve existing target identity and all native decisions/source/links; exact diff, transactional receipt and recovery gates |
+| T-5-54 | 5 | Native historical-source-file validation and MCP | codex_oauth_qa (implementer) | T-5-53 | DONE | D-90; actual source bytes, explicit mappings/skips, immutable native receipts, scoped MCP and verified live readback |
 | T-5-52 | 5 | Codex native OAuth compatibility | codex_oauth_implementer | T-5-35/36 | DONE | Strict native callback binding, preserved Claude/security contracts, independent review/QA and clean scoped release; see report |
 | T-0-01 | 0 | Scaffold agents, skills, team files, CLAUDE.md | supervisor | - | DONE | see below |
 | T-0-02 | 0 | Read-only repository audit | repo-auditor | T-0-01 | DONE | see below |

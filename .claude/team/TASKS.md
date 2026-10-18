@@ -4,7 +4,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 
 | ID | Phase | Title | Owner | Depends on | Status | Acceptance |
 |----|-------|-------|-------|------------|--------|------------|
-| T-5-52 | 5 | Codex native OAuth compatibility | codex_oauth_implementer | T-5-35/36 | QA (released30a9714; user browser grant pending) | Strict native callback binding, preserved Claude/security contracts, independent review/QA and clean scoped release; see report |
+| T-5-52 | 5 | Codex native OAuth compatibility | codex_oauth_implementer | T-5-35/36 | DONE | Strict native callback binding, preserved Claude/security contracts, independent review/QA and clean scoped release; see report |
 | T-0-01 | 0 | Scaffold agents, skills, team files, CLAUDE.md | supervisor | - | DONE | see below |
 | T-0-02 | 0 | Read-only repository audit | repo-auditor | T-0-01 | DONE | see below |
 | T-0-03 | 0 | Target model and phased plan | architect | T-0-02 | DONE | see below |
@@ -278,4 +278,4 @@ Detailed acceptance criteria per task live in `reports/PLAN-PHASE2-2026-09-25.md
 - From T-4-08 QA: the project-create modal once ignored the first submit (key field empty); check ProjectShellContext create form in T-4-09.
 
 ## T-5-52 Codex native OAuth compatibility
-Source accepted, independently reviewed and QA-tested; released clean30a9714 on0045. Details: reports/RELEASE-CODEX-MCP-2026-10-18.md. User native OAuth project/scope consent and authenticated native read proof pending. The unrelated native-file intake report remains proposal-only.
+Source accepted, independently reviewed and QA-tested; released clean30a9714 on0045. Details: reports/RELEASE-CODEX-MCP-2026-10-18.md. User native OAuth approval and authenticated project/scoped read proof passed on 2026-10-18. The unrelated native-file intake report remains proposal-only.

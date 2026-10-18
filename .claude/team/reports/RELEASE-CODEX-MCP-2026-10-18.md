@@ -1,6 +1,6 @@
 # T-5-52 Codex MCP compatibility release
 
-2026-10-18. Status: **released and healthy; user native OAuth approval is pending.** No authenticated native read has been claimed yet.
+2026-10-18. Status: **complete, released and healthy; real Codex OAuth and authenticated MCP reads passed.**
 
 ## Delivered
 
@@ -26,11 +26,13 @@ Verified full data/config snapshot: /var/backups/e3-tracking/post-portal-0045-20
 
 HTTP checks: authorization/resource metadata200, unknown share summary/findings/card/history404, public portal deep path200, signed-out staff302, unauthenticated MCP POST401. Operator logs remain in the main checkout's .claude/team/reports/T-5-52-{build-push,snapshot,deploy}.log and pre/post-release-audit.txt; they are not a portable data backup.
 
-## Final native authorization gate
+## Final native authorization gate: PASS
 
-The real installed Codex now passes dynamic registration and reaches the live 'Connect Codex to E3 Tracking' page signed in as jan.pan@e3-services.com. The actual127.0.0.1 ephemeralport/server-specific callback and unchecked project/write/template controls are visible. User approval of this new persistent grant was requested; root has not clicked Approve. CLI interactive session95589 holds the listener. The current browser tab is marked for handoff; consent expires after10minutes, so start a fresh login if necessary rather than reusing stale state.
+The prior pending login expired while waiting for the user. On the user's retry request, a fresh normal interactive Codex login was started. The user approved the new grant in the browser and replied done. Codex CLI reported successful login, and native e3_tracking tools loaded directly into Codex without reading/extracting credential storage.
 
-The initial --no-browser attempt ended on stdin EOF before any grant. Normal interactive login is current. Existing staff Google sign-in returned to the staff app instead of preserving OAuth continuation; revisiting the original authorize URL after sign-in reached the correct consent page without any auth bypass. After approval, verify CLI success and an authenticated read-only MCP call; do not claim usable credentials before this gate.
+Authenticated read-only verification passed: list_projects returned all four hosted projects; scoped sandbox-acme-eu list_events returned 10 custom events; hosted one-day-only-production list_events and list_use_cases each returned 0. No mutation tool, comparison or observation submission was called.
+
+The staff management page independently confirms the actual user-selected grant: All projects including future ones, projects:read and projects:write; global templates scope was not selected. Existing Claude grant remains present. Local screenshot evidence: main checkout .claude/team/reports/qa/T-5-52-codex-connected.png. No tokens, authorization codes or credentials are included in this report or Git. Task T-5-52 is DONE.
 
 ## Data authority and proposal boundary
 

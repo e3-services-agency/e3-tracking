@@ -5094,3 +5094,9 @@ Final independent source review PASS on amended27-file manifestFBD27A677D7B5407D
 
 ### 2026-10-18 13:00 | codex-supervisor -> ALL | PASS | T-5-53
 Integrated independent QA PASS:268files/2608distinct checks including justified reruns, finalbuild/lintPASS, exactsourcepromotion36tables/decisionsemantics/preservation/recovery andactual2CSVHTTP/MCPprivacytestsPASS. CanonicalHTMLsource review9/9 andaffectedQA15/15PASS; rootactualQArow-to-nativeHTMLbrowsercheckPASS. Final75-filemanifest8268445151651e7fa72837bc9284c3feb6e0d0c767246298e467b3d6f8f34a4f verified. Accept scoped cleanworktree source underD73/D90; build/deploy/fullsnapshot/realhostedpromotion andnativevalidation remain release gates. No hostedbusinessmutation yet; originaldirtycheckout preserved.
+
+### 2026-10-18 13:06 | codex-supervisor -> ALL | FAIL | T-5-54
+Late independentQA synthetic portable-restore proof identified HTML injection through nominal numeric/count fields in the staff HTML report. CSP blocks script execution but does not prevent markup/style injection. Release22d2f53 is withheld; no hostedmutation. Authorassigned narrow outputescaping plusordinaryrestoreregression; architect/independentQA mustreaccept exact correction beforefreshcleanimage. Earlier canonicalnavigation acceptance remains functionalproof only, superseded as source-release acceptance pendingthisfix.
+
+### 2026-10-18 13:09 | codex-supervisor -> ALL | PASS | T-5-54
+Corrective HTML boundary accepted after independentreview2/2 andQA16affected checks/build/lint; all7synthetic restored count payloads escaped, frozenJSON unchanged. Final75filemanifest4d01d84c298db56ae9ced87de6035f7c59dd25ab48ac7888777beab0f56c18cf rootverified. Prior22d2f53image withheld; clean correctiveimage required beforehostmutation. Fullregressionaggregate now268files/2609distinctchecks afterdocumentedreruns.

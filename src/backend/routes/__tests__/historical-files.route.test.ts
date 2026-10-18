@@ -11,6 +11,10 @@ import { createProject, createOrRotateShare } from '../../dal/project.dal';
 import { createEvent, attachPropertyToEvent } from '../../dal/event.dal';
 import { createProperty } from '../../dal/property.dal';
 import { createComment } from '../../dal/comment.dal';
+import { uploadHistoricalSource, previewHistoricalValidation, applyHistoricalValidation } from '../../services/historicalValidation.service';
+import { buildBackup } from '../../services/backup.service';
+import { previewRestore, applyRestore } from '../../services/backupRestore.service';
+import { escapeHtml } from '../../services/mcpOAuth.service';
 import type { HistoricalManifest } from '../../../domain/historicalFiles';
 let server: http.Server, base: string, project: string, foreign: string, event: string, property: string, token: string, directory: string;
 beforeAll(async () => {
@@ -49,4 +53,28 @@ it('staff multipart upload, preview, confirmed apply and human report readback u
   expect(JSON.stringify(await (await fetch(base + '/api/shared/' + token + '/qa-reports')).json())).not.toContain(report.report_id);
   expect(JSON.stringify(await (await fetch(base + '/api/shared/' + token + '/comments')).json())).not.toContain('PRIVATE_REPORT_DISCUSSION');
   expect(getDb().prepare('SELECT COUNT(*) n FROM observations').get()).toEqual({ n: 0 });
+});
+
+it('escapes every restored portable-report count at the staff HTML boundary without rewriting frozen evidence', async () => {
+  const source = await uploadHistoricalSource(project, Buffer.from('value\n1\n'), 'portable-counts.csv', { source_ref: 'portable-counts' });
+  const definition = getDb().prepare('SELECT definition_id FROM event_properties WHERE event_id=? AND property_id=?').get(event, property) as { definition_id: string };
+  const manifest: HistoricalManifest = { version: 1, parse_policy: 'csv-lexical-v1', files: [{ source_id: source.id, event_id: event, mappings: [{ column: 'value', property_id: property, definition_id: definition.definition_id }], source_only_columns: [], trailing_empty_columns: [] }], joins: [] };
+  const preview = await previewHistoricalValidation(project, manifest), original = await applyHistoricalValidation(project, manifest, preview.payload_hash);
+  const backup = await buildBackup(project);
+  const portable = backup.historical_validation_reports.find(r => r.report_id === original.report_id)!;
+  const result = structuredClone(portable.result_json) as any, payloads: string[] = [];
+  const markup = (label: string) => { const value = '<img src="count-' + label + '" onerror="alert(1)">&'; payloads.push(value); return value; };
+  for (const field of ['passed', 'failed', 'skipped', 'checked']) result.totals[field] = markup('total-' + field);
+  result.files[0].rows = markup('file-rows'); result.files[0].columns = markup('file-columns');
+  result.checks[0].count = markup('check-count');
+  portable.result_json = result;
+  const restoredPreview = previewRestore(backup), restored = await applyRestore(backup, restoredPreview.payload_hash, { client_id: createClient({ key: 'portable-counts-copy', name: 'Portable counts copy' }).id, key: 'portable-counts-copy', name: 'Portable counts copy' });
+  expect(restored.warnings).toEqual([]);
+  const stored = getDb().prepare('SELECT report_id,result_json FROM historical_validation_reports WHERE project_id=? AND restored_from_id=?').get(restored.project.id, portable.id) as { report_id: string; result_json: string };
+  expect(stored.result_json).toBe(JSON.stringify(result));
+  const response = await fetch(base + '/api/projects/' + restored.project.id + '/historical-files/reports/' + stored.report_id + '/view');
+  expect(response.status).toBe(200); expect(response.headers.get('content-security-policy')).toContain("default-src 'none'");
+  const html = await response.text();
+  for (const payload of payloads) { expect(html).not.toContain(payload); expect(html).toContain(escapeHtml(payload)); }
+  expect(html).not.toContain('<img');
 });

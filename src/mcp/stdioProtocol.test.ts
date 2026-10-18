@@ -3,7 +3,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { TOOL_POLICY } from './toolPolicy';
 describe('patched SDK stdio protocol', () => {
-    it('initializes a fresh sibling process and discovers/calls the same29 tools without HTTP credentials', async () => {
+    it('initializes a fresh sibling process and discovers/calls the same32 tools without HTTP credentials', async () => {
         const env = Object.fromEntries(Object.entries(process.env).filter((item): item is [
             string,
             string
@@ -13,7 +13,7 @@ describe('patched SDK stdio protocol', () => {
         try {
             await client.connect(transport);
             const tools = await client.listTools();
-            expect(tools.tools).toHaveLength(29);
+            expect(tools.tools).toHaveLength(32);
             expect(tools.tools.map(t => t.name).sort()).toEqual(Object.keys(TOOL_POLICY).sort());
             const projects = await client.callTool({ name: 'list_projects', arguments: {} });
             expect(projects.isError).not.toBe(true);

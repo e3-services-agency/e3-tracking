@@ -47,7 +47,7 @@ lines.on('line', line => {
     if (!initialized || !notified) process.exit(31);
     listed = true;
     reply({jsonrpc:'2.0',id:mode === 'wrong-id' ? 9 : 2,
-      result:{tools:Array.from({length:mode === 'wrong-count' ? 28 : 29},(_,i)=>({name:'tool'+i}))}});
+      result:{tools:Array.from({length:mode === 'wrong-count' ? 31 : 32},(_,i)=>({name:'tool'+i}))}});
   }
 });
 lines.on('close', () => {
@@ -82,12 +82,12 @@ describe.skipIf(!hasBash)('07 MCP response-driven smoke', () => {
   it('uses an exported SDK wrapper and waits for initialize before tools/list', async () => {
     const result = await run();
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain('OK: tools/list returned 29 tools');
+    expect(result.stdout).toContain('OK: tools/list returned 32 tools');
   });
   it('keeps stdin open through startup beyond the former 20-second lifetime', async () => {
     const result = await run('normal', 21000);
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain('OK: tools/list returned 29 tools');
+    expect(result.stdout).toContain('OK: tools/list returned 32 tools');
   }, 35000);
   it('retains the actual transport exit and actionable stderr', async () => {
     const result = await run('transport-error');
@@ -100,7 +100,7 @@ describe.skipIf(!hasBash)('07 MCP response-driven smoke', () => {
     ['null-response', 'non-object JSON-RPC stdout'],
     ['array-response', 'non-object JSON-RPC stdout'],
     ['wrong-id', 'unexpected response ID'],
-    ['wrong-count', '28 tools (expected 29)'],
+    ['wrong-count', '31 tools (expected 32)'],
     ['rpc-error', 'initialize returned an error response'],
   ])('rejects %s without claiming success', async (mode, reason) => {
     const result = await run(mode);

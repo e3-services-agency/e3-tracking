@@ -27,6 +27,8 @@ export function mainRouteStateFromRestPath(restPath: string): { tab: string; eve
       return { tab: 'consentCategories' };
     case '/standard-events':
       return { tab: 'standardEvents' };
+    case '/decisions':
+      return { tab: 'decisions' };
     case '/use-cases':
       return { tab: 'useCases' };
     case '/use-case-templates':

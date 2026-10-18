@@ -206,6 +206,11 @@ router.get('/:token/files/*', requireShare, async (req: Request, res: Response) 
     shareNotFound(res);
     return;
   }
+  // Historical CSV source bytes are staff-only even when their opaque path is known.
+  if (rawSegments[1]?.toLowerCase() === 'historical-sources') {
+    shareNotFound(res);
+    return;
+  }
   // T-5-04 (D-70): a comment image is served only when its comment is visible to this link (not
   // internal_only, and the project's share_comments rule); anything else is the same 404 as a
   // missing file. A `<project>/comments/...` path with no attachment row is never served.

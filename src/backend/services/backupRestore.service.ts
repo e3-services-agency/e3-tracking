@@ -480,6 +480,35 @@ export async function applyRestore(
             // `project_id` column never gets one injected (which `insertGenericRow`'s unknown-column
             // tracking would otherwise misreport as a dropped column on every such row).
             const remapped = table === 'qa_reports' || table === 'qa_report_findings' ? remapHistoricalRow(table,raw,idMap) : deepRemapRow(raw, idMap, pathMap);
+            // Frozen historical validation evidence retains original JSON/hashes. Only live
+            // storage links remap; restored reports never inherit a live OAuth grant.
+            if(table==='historical_validation_reports') {
+              Object.assign(remapped,raw,{
+                id:idMap.get(String(raw.id))??raw.id,project_id:newProjectId,
+                report_id:idMap.get(String(raw.report_id))??raw.report_id,
+                source_ids_json:Array.isArray(raw.source_ids_json)?raw.source_ids_json.map(id=>idMap.get(String(id))??id):raw.source_ids_json,
+                restored_from_id:raw.restored_from_id??raw.id,oauth_grant_id:null,
+              });
+            }
+            // Retain exact mapping review payloads as history, never current authority.
+            if(table==='asset_link_imports'||table==='use_case_asset_links'){
+              Object.assign(remapped,raw,{id:idMap.get(String(raw.id))??raw.id,project_id:newProjectId,restored:1});
+              if(table==='use_case_asset_links'){
+                remapped.use_case_id=idMap.get(String(raw.use_case_id))??raw.use_case_id;
+                remapped.import_id=idMap.get(String(raw.import_id))??raw.import_id;
+              }
+            }
+            // Decision approvals are bound to the original project and immutable payload hashes.
+            // A portable restore keeps that evidence as history, never as authority to apply changes.
+            if (table === 'decision_revisions' || table === 'decision_events' || table === 'decision_source_captures') {
+              Object.assign(remapped, raw, {id: idMap.get(String(raw.id)) ?? raw.id, project_id: newProjectId});
+              if (table === 'decision_revisions') remapped.restored = 1;
+              else remapped.decision_id = idMap.get(String(raw.decision_id)) ?? raw.decision_id;
+              if(table==='decision_source_captures'){
+                remapped.baseline_id=raw.baseline_id ? idMap.get(String(raw.baseline_id)) ?? raw.baseline_id : null;
+                remapped.followup_decision_id=raw.followup_decision_id ? idMap.get(String(raw.followup_decision_id)) ?? raw.followup_decision_id : null;
+              }
+            }
             if(table==='findings' && typeof remapped.finding_sequence!=='number'){const oldRows=parsed.tables.findings??[];const rank=[...oldRows].sort((a,b)=>String(a.first_seen_at).localeCompare(String(b.first_seen_at))||String(a.id).localeCompare(String(b.id)));remapped.finding_sequence=rank.indexOf(raw)+1;}
             insertGenericRow(table, withInferredContract(table, remapped), unknownColsSeen);
           }

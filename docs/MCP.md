@@ -273,7 +273,7 @@ Stdout must carry JSON-RPC only, so:
   (and `gcloud compute ssh --command ... -- -t` is the opposite flag, do not add it).
 - The entrypoint and all MCP logs write to stderr only (`src/mcp/log.ts`); compose's "Creating/Running"
   lines also go to stderr. `src/deploy/mcpContainer.test.ts` runs the real image through
-  `docker compose run --rm -T mcp` (base compose file, not the VM command or the ssh hop) and asserts every stdout line is JSON-RPC and `tools/list` has 29 tools.
+  `docker compose run --rm -T mcp` (base compose file, not the VM command or the ssh hop) and asserts every stdout line is JSON-RPC and `tools/list` has 32 tools.
 - `E3_PROJECT_KEY` is set with `-e E3_PROJECT_KEY=<key>` inside the remote command (the environment of
   your laptop does not reach the container through ssh).
 

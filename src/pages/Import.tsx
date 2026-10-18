@@ -15,6 +15,7 @@ import { useProjectShell } from '@/src/features/projects/context/ProjectShellCon
 import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
+import { CapturedEvidenceImport } from '@/src/features/imports/CapturedEvidenceImport';
 
 interface DiffItem {
   id: string;
@@ -739,6 +740,7 @@ export function Import() {
       </PageHeader>
 
       <PageBody className="space-y-6">
+        <CapturedEvidenceImport key={activeProjectId} projectId={activeProjectId} />
         <ImportBox format="data-mapping" title="Data mapping" projectId={activeProjectId} />
         <ImportBox format="expiration-settings" title="Expiration settings" projectId={activeProjectId} />
         <ImportBox format="data-manager-customers" title="Data Manager customers" projectId={activeProjectId} />

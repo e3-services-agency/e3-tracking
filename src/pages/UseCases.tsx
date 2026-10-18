@@ -1,3 +1,4 @@
+import {useImplementation,UseCaseImplementationDetail,ImplementationSummary} from '@/src/features/views/Implementation';
 import { UseCasesTable, useCaseRowsFromInternal } from '@/src/features/views';
 import { EnumSelect } from '@/src/components/ui/EnumSelect';
 import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
@@ -125,6 +126,7 @@ async function parseJson(res: Response): Promise<any> {
 export function UseCases() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
   const [useCases, setUseCases] = useState<UseCaseRow[]>([]);
+  const implementation=useImplementation(activeProjectId);
   const viewRows = useMemo(() => useCaseRowsFromInternal(useCases), [useCases]);
   const [templates, setTemplates] = useState<UseCaseTemplateOption[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -245,7 +247,11 @@ export function UseCases() {
             {fromTemplateError}
           </div>
         )}
+        <Button variant="outline" onClick={implementation.reload}>Refresh mapped evidence</Button>
+        {implementation.error&&<p role="alert">Mapped configuration unavailable: {implementation.error}</p>}
+        {implementation.rows&&<ImplementationSummary rows={implementation.rows} projectId={activeProjectId!}/>}
         <UseCasesTable
+          implementation={implementation.rows}
           rows={viewRows}
           onOpen={(row) => setSelectedId(row.id)}
           empty={{
@@ -665,6 +671,7 @@ function UseCaseDetail({
       </PageHeader>
 
       <PageBody className="space-y-8">
+        <UseCaseImplementationDetail projectId={projectId} useCaseId={useCaseId}/>
         {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{saveError}</div>}
 
         <div className="bg-white rounded-lg border shadow-sm p-6 grid grid-cols-2 gap-4">

@@ -26,6 +26,7 @@ export function Sidebar({
     { id: 'consentCategories', label: 'Consent categories', icon: NAV_ICONS.consentCategories },
     { id: 'standardEvents', label: 'Standard events', icon: NAV_ICONS.standardEvents },
     { id: 'useCases', label: 'Use cases', icon: NAV_ICONS.useCases },
+    { id: 'decisions', label: 'Decision inbox', icon: NAV_ICONS.decisions },
     { id: 'useCaseTemplates', label: 'Use case templates', icon: NAV_ICONS.useCaseTemplates },
     { id: 'requirementsMatrix', label: 'Requirements matrix', icon: NAV_ICONS.requirementsMatrix },
     { id: 'sources', label: 'Sources', icon: NAV_ICONS.sources },

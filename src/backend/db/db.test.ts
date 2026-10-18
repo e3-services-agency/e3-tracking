@@ -281,6 +281,11 @@ const ALL_MIGRATION_FILES = [
   '0043_mcp_oauth.sql',
   '0044_mcp_grant_all_projects.sql',
   '0045_share_audience.sql',
+  '0046_decision_inbox.sql',
+  '0047_decision_source_captures.sql',
+  '0048_use_case_asset_links.sql',
+  '0049_project_promotions.sql',
+  '0050_historical_file_validation.sql',
 ];
 
 describe('listMigrationFiles', () => {

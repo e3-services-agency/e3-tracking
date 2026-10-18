@@ -58,6 +58,7 @@ export const NAV_ICONS = {
   consentCategories: ShieldCheck,
   standardEvents: GitBranch,
   useCases: ListChecks,
+  decisions: ClipboardCheck,
   useCaseTemplates: BookOpen,
   requirementsMatrix: Grid3x3,
   sources: LayoutDashboard,

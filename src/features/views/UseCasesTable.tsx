@@ -3,6 +3,8 @@
  * internal page only (the public document does not carry them) and a requirement count when the
  * rows carry their requirements.
  */
+import {ConfigurationCell,QaEvidenceCell} from './Implementation';
+import type {UseCaseImplementation} from '@/src/domain/assetLinks';
 import React, { useMemo } from 'react';
 import { PriorityBadge, StatusBadge } from '@/src/components/ui/badges';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
@@ -20,7 +22,7 @@ import type { UseCaseViewRow, ViewSlots } from './types';
 
 const PRIORITY_ORDER = ['critical', 'high', 'medium', 'low'];
 
-export function UseCasesTable({ rows, rowActions, onOpen, commentCount, commentsInActions, readOnly = false, empty, toolbarExtra }: ViewSlots<UseCaseViewRow>) {
+export function UseCasesTable({ rows, rowActions, onOpen, commentCount, commentsInActions, readOnly = false, empty, toolbarExtra, implementation }: ViewSlots<UseCaseViewRow>&{implementation?:Record<string,UseCaseImplementation>}) {
   const [density, setDensity] = useDensity();
   const [search, setSearch] = useViewState('search', '');
   const debouncedSearch = useDebouncedValue(search.trim().toLowerCase(), 200);
@@ -50,7 +52,7 @@ export function UseCasesTable({ rows, rowActions, onOpen, commentCount, comments
   const cell = CELL[density];
   const hasActions = !!(rowActions || commentCount);
   const showRequirements = rows.some((u) => u.requirement_count !== null);
-  const colSpan = 4 + (readOnly ? 0 : 2) + (showRequirements ? 1 : 0) + (hasActions ? 1 : 0);
+  const colSpan = (implementation ? 2 : 0) + 4 + (readOnly ? 0 : 2) + (showRequirements ? 1 : 0) + (hasActions ? 1 : 0);
   const statusOptions = withKnownOrder(USE_CASE_STATUSES, filterOptions(rows, (u) => u.status));
   const typeOptions = withKnownOrder(USE_CASE_TYPES, filterOptions(rows, (u) => u.type));
 
@@ -77,7 +79,8 @@ export function UseCasesTable({ rows, rowActions, onOpen, commentCount, comments
             <SortableTh sort={sort} column="name" className={`${cell} ${HEAD_TEXT}`} hint="Name" hintScope="UseCases">Name</SortableTh>
             <SortableTh sort={sort} column="type" className={`${cell} ${HEAD_TEXT}`} hint="Type" hintScope="UseCases">Type</SortableTh>
             {!readOnly && <SortableTh sort={sort} column="priority" className={`${cell} ${HEAD_TEXT}`} hint="Priority" hintScope="UseCases">Priority</SortableTh>}
-            <SortableTh sort={sort} column="status" className={`${cell} ${HEAD_TEXT}`} hint="Status" hintScope="UseCases">Status</SortableTh>
+            <SortableTh sort={sort} column="status" className={`${cell} ${HEAD_TEXT}`} hint="Status" hintScope="UseCases">{implementation?'Agreed lifecycle':'Status'}</SortableTh>
+            {implementation&&<><HintTh className={`${cell} ${HEAD_TEXT}`} hint="Mapped configuration">Mapped configuration</HintTh><HintTh className={`${cell} ${HEAD_TEXT}`} hint="QA evidence">QA evidence</HintTh></>}
             {!readOnly && <SortableTh sort={sort} column="owner" className={`${cell} ${HEAD_TEXT}`} hint="Owner" hintScope="UseCases">Owner</SortableTh>}
             {showRequirements && <SortableTh sort={sort} column="requirements" className={`${cell} ${HEAD_TEXT}`} hint="Requirements" hintScope="UseCases">Requirements</SortableTh>}
             {hasActions && <HintTh className={`${cell} ${HEAD_TEXT}`} hint="Actions" hintScope="UseCases">Actions</HintTh>}
@@ -102,6 +105,7 @@ export function UseCasesTable({ rows, rowActions, onOpen, commentCount, comments
                 <td className={`${cell} text-gray-500`}><OrDash value={u.type ? enumLabel('use_case_type', u.type) : null} /></td>
                 {!readOnly && <td className={cell}><PriorityBadge priority={u.priority} /></td>}
                 <td className={cell}><StatusBadge status={u.status} /></td>
+                {implementation&&<><td className={cell}><ConfigurationCell row={implementation[u.id]}/></td><td className={cell}><QaEvidenceCell row={implementation[u.id]}/></td></>}
                 {!readOnly && <td className={`${cell} text-gray-500`}><OrDash value={u.owner} /></td>}
                 {showRequirements && <td className={`${cell} tabular-nums ${u.requirement_count ? 'text-gray-600' : 'text-gray-300'}`}>{u.requirement_count ?? '—'}</td>}
                 {hasActions && <ActionsCell className={cell} count={commentCount?.(u) ?? 0} actions={rowActions?.(u)} commentsInActions={commentsInActions} />}

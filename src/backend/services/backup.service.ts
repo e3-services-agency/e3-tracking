@@ -175,6 +175,13 @@ export interface BackupPayload {
   comment_attachments: Row[];
   /** T-5-45 (D-88): listed people; restored with the project's `share_audience`. */
   share_members: Row[];
+  decision_revisions: Row[];
+  decision_events: Row[];
+  decision_source_captures: Row[];
+  asset_link_imports: Row[];
+  use_case_asset_links: Row[];
+  historical_file_sources: Row[];
+  historical_validation_reports: Row[];
   files: BackupFileEntry[];
   files_missing: string[];
   /** Malformed `*_json` cells kept as raw strings instead of being silently nulled (pre-QA fix INFO 2). */
@@ -261,7 +268,8 @@ export async function buildBackup(projectId: string): Promise<BackupPayload> {
   const commentAttachments = tableExists('comment_attachments')
     ? directRows('comment_attachments', projectId, warnings, 'created_at, id')
     : [];
-  const { files, files_missing } = await collectFiles(projectId, events, project.client_logo_path, commentAttachments);
+  const historicalSources = directRows('historical_file_sources', projectId, warnings, 'uploaded_at, id');
+  const { files, files_missing } = await collectFiles(projectId, events, project.client_logo_path, [...commentAttachments, ...historicalSources]);
 
   return {
     format: BACKUP_FORMAT,
@@ -332,6 +340,13 @@ export async function buildBackup(projectId: string): Promise<BackupPayload> {
     comment_reactions: directRows('comment_reactions', projectId, warnings, 'created_at, id'),
     comment_attachments: commentAttachments,
     share_members: tableExists('share_members') ? directRows('share_members', projectId, warnings, 'email') : [],
+    decision_revisions: directRows('decision_revisions', projectId, warnings, 'decision_key, revision'),
+    decision_events: directRows('decision_events', projectId, warnings, 'created_at, id'),
+    decision_source_captures: directRows('decision_source_captures', projectId, warnings, 'created_at, rowid'),
+    asset_link_imports: directRows('asset_link_imports', projectId, warnings, 'created_at, id'),
+    use_case_asset_links: directRows('use_case_asset_links', projectId, warnings, 'created_at, id'),
+    historical_file_sources: historicalSources,
+    historical_validation_reports: directRows('historical_validation_reports', projectId, warnings, 'created_at, id'),
     files,
     files_missing,
     warnings,

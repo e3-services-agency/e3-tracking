@@ -10,6 +10,9 @@ import guideEvents from '../../docs/guide/events-and-properties.md?raw';
 import guideCatalogs from '../../docs/guide/catalogs.md?raw';
 import guideSharing from '../../docs/guide/sharing-and-access.md?raw';
 import guideIdentification from '../../docs/guide/identification.md?raw';
+import guideCapturedEvidence from '../../docs/guide/captured-evidence.md?raw';
+import guideDecisionInbox from '../../docs/guide/decision-inbox.md?raw';
+import guideProjectPromotion from '../../docs/guide/project-promotion.md?raw';
 import guideImportLegacy from '../../docs/guide/import-legacy-sheet.md?raw';
 import domainDoc from '../../docs/DOMAIN.md?raw';
 import exportsDoc from '../../docs/EXPORTS.md?raw';
@@ -41,6 +44,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
   { slug: 'sharing-and-access', label: 'Sharing and access', group: 'Guide', markdown: guideSharing },
   { slug: 'identification', label: 'Identification and sources', group: 'Guide', markdown: guideIdentification },
   { slug: 'import-legacy-sheet', label: 'Import a legacy sheet', group: 'Guide', markdown: guideImportLegacy },
+  { slug: 'captured-evidence', label: 'Captured evidence and reviewed links', group: 'Guide', markdown: guideCapturedEvidence },
+  { slug: 'decision-inbox', label: 'Decision inbox', group: 'Guide', markdown: guideDecisionInbox },
+  { slug: 'project-promotion', label: 'Promote a project snapshot', group: 'Guide', markdown: guideProjectPromotion },
   { slug: 'domain', label: 'Domain model', group: 'Reference', markdown: domainDoc },
   { slug: 'exports', label: 'Exports', group: 'Reference', markdown: exportsDoc },
   { slug: 'qa-local', label: 'Running QA locally', group: 'Reference', markdown: qaLocalDoc },

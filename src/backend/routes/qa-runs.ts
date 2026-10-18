@@ -8,6 +8,7 @@ import * as QaRunDAL from '../dal/qa-run.dal';
 import * as ObservationDAL from '../dal/observation.dal';
 import { runComparison } from '../services/comparison.service';
 import { handleRouteError } from './routeErrors';
+import { ValidationError } from '../errors';
 
 const router = Router({ mergeParams: true });
 
@@ -35,6 +36,10 @@ router.get('/:id', (req: Request, res: Response) => {
 router.patch('/:id', (req: Request, res: Response) => {
   try {
     const body = req.body as Record<string, unknown>;
+    const manifest = QaRunDAL.getQaRunOrThrow(req.projectId!, req.params.id).manifest_json;
+    if (body.archived === false && manifest && typeof manifest === 'object' && (manifest as { format?: string }).format === 'e3-captured-evidence-v1') {
+      throw new ValidationError('Captured configuration/aggregate evidence cannot participate in event-observation QA.', 'archived');
+    }
     const updates: QaRunDAL.QaRunUpdateInput = {};
     if (typeof body.archived === 'boolean') updates.archived = body.archived;
     if ('notes' in body) updates.notes = body.notes as string | null;

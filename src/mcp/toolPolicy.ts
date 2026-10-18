@@ -4,8 +4,8 @@ import { ownedReference } from '../backend/dal/mcp-oauth.dal';
 import { WRITE_TOOLS } from './tools/writeTools';
 import { parseArgs } from './tools/writeCore';
 export const MCP_SCOPES = ['projects:read', 'projects:write', 'templates:read'] as const;
-const read = ['list_projects', 'list_events', 'get_event_card', 'get_expected_payload', 'list_use_cases', 'get_use_case', 'list_findings', 'get_coverage_grid', 'get_tracking_document', 'get_history'];
-const write = ['submit_observation', 'submit_observations_batch', 'finish_qa_run', 'run_comparison', 'update_observation', 'delete_observation', 'delete_qa_run', ...WRITE_TOOLS.map(t => t.name), 'batch_apply'];
+const read = ['list_projects', 'list_events', 'get_event_card', 'get_expected_payload', 'list_use_cases', 'get_use_case', 'list_findings', 'get_coverage_grid', 'get_tracking_document', 'get_history', 'preview_historical_validation', 'get_historical_validation'];
+const write = ['submit_observation', 'submit_observations_batch', 'finish_qa_run', 'run_comparison', 'update_observation', 'delete_observation', 'delete_qa_run', ...WRITE_TOOLS.map(t => t.name), 'batch_apply', 'apply_historical_validation'];
 export const TOOL_POLICY: Readonly<Record<string, readonly string[]>> = Object.freeze(Object.fromEntries([...read.map(n => [n, ['projects:read']]), ...write.map(n => [n, ['projects:read', 'projects:write']]), ['list_use_case_templates', ['templates:read']], ['instantiate_use_case_template', ['projects:read', 'projects:write', 'templates:read']]]));
 export class McpAuthorizationError extends Error {
     readonly code = 'MCP_FORBIDDEN';

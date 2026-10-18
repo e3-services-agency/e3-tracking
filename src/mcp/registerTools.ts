@@ -38,6 +38,8 @@ import { runComparison } from './tools/comparison';
 import { finishQaRun, deleteQaRun } from './tools/qaRuns';
 import { getHistory } from './tools/history';
 import { WRITE_TOOLS, writeHandler, writeCommonShape, batchApply } from './tools/writeTools';
+import { previewHistoricalFileValidation, applyHistoricalFileValidation, getHistoricalFileValidation } from './tools/historicalValidation';
+import { historicalManifestSchema } from '../backend/services/historicalValidation.service';
 
 type ToolHandler<I> = (input: I) => Promise<unknown>;
 
@@ -89,6 +91,12 @@ const projectKeyShape = { project_key: z.string().optional() };
 
 export function registerTools(server: McpServer): void {
   register(server, 'list_projects', 'Projects grouped by client.', {}, listProjects);
+  register(server, 'preview_historical_validation', 'Read-only preview of staged historical CSV sources against a frozen native definition/rule revision. Takes opaque project-scoped source IDs, never raw CSV or fetched URLs. Returns exact confirmation hash and limitations; creates no observations.',
+    { ...projectKeyShape, manifest: historicalManifestSchema }, previewHistoricalFileValidation);
+  register(server, 'apply_historical_validation', 'After reviewing the exact preview, persist one immutable numbered historical-file report. Requires confirmed=true and payload_hash. No runtime observations, findings, certification or approvals are changed; exact replay is idempotent.',
+    { ...projectKeyShape, manifest: historicalManifestSchema, payload_hash: z.string().regex(/^[a-f0-9]{64}$/), confirmed: z.boolean() }, applyHistoricalFileValidation);
+  register(server, 'get_historical_validation', 'Read an immutable historical-file report with bounded privacy-safe record/column diagnostics and current source-byte availability; limit at most100. This is separate from observed-event QA.',
+    { ...projectKeyShape, report_id: z.string().uuid(), offset: z.number().int().nonnegative().optional(), limit: z.number().int().min(1).max(100).optional() }, getHistoricalFileValidation);
 
   register(
     server,

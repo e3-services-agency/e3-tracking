@@ -93,7 +93,7 @@ describe('Codex native MCP OAuth, preserving Claude policy', () => {
         const issued = await exchange(client, code, redirect); expect(issued.status).toBe(200);
         const tokens = await issued.json(); expect(tokens.scope).toBe('projects:read');
         const list = await call(tokens.access_token, 'tools/list');
-        const tools = (await list.json()).result.tools; expect(tools).toHaveLength(10);
+        const tools = (await list.json()).result.tools; expect(tools).toHaveLength(12);
         expect(tools.some((t: {name: string}) => t.name === 'create_event')).toBe(false);
         const projects = await call(tokens.access_token, 'tools/call', { name: 'list_projects', arguments: {} });
         const payload = JSON.stringify(await projects.json()); expect(payload).toContain('codex-selected'); expect(payload).not.toContain('codex-foreign');
@@ -109,7 +109,7 @@ describe('Codex native MCP OAuth, preserving Claude policy', () => {
         const code = new URL(res.headers.get('location')!).searchParams.get('code')!;
         const tokens = await (await exchange(client, code, redirect)).json();
         expect(tokens.scope).toBe('projects:read projects:write templates:read');
-        const list = await call(tokens.access_token, 'tools/list'); expect((await list.json()).result.tools).toHaveLength(29);
+        const list = await call(tokens.access_token, 'tools/list'); expect((await list.json()).result.tools).toHaveLength(32);
         const write = await call(tokens.access_token, 'tools/call', { name: 'create_event', arguments: { project_key: 'codex-selected', name: 'codex_verified', dry_run: false, agent_name: 'forged' } }); expect(write.status).toBe(200);
         expect(getDb().prepare("SELECT actor FROM change_log WHERE entity_label='codex_verified' ORDER BY rowid DESC LIMIT 1").get()).toEqual({ actor: owner });
         const g = OAuth.access(tokens.access_token, resource).grant;

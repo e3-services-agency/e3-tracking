@@ -51,6 +51,7 @@ function visibleSummary(items: VisibleItem[]) {
 }
 export function publicReport(projectId: string, id: string) {
     const r = getQaReport(projectId, id);
+    if (r.scope.type === 'historical_file_validation') throw new NotFoundError('Report not found.');
     const visible = new Set((getDb().prepare('SELECT id FROM qa_report_findings WHERE project_id=? AND report_id=? AND public_visible=1').all(projectId, id) as {
         id: string;
     }[]).map(i => i.id));
@@ -70,7 +71,7 @@ export function publicReportList(projectId: string) {
         list.push({ disposition: row.disposition, recorded });
         grouped.set(row.report_id, list);
     }
-    return listQaReports(projectId).map(r => ({ id: r.id, report_sequence: r.report_sequence, completed_at: r.completed_at, snapshot_version: r.snapshot_version, scope: { type: 'whole_project' }, summary: visibleSummary(grouped.get(r.id) ?? []) }));
+    return listQaReports(projectId).filter(r => r.scope.type !== 'historical_file_validation').map(r => ({ id: r.id, report_sequence: r.report_sequence, completed_at: r.completed_at, snapshot_version: r.snapshot_version, scope: { type: 'whole_project' }, summary: visibleSummary(grouped.get(r.id) ?? []) }));
 }
 export function publicFindingHistory(projectId: string, id: string, publicOnly = true) {
     const appearances = findingAppearances(projectId, id, publicOnly);

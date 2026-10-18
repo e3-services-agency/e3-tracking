@@ -19,6 +19,7 @@ import { IdentityRules } from '@/src/pages/IdentityRules';
 import { ConsentCategories } from '@/src/pages/ConsentCategories';
 import { StandardEvents } from '@/src/pages/StandardEvents';
 import { UseCases } from '@/src/pages/UseCases';
+import { DecisionInbox } from '@/src/pages/DecisionInbox';
 import { UseCaseTemplates } from '@/src/pages/UseCaseTemplates';
 import { RequirementsMatrix } from '@/src/pages/RequirementsMatrix';
 import { Import } from '@/src/pages/Import';
@@ -182,6 +183,7 @@ function LayoutInner() {
     if (activeTab === 'consentCategories') pushPath('/consent-categories', activeProjectKey);
     if (activeTab === 'standardEvents') pushPath('/standard-events', activeProjectKey);
     if (activeTab === 'useCases') pushPath('/use-cases', activeProjectKey);
+    if (activeTab === 'decisions') pushPath('/decisions', activeProjectKey);
     if (activeTab === 'useCaseTemplates') pushPath('/use-case-templates', activeProjectKey);
     if (activeTab === 'requirementsMatrix') pushPath('/requirements-matrix', activeProjectKey);
     if (activeTab === 'sources') pushPath('/sources', activeProjectKey);
@@ -229,6 +231,7 @@ function LayoutInner() {
         {activeTab === 'consentCategories' && <ConsentCategories />}
         {activeTab === 'standardEvents' && <StandardEvents />}
         {activeTab === 'useCases' && <UseCases />}
+        {activeTab === 'decisions' && <DecisionInbox key={activeProjectId} />}
         {activeTab === 'useCaseTemplates' && <UseCaseTemplates />}
         {activeTab === 'requirementsMatrix' && <RequirementsMatrix />}
         {activeTab === 'sources' && <Sources />}

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: 07-mcp.sh [--dry-run]. T-5-09 (D-72 item 7): prints the .mcp.json block for the values in config.env and
-# smoke-tests the MCP server over the IAP SSH tunnel (initialize + tools/list, expects 29 tools). Read-only on GCP.
+# smoke-tests the MCP server over the IAP SSH tunnel (initialize + tools/list, expects 32 tools). Read-only on GCP.
 # Optional: E3_PROJECT_KEY=<key> in the environment sets the default project key in the block.
 set -euo pipefail
 # shellcheck source=lib.sh
@@ -103,7 +103,7 @@ child.stdout.on('data', chunk => {
     } else {
       if (!Array.isArray(response.result.tools)) return fail('tools/list response missing tools');
       const count = response.result.tools.length;
-      if (count !== 29) return fail(`tools/list returned ${count} tools (expected 29)`);
+      if (count !== 32) return fail(`tools/list returned ${count} tools (expected 32)`);
       complete = true;
       stage = 'transport shutdown';
       // EOF only after both actual responses; no startup-dependent sleep.
@@ -117,7 +117,7 @@ child.on('close', (code, signal) => {
   if (!complete || pending.trim()) return fail(`transport closed before a valid ${stage} completion`);
   finished = true;
   clearTimeout(timer);
-  console.log('OK: tools/list returned 29 tools over the IAP tunnel.');
+  console.log('OK: tools/list returned 32 tools over the IAP tunnel.');
 });
 send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {
   protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: '07-mcp', version: '0' },

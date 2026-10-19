@@ -228,6 +228,27 @@
     ]
   },
   {
+    "name": "update_use_case",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "link_use_case_asset",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "unlink_use_case_asset",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
     "name": "batch_apply",
     "scopes": [
       "projects:read",

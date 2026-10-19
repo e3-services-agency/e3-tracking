@@ -49,6 +49,9 @@ interface UseCaseRow {
   priority: string | null;
   status: string | null;
   owner: string | null;
+  owner_business?:string|null;
+  owner_technical?:string|null;
+  status_note?:string|null;
   notes: string | null;
   narrative: string | null;
   narrative_generated_at: string | null;
@@ -754,6 +757,7 @@ function UseCaseDetail({
               onBlur={(e) => void saveFields({ owner: e.target.value.trim() || null })}
             />
           </div>
+          {(['owner_business','owner_technical','status_note'] as const).map(field=><div key={field} className="space-y-2"><label className="text-sm font-medium text-gray-700" htmlFor={`uc-${field}`}>{field==='owner_business'?'Business owner':field==='owner_technical'?'Technical owner':'Lifecycle note'}</label><Input id={`uc-${field}`} maxLength={field==='status_note'?500:200} defaultValue={useCase[field]??''} onBlur={e=>void saveFields({[field]:e.target.value.trim()||null})}/></div>)}
           <div className="space-y-2">
             <FieldLabel className="text-sm font-medium text-gray-700" hint="Documentation link" hintScope="UseCases">Documentation link</FieldLabel>
             <Input

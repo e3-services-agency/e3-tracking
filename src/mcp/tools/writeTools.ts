@@ -14,6 +14,8 @@ import { McpToolError } from '../errors';
 import { createEventTool, updateEventTool, setEventIdentifiersTool } from './writeEvents';
 import { createPropertyTool, updatePropertyTool, linkEventPropertyTool, unlinkEventPropertyTool } from './writeProperties';
 import { createIdentityRuleTool, createCatalogFieldTool } from './writeIdentityCatalogs';
+import {updateUseCaseTool,linkUseCaseAssetTool,unlinkUseCaseAssetTool} from './writeUseCases';
+import {getDb} from '../../backend/db';
 import { executeOp, parseArgs, runWriteTool, withRollback, writeCommonShape } from './writeCore';
 import type { WriteCommonInput, WriteResult, WriteTool } from './writeCore';
 import { durableStep, currentWriteRequest } from '../idempotency';
@@ -28,6 +30,7 @@ export const WRITE_TOOLS: WriteTool[] = [
   createIdentityRuleTool,
   setEventIdentifiersTool,
   createCatalogFieldTool,
+  updateUseCaseTool,linkUseCaseAssetTool,unlinkUseCaseAssetTool,
 ];
 
 export { writeCommonShape };
@@ -37,7 +40,11 @@ export type WriteHandler = (input: Record<string, unknown> & WriteCommonInput) =
 export function writeHandler(tool: WriteTool): WriteHandler {
   return async (input) => {
     const project = resolveProject(input.project_key);
-    return durableStep('mutation', () => runWriteTool(project.id, tool, input, input.dry_run !== false));
+    return durableStep('mutation', () => getDb().transaction(()=>{
+      if(!['update_use_case','link_use_case_asset','unlink_use_case_asset'].includes(tool.name)||input.dry_run!==false)return runWriteTool(project.id,tool,input,input.dry_run!==false);
+      const batch=runWithImportBatch('mcp',()=>runWriteTool(project.id,tool,input,false),currentWriteRequest()?.batch_id);
+      return {...batch.result,batch_id:batch.batchId};
+    }).immediate());
   };
 }
 

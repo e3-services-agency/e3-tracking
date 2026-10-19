@@ -24,6 +24,7 @@ function inputFromBody(body: Record<string, unknown>): Partial<UseCaseDAL.UseCas
   if ('priority' in body) input.priority = body.priority as string | null;
   if ('status' in body) input.status = body.status as string | null;
   if ('owner' in body) input.owner = body.owner as string | null;
+  for(const key of ['owner_business','owner_technical','status_note'] as const)if(key in body)input[key]=body[key] as string|null;
   if ('notes' in body) input.notes = body.notes as string | null;
   if ('narrative' in body) input.narrative = body.narrative as string | null;
   if (typeof body.sort_order === 'number') input.sort_order = body.sort_order;

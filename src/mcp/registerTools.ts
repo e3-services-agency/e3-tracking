@@ -42,7 +42,8 @@ import { WRITE_TOOLS, writeHandler, writeCommonShape, batchApply } from './tools
 import { previewHistoricalFileValidation, applyHistoricalFileValidation, getHistoricalFileValidation } from './tools/historicalValidation';
 import { historicalManifestSchema } from '../backend/services/historicalValidation.service';
 import { getServerInfo } from './serverInfo';
-import { withIdempotency } from './idempotency';
+import { withIdempotency,currentWriteRequest } from './idempotency';
+import {newId} from '../backend/db/util';
 import { addReference, referenceShape } from './tools/references';
 import { safeErrorMessage } from './publicErrors';
 
@@ -75,8 +76,10 @@ function register<Shape extends ZodRawShape>(
       const writing = (TOOL_POLICY[name] ?? []).includes('projects:write');
       const { actor: _untrustedActor, ...trustedArgs } = args as Record<string, unknown>;
       const execute = async () => {
-        const value = await runWithActor({ actor, agent, source: 'mcp' }, () => handler(trustedArgs as typeof args));
-        return writing && value && typeof value === 'object' ? { ...value, actor, agent } : value;
+        const batchId=writing?(currentWriteRequest()?.batch_id??newId()):undefined;
+        const value = await runWithActor({ actor, agent, source: 'mcp',batch_id:batchId }, () => handler(trustedArgs as typeof args));
+        if(writing&&value&&typeof value==='object'){const result=value as Record<string,unknown>;return {...result,actor,agent,batch_id:result.batch_id??(result.dry_run===true?null:batchId)};}
+        return value;
       };
       const result = writing ? await withIdempotency(name, trustedArgs, execute) : await execute();
       return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
@@ -88,6 +91,7 @@ function register<Shape extends ZodRawShape>(
       if (details !== undefined && details !== null && details !== '') {
         message += ` (details: ${typeof details === 'string' ? details : JSON.stringify(details)})`;
       }
+      if(code==='STALE_HASH')return {isError:true,content:[{type:'text' as const,text:`${code}: ${safeErrorMessage(code)}`}],structuredContent:{error:{code,status:409,message:safeErrorMessage(code)}}};
       if (httpMcpContext()) return {isError:true,content:[{type:'text' as const,text:`${code}: ${safeErrorMessage(code)}`}]};
       if (code === 'INTERNAL_ERROR') log.error(`tool ${name} failed unexpectedly`, err);
       return { isError: true, content: [{ type: 'text' as const, text: `${code}: ${message}` }] };

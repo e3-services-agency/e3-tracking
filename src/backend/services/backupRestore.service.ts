@@ -480,6 +480,10 @@ export async function applyRestore(
             // `project_id` column never gets one injected (which `insertGenericRow`'s unknown-column
             // tracking would otherwise misreport as a dropped column on every such row).
             const remapped = table === 'qa_reports' || table === 'qa_report_findings' ? remapHistoricalRow(table,raw,idMap) : deepRemapRow(raw, idMap, pathMap);
+            if(table==='use_case_asset_pointers'){
+              // External asset identifiers, labels and attribution are immutable pointer metadata.
+              Object.assign(remapped,raw,{id:idMap.get(String(raw.id))??raw.id,project_id:newProjectId,use_case_id:idMap.get(String(raw.use_case_id))??raw.use_case_id});
+            }
             // Frozen historical validation evidence retains original JSON/hashes. Only live
             // storage links remap; restored reports never inherit a live OAuth grant.
             if(table==='historical_validation_reports') {

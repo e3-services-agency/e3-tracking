@@ -1,5 +1,7 @@
 # MCP server (`src/mcp/`)
 
+[Use-case maintenance tools and compatibility](MCP-USE-CASE-MAINTENANCE.md) · [UI/MCP parity audit](MCP-UI-PARITY-WP-UC-2026-10-19.md).
+
 Production release: [compact reads and shared agent conventions, 2026-10-19](RELEASE-MCP-COMPACT-2026-10-19.md).
 
 An agent-facing sibling process (D-11, D-19, D-33): the same SQLite file and services as the Express
@@ -425,7 +427,7 @@ add_reference accepts target_kind (finding/use_case), target_id, dry_run (defaul
 Inventory artifacts are generated with node --import tsx scripts/generate-mcp-inventory.ts. CI/local checks use the same command with --check; deployment smoke checks compare names as well as counts. ODO has 33 use cases; the 100-row default returns them in one page. Using captured public IDs/names/counts with standard fixed-width ISO timestamps, its estimated compact response is 8.6–8.8k characters, depending on priority labels.
 
 <!-- BEGIN GENERATED MCP INVENTORY -->
-Registered tools: **36**. Visible counts depend on the authenticated grant.
+Registered tools: **39**. Visible counts depend on the authenticated grant.
 
 | Tool | Required scopes |
 | --- | --- |
@@ -464,5 +466,8 @@ Registered tools: **36**. Visible counts depend on the authenticated grant.
 | `create_identity_rule` | projects:read, projects:write |
 | `set_event_identifiers` | projects:read, projects:write |
 | `create_catalog_field` | projects:read, projects:write |
+| `update_use_case` | projects:read, projects:write |
+| `link_use_case_asset` | projects:read, projects:write |
+| `unlink_use_case_asset` | projects:read, projects:write |
 | `batch_apply` | projects:read, projects:write |
 <!-- END GENERATED MCP INVENTORY -->

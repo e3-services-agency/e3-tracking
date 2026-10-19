@@ -21,6 +21,7 @@ export interface ConfigurationAsset {
 }
 export interface UseCaseImplementation {
   use_case_id:string;state:ConfigurationState;assets:ConfigurationAsset[];
+  asset_pointers?:{id:string;asset_type:string;asset_id:string;environment:string;label:string|null;role:string;validation:string}[];
   requirements_with_observations:number;total_requirements:number;coverage:'unverified';
 }
 export const CONFIGURATION_LABELS:Record<ConfigurationState,string>={active:'Mapped asset active',draft:'Mapped asset draft',inactive:'Mapped asset inactive',paused:'Mapped asset paused',mixed:'Mapped assets mixed',unknown:'Mapped configuration unknown',unlinked:'No reviewed asset link',restored_history:'Restored links — review required'};

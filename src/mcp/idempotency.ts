@@ -73,7 +73,10 @@ export async function withIdempotency(tool: string, input: Record<string, unknow
     getDb().prepare('INSERT INTO mcp_write_requests(id,project_id,principal,client_id,tool,key_hash,args_hash,batch_id,state,lease_owner,lease_until,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').run(id, i.projectId, i.principal, i.client, i.tool, i.keyHash, i.argsHash, batchId, 'running', leaseOwner, Date.now() + LEASE_MS, nowIso());
     return getDb().prepare('SELECT * FROM mcp_write_requests WHERE id=?').get(id) as RequestRow;
   }).immediate();
-  if (request.state === 'complete') return JSON.parse(request.response_json!);
+  if (request.state === 'complete') {
+    const original=JSON.parse(request.response_json!);
+    return ['update_use_case','link_use_case_asset','unlink_use_case_asset'].includes(tool)&&original?.dry_run===false?{...original,action:'unchanged',replayed:true,original_action:original.action}:original;
+  }
   if (request.state === 'failed') { const error = JSON.parse(request.error_json!); throw Object.assign(new McpToolError(error.code, error.message), error.details === undefined ? {} : { details: error.details }); }
   try {
     const result = await active.run(request, fn);

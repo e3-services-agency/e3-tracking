@@ -1,5 +1,6 @@
 import {createHash} from 'node:crypto';
 import {getDb} from '../db';
+import {pointers,publicPointer} from '../dal/use-case-asset-pointer.dal';
 import {newId,nowIso} from '../db/util';
 import {getProjectOrThrow} from '../dal/project.dal';
 import {listUseCases} from '../dal/use-case.dal';
@@ -76,7 +77,7 @@ export function projectImplementation(project:string):{use_cases:UseCaseImplemen
     const considered=primary.length?primary:current;const values=[...new Set(considered.map(a=>a.state))];
     const aggregate:ConfigurationState=!assets.length?'unlinked':!current.length?'restored_history':!primary.length?'unknown':values.length===1?values[0]:'mixed';
     const coverage=computeUseCaseCoverage(project,uc.id);
-    return {use_case_id:uc.id,state:aggregate,assets,requirements_with_observations:coverage.rows.filter(r=>r.observation_count>0).length,total_requirements:coverage.total_count,coverage:'unverified' as const};
+    return {use_case_id:uc.id,state:aggregate,assets,asset_pointers:pointers(project,uc.id).map(publicPointer),requirements_with_observations:coverage.rows.filter(r=>r.observation_count>0).length,total_requirements:coverage.total_count,coverage:'unverified' as const};
   });
   return {use_cases:rows,scope:'Dated configuration of reviewed mapped assets; full UC delivery, sends and QA are not certified.'};
 }

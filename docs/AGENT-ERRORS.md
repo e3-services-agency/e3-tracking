@@ -20,3 +20,5 @@ status. OAuth/JSON-RPC and SDK schema-validation failures retain their protocol 
 Other Tracking DAL validation/conflict codes retain their existing tool-specific meanings. They
 are never inferred to be a retry authorization. A failed batch returns its per-operation codes,
 applied/failed/not-run counts and original batch ID; replaying its key does not run the remainder.
+
+WP-UC adds: `STALE_HASH` (domain status409), `USE_CASE_STATUS_INVALID`, `USE_CASE_PRIORITY_INVALID`, `STATUS_NOTE_REQUIRED`, `REFERENCE_VERIFICATION_UNAVAILABLE`, `REFERENCE_NOT_FOUND`, `REFERENCE_HASH_MISMATCH`. See [use-case maintenance](MCP-USE-CASE-MAINTENANCE.md).

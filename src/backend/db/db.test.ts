@@ -286,6 +286,11 @@ const ALL_MIGRATION_FILES = [
   '0048_use_case_asset_links.sql',
   '0049_project_promotions.sql',
   '0050_historical_file_validation.sql',
+  '0051_mcp_read_revisions.sql',
+  '0052_mcp_agent_attribution.sql',
+  '0053_mcp_durable_receipts.sql',
+  '0054_external_references.sql',
+  '0055_use_case_maintenance.sql',
 ];
 
 describe('listMigrationFiles', () => {

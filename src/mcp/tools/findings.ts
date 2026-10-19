@@ -122,7 +122,7 @@ export function summarizeFindingRows(rows: readonly (WithFindingPriority<Finding
   const newest = (field: 'first_seen_at' | 'last_seen_at') => rows.reduce<string | null>((latest, row) => latest === null || Date.parse(row[field]) > Date.parse(latest) ? row[field] : latest, null);
   const byEvent = new Map<string | null, { event_id: string | null; event_name: string | null; count: number }>();
   for (const row of rows) {
-    const item = byEvent.get(row.event_id) ?? { event_id: row.event_id, event_name: row.event_name ?? null, count: 0 };
+    const item = byEvent.get(row.event_id) ?? { event_id: row.event_id, event_name: row.event_name ?? (row.event_id===null?'(not in plan)':null), count: 0 };
     item.count++; byEvent.set(row.event_id, item);
   }
   return { total: rows.length, by_status: counts('status'), by_priority: counts('priority'), by_severity: counts('severity'), by_comparison: counts('comparison'), by_kind: counts('kind'), by_event: [...byEvent.values()].sort((a, b) => (a.event_id ?? '').localeCompare(b.event_id ?? '')), newest_first_seen_at: newest('first_seen_at'), newest_last_seen_at: newest('last_seen_at') };

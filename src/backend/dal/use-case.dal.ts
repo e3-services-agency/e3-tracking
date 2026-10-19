@@ -7,6 +7,7 @@
  * the next free `UC-<n>` slot.
  */
 import { getDb } from '../db';
+import {getActor} from '../context/actor';
 import { newId, nowIso, mapWriteError } from '../db/util';
 import { NotFoundError, ValidationError } from '../errors';
 import { normalizeHttpUrl, normalizeOptionalText } from './urlValidation';
@@ -42,6 +43,11 @@ export interface UseCaseRow {
   priority: string | null;
   status: string | null;
   owner: string | null;
+  owner_business: string | null;
+  owner_technical: string | null;
+  status_note: string | null;
+  status_changed_by: string | null;
+  status_changed_at: string | null;
   notes: string | null;
   narrative: string | null;
   narrative_generated_at: string | null;
@@ -67,6 +73,9 @@ export interface UseCaseInput {
   priority?: string | null;
   status?: string | null;
   owner?: string | null;
+  owner_business?: string | null;
+  owner_technical?: string | null;
+  status_note?: string | null;
   notes?: string | null;
   narrative?: string | null;
   sort_order?: number;
@@ -246,6 +255,8 @@ export function updateUseCase(projectId: string, id: string, updates: Partial<Us
   if (updates.priority !== undefined) patch.priority = updates.priority;
   if (updates.status !== undefined) patch.status = updates.status;
   if (updates.owner !== undefined) patch.owner = updates.owner?.trim() || null;
+  for(const key of ['owner_business','owner_technical','status_note'] as const)if(updates[key]!==undefined)patch[key]=normalizeOptionalText(updates[key],key);
+  if(updates.status!==undefined&&updates.status!==before.status){patch.status_changed_by=getActor().actor;patch.status_changed_at=nowIso();}
   if (updates.notes !== undefined) patch.notes = updates.notes?.trim() || null;
   if (updates.narrative !== undefined) {
     // D-32 / T-2-11: a manual `PATCH .../:id` save is an *edit*, not a regeneration -- it records

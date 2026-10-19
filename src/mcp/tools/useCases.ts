@@ -1,4 +1,6 @@
 import { durableStep } from '../idempotency';
+import {pointers,publicPointer} from '../../backend/dal/use-case-asset-pointer.dal';
+import {projectImplementation} from '../../backend/services/assetLinks.service';
 /**
  * `list_use_cases`, `get_use_case` (T-2-10, plan MCP table). `get_use_case` resolves every
  * requirement's target to a display label via `requirements-matrix.service.ts#buildTargetLabelResolver`
@@ -71,12 +73,14 @@ export async function listUseCases(input: ListUseCasesInput) {
   return readSnapshot(() => {
   const project = resolveProject(input.project_key);
   const refs = input.include || input.fields?.includes('references') ? referencesFor(project.id, 'use_case') : [];
+  const implementation=projectImplementation(project.id).use_cases;
   const rows = UseCaseDAL.listUseCases(project.id).map((uc) => {
     const { code, name, type, status } = sanitizeUseCase(uc);
-    return { ...sanitizeUseCase(uc), id: uc.id, code, name, type, status, priority: uc.priority, created_at: uc.created_at, updated_at: uc.updated_at, requirement_count: RequirementDAL.listRequirements(project.id, uc.id).length, references: refs.filter(ref => ref.target_id === uc.id) };
+    const impl=implementation.find(r=>r.use_case_id===uc.id);
+    return { ...sanitizeUseCase(uc), id: uc.id, code, name, type, status, priority: uc.priority, owner_business:uc.owner_business,owner_technical:uc.owner_technical,status_note:uc.status_note,asset_count:(impl?.assets.length??0)+(impl?.asset_pointers?.length??0), created_at: uc.created_at, updated_at: uc.updated_at, requirement_count: RequirementDAL.listRequirements(project.id, uc.id).length, references: refs.filter(ref => ref.target_id === uc.id) };
   });
-  const compact = ['id', 'code', 'name', 'type', 'status', 'priority', 'created_at', 'updated_at', 'requirement_count'];
-  return paginate(rows, input, compact, [...compact, 'description', 'narrative', 'documentation_url', 'references'], { project_id: project.id, collection: 'use_cases', default_limit: 100 });
+  const compact = ['id', 'code', 'name', 'type', 'status', 'priority', 'asset_count','created_at', 'updated_at', 'requirement_count'];
+  return paginate(rows, input, compact, [...compact,'owner_business','owner_technical','status_note','description', 'narrative', 'documentation_url', 'references'], { project_id: project.id, collection: 'use_cases', default_limit: 100 });
   });
 }
 
@@ -100,16 +104,19 @@ export interface GetUseCaseResult extends PublicUseCaseFields {
 
 export async function getUseCase(input: GetUseCaseInput) {
   const project = resolveProject(input.project_key);
-  const useCase = resolveUseCase(project.id, input.use_case);
-  const labelFor = buildTargetLabelResolver(project.id);
-  const requirements = RequirementDAL.listRequirements(project.id, useCase.id).map((r) => ({
+  return readSnapshot(()=>{const useCase=resolveUseCase(project.id,input.use_case);return conditionalRead(useCase.id,publicUseCase(project.id,useCase),input);});
+}
+export function publicUseCase(projectId:string,useCase:UseCaseDAL.UseCaseRow):Record<string,unknown> & {status:string|null}{
+  const labelFor = buildTargetLabelResolver(projectId);
+  const requirements = RequirementDAL.listRequirements(projectId, useCase.id).map((r) => ({
     target_kind: r.target_kind,
     label: labelFor(r),
     level: r.level,
     status: r.status,
     note: r.note,
   }));
-  return conditionalRead(useCase.id, { id: useCase.id, ...sanitizeUseCase(useCase), requirements, references: referencesFor(project.id, 'use_case', useCase.id) }, input);
+  const reviewed=projectImplementation(projectId).use_cases.find(r=>r.use_case_id===useCase.id)?.assets??[];
+  return {id:useCase.id,...sanitizeUseCase(useCase),priority:useCase.priority,owner:useCase.owner,owner_business:useCase.owner_business,owner_technical:useCase.owner_technical,status_note:useCase.status_note,status_changed_by:useCase.status_changed_by,status_changed_at:useCase.status_changed_at,created_at:useCase.created_at,requirements,references:referencesFor(projectId,'use_case',useCase.id),assets:[...reviewed.map(a=>({...a,validation:'reviewed_mapping_configuration_only'})),...pointers(projectId,useCase.id).map(publicPointer)]};
 }
 
 export interface ListUseCaseTemplatesRow {

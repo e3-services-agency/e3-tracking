@@ -138,6 +138,7 @@ const EXPECTED_KEYS = [
   'historical_file_sources',
   'historical_validation_reports',
   'external_references',
+  'use_case_asset_pointers',
   'files',
   'files_missing',
   'warnings',

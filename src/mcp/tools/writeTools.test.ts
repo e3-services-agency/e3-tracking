@@ -33,7 +33,7 @@ afterEach(() => {
 });
 
 describe('registration', () => {
-  it('registers the ten write tools', () => {
+  it('registers the declared write tools', () => {
     const names = toolNames();
     for (const n of [
       'create_event', 'update_event', 'create_property', 'update_property', 'link_event_property',

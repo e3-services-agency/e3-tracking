@@ -183,6 +183,7 @@ export interface BackupPayload {
   historical_file_sources: Row[];
   historical_validation_reports: Row[];
   external_references: Row[];
+  use_case_asset_pointers: Row[];
   files: BackupFileEntry[];
   files_missing: string[];
   /** Malformed `*_json` cells kept as raw strings instead of being silently nulled (pre-QA fix INFO 2). */
@@ -349,6 +350,7 @@ export async function buildBackup(projectId: string): Promise<BackupPayload> {
     historical_file_sources: historicalSources,
     historical_validation_reports: directRows('historical_validation_reports', projectId, warnings, 'created_at, id'),
     external_references: directRows('external_references', projectId, warnings, 'created_at, id'),
+    use_case_asset_pointers: directRows('use_case_asset_pointers',projectId,warnings,'created_at,id'),
     files,
     files_missing,
     warnings,

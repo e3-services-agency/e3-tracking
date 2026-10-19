@@ -1,7 +1,7 @@
 import type { NativeDecisionChange, NativeDecisionResult, NativeDecisionTarget } from '../../domain/decisionInbox';
 import { payloadHash } from '../../domain/diff/hash';
 import { buildConditionsKey, normalizeConditions, type VariantCondition } from '../../domain/variants';
-import { getEventWithProperties } from '../dal/event.dal';
+import { getEventWithProperties, updateEventProperty } from '../dal/event.dal';
 import { createVariant, listVariants } from '../dal/variant.dal';
 import { getUseCaseOrThrow, updateUseCase } from '../dal/use-case.dal';
 import { BadRequestError, ConflictError } from '../errors';
@@ -44,6 +44,15 @@ export function applyNativeDecisionChanges(project:string,changes:NativeDecision
       return {op:change.op,action:'updated',entity_id:uc.id,entity_name:uc.name,before:uc.status,after:after.status};
     }
     const {event,properties}=getEventWithProperties(project,change.event_id);
+    if(change.op==='event_property_required') {
+      const link=properties.find(p=>p.property_id===change.property_id),key=`required:${event.id}:${change.property_id}`;
+      if(!link)throw new BadRequestError('Required-field changes must target an existing property link in this project.');
+      if(seen.has(key)||change.from===change.to)throw new BadRequestError('Required-field changes must be distinct, with one transition per event property.');
+      seen.add(key);
+      if(link.required!==change.from)throw new ConflictError('Event property requirement changed. Review a fresh proposal.');
+      const after=updateEventProperty(project,event.id,change.property_id,{required:change.to});
+      return {op:change.op,action:'updated',entity_id:`${event.id}:${change.property_id}`,entity_name:`${event.name}.${link.property.name}`,event_id:event.id,property_id:change.property_id,before:link.required,after:after.required};
+    }
     const conditions=normalizeConditions(change.conditions),key=event.id+':'+buildConditionsKey(conditions);
     if(seen.has(key))throw new BadRequestError('The proposal contains an equivalent variant more than once.');
     seen.add(key);

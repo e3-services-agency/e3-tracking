@@ -10,12 +10,15 @@ export const nativeDecisionChangeSchema = z.discriminatedUnion('op', [
       values:z.array(z.string().min(1)).min(1).max(200),
     }).strict()).min(1).max(2),description:text.nullable().optional(),
   }).strict(),
+  z.object({op:z.literal('event_property_required'),event_id:z.string().min(1),property_id:z.string().min(1),
+    from:z.boolean(),to:z.boolean(),
+  }).strict(),
 ]);
 export type NativeDecisionChange = z.infer<typeof nativeDecisionChangeSchema>;
 export interface NativeDecisionResult {
   op:NativeDecisionChange['op']; action:'updated'|'created'|'already_present';
-  entity_id:string; entity_name:string; event_id?:string;
-  before?:string|null; after?:string|null;
+  entity_id:string; entity_name:string; event_id?:string; property_id?:string;
+  before?:string|boolean|null; after?:string|boolean|null;
 }
 export interface NativeDecisionTarget {id:string;name:string}
 const requirement = z.object({

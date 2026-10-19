@@ -14,6 +14,8 @@ export const FIELD_HINTS: Record<string, string> = {
   'QA evidence': 'Requirements with observed data, distinct from configuration. Example: 2/6 have observations; campaign delivery QA remains separate.',
   'Reviewed mapping package': 'Exact reviewed UC/asset links and evidence references. Example: one scenario implements the selected use case, with coverage unverified.',
   'Mapping confirmation': 'Confirm the shown mapping diff and review reference. This records links, not implementation success or QA.',
+  'Decision required-field transition': 'Review the expected current and new required flag. Example: Optional to Required makes this event property mandatory in E3.',
+  'Decision search': 'Find a decision by its key, summary, event or use case. Example: purchase finds matching proposals in the selected queue.',
   'Decision view': 'Show current, pending or historical revisions of the same decision. Example: All revisions includes superseded wording.',
   'Decision role view': 'Filter shared decisions by relevant role. Example: Technical consultant shows mappings and QA. This is not access control.',
   'Decision recommendation': 'The one-sentence action being proposed. Editing it creates an unapproved revision. Example: Require selected-option pricing QA.',

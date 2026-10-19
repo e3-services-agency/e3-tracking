@@ -4,7 +4,7 @@ import {createClient} from '../dal/client.dal';
 import {createProject} from '../dal/project.dal';
 import {createUseCase,getUseCaseOrThrow,updateUseCase} from '../dal/use-case.dal';
 import {createProperty,updateProperty} from '../dal/property.dal';
-import {createEvent,attachPropertyToEvent,updateEventProperty} from '../dal/event.dal';
+import {createEvent,attachPropertyToEvent,updateEventProperty,getEventWithProperties} from '../dal/event.dal';
 import {createVariant,listVariants} from '../dal/variant.dal';
 import {updateDefinition,getDefaultDefinitionId} from '../dal/property-definition.dal';
 import {previewDecision,importDecision,listDecisions,actOnDecision,previewDecisionSources,reviewDecisionSources} from './decisionInbox.service';
@@ -104,4 +104,59 @@ it('source-review follow-ups never inherit executable native changes',()=>{
 it('backup/restore preserves execution receipts and hashes while prohibiting destination replay',async()=>{
   const c=apply(insert()),backup=await buildBackup(project),p=previewRestore(backup);const restored=await applyRestore(backup,p.payload_hash,{client_id:createClient({key:'restored',name:'Restored'}).id,key:'restored',name:'Restored'});
   const copy=listDecisions(restored.project.id)[0];expect(copy.content_hash).toBe(c.content_hash);expect(copy.history).toHaveLength(2);expect(copy.history[1].detail).toEqual(c.history[1].detail);expect(copy.restored).toBe(true);expect(()=>actOnDecision(restored.project.id,copy.id,copy.content_hash,'approve_and_apply','Reviewer','',true)).toThrow('read-only');
+});
+
+function required(from=false,to=true):Extract<NativeDecisionChange,{op:'event_property_required'}>{return {op:'event_property_required',event_id:eventId,property_id:actionId,from,to};}
+function requiredSeed(changes:NativeDecisionChange[]=[required()]):DecisionSeed{return {...seed(),native_changes:changes};}
+const savedLink=()=>getEventWithProperties(project,eventId).properties.find(p=>p.property_id===actionId)!;
+it('previews required fields without writes and applies only the exact link flag with its composite audit receipt',()=>{
+  updateEventProperty(project,eventId,actionId,{payload_key:'action_payload',sort_order:7,priority:'high',bloomreach_meta_json:{preserve:true}});
+  const before=savedLink(),audit=counts(),s=requiredSeed();previewDecision(project,s);expect(savedLink()).toEqual(before);expect(counts()).toEqual(audit);
+  const c=insert(s);expect(savedLink()).toEqual(before);
+  const result=apply(c),after=savedLink();
+  expect({...after,required:before.required,updated_at:before.updated_at}).toEqual(before);
+  expect(after.required).toBe(true);expect(after.property).toEqual(before.property);expect(after.definition).toEqual(before.definition);
+  expect(result.history.at(-1)!.detail.native_results).toEqual([{op:'event_property_required',action:'updated',entity_id:`${eventId}:${actionId}`,entity_name:'synthetic_cart.action',event_id:eventId,property_id:actionId,before:false,after:true}]);
+  expect(getDb().prepare('SELECT entity_id,actor,source FROM change_log WHERE source=?').all('decision:'+c.id)).toEqual([{entity_id:`${eventId}:${actionId}`,actor:'Synthetic reviewer',source:'decision:'+c.id}]);
+  const changed=counts();expect(apply(c).history).toEqual(result.history);expect(counts()).toEqual(changed);
+});
+it('can make a required field optional and permits the same property on distinct events',()=>{
+  updateEventProperty(project,eventId,actionId,{required:true});
+  const otherEvent=createEvent(project,{name:'synthetic_other'}).id;attachPropertyToEvent(project,otherEvent,{property_id:actionId});
+  apply(insert(requiredSeed([required(true,false),{...required(),event_id:otherEvent}])));
+  expect(savedLink().required).toBe(false);expect(getEventWithProperties(project,otherEvent).properties[0].required).toBe(true);
+});
+it('rejects unchanged, duplicate, stale or nonboolean required transitions with no writes',()=>{
+  const before=counts();
+  for(const ops of [[required(false,false)],[required(),required(true,false)],[required(true,false)]])expect(()=>previewDecision(project,requiredSeed(ops))).toThrow();
+  for(const value of ['false',0,null])expect(()=>previewDecision(project,{...requiredSeed(),native_changes:[{...required(),from:value}]})).toThrow('Invalid');
+  expect(counts()).toEqual(before);expect(savedLink().required).toBe(false);
+});
+it('rejects missing links and foreign event/property targets without creating a new link',()=>{
+  const other=createProject({client_id:createClient({key:'foreign-flags',name:'Foreign'}).id,key:'foreign-flags',name:'Foreign'}).id;
+  const foreignEvent=createEvent(other,{name:'foreign'}).id,foreignProperty=createProperty(other,{scope:'event',name:'foreign',data_type:'string'}).id;
+  const unlinked=createProperty(project,{scope:'event',name:'unlinked',data_type:'string'}).id,before=counts();
+  for(const op of [{...required(),event_id:foreignEvent},{...required(),property_id:foreignProperty},{...required(),property_id:unlinked}])expect(()=>previewDecision(project,requiredSeed([op]))).toThrow();
+  expect(counts()).toEqual(before);expect(getEventWithProperties(project,eventId).properties).toHaveLength(1);
+});
+it('rejects a soft-deleted linked property instead of editing its retained link',()=>{
+  getDb().prepare('UPDATE properties SET deleted_at=? WHERE id=?').run('2026-10-19T00:00:00Z',actionId);
+  const before=counts();expect(()=>previewDecision(project,requiredSeed())).toThrow('existing property link');expect(counts()).toEqual(before);
+});
+it.each(['flag','definition'])('invalidates required-field approval after changed %s baseline',kind=>{
+  const c=insert(requiredSeed());
+  if(kind==='flag')updateEventProperty(project,eventId,actionId,{required:true});
+  else updateDefinition(project,actionId,getDefaultDefinitionId(project,actionId)!,{description:'Changed after review'});
+  const before=counts();expect(()=>apply(c)).toThrow('changed');expect(counts()).toEqual(before);
+});
+it('rolls back mixed required/status/variant execution and audit if the later notes write fails',()=>{
+  const c=insert(requiredSeed([required(),...seed().native_changes!])),before=counts();
+  getDb().exec("CREATE TRIGGER flag_notes_failure BEFORE UPDATE ON use_cases WHEN NEW.notes <> OLD.notes BEGIN SELECT RAISE(ABORT,'notes failed'); END;");
+  expect(()=>apply(c)).toThrow();expect(savedLink().required).toBe(false);expect(counts()).toEqual(before);
+});
+it('preserves required-field receipt and hash as read-only restored history',async()=>{
+  const applied=apply(insert(requiredSeed())),backup=await buildBackup(project),p=previewRestore(backup);
+  const restored=await applyRestore(backup,p.payload_hash,{client_id:createClient({key:'flags-restore',name:'Restored'}).id,key:'flags-restore',name:'Restored'});
+  const c=listDecisions(restored.project.id)[0];expect(c.content_hash).toBe(applied.content_hash);expect(c.history.at(-1)!.detail).toEqual(applied.history.at(-1)!.detail);expect(c.restored).toBe(true);
+  expect(()=>actOnDecision(restored.project.id,c.id,c.content_hash,'approve_and_apply','Reviewer','',true)).toThrow('read-only');
 });

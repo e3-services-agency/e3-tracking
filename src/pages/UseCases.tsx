@@ -9,7 +9,7 @@ import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
  * beyond the create Sheet.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2, ArrowUp, ArrowDown, ArrowLeft, Sparkles, RefreshCw } from 'lucide-react';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 import { Button } from '@/src/components/ui/Button';
@@ -30,6 +30,7 @@ import {
   REQUIREMENT_LEVELS,
   REQUIREMENT_STATUSES,
   type RequirementTargetKind,
+  type UseCaseStatus,
 } from '@/src/domain/enums';
 import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
 import { useCaseToMarkdown } from '@/src/domain/document/markdown';
@@ -127,7 +128,17 @@ export function UseCases() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
   const [useCases, setUseCases] = useState<UseCaseRow[]>([]);
   const implementation=useImplementation(activeProjectId);
-  const viewRows = useMemo(() => useCaseRowsFromInternal(useCases), [useCases]);
+  const [rowsProject, setRowsProject] = useState<string | null>(null);
+  // A generation also guards A → B → A switches: a response from the first A is obsolete.
+  const scope = useRef({ project: activeProjectId, valid: hasValidProjectContext, generation: 0 });
+  if (scope.current.project !== activeProjectId || scope.current.valid !== hasValidProjectContext) {
+    scope.current = { project: activeProjectId, valid: hasValidProjectContext, generation: scope.current.generation + 1 };
+  }
+  const listRequest = useRef(0);
+  const savingIds = useRef(new Set<string>());
+  const [lifecycleStates, setLifecycleStates] = useState<Record<string, { saving?: boolean; error?: string }>>({});
+  const [lifecycleNotice, setLifecycleNotice] = useState<string | null>(null);
+  const viewRows = useMemo(() => useCaseRowsFromInternal(rowsProject === activeProjectId && hasValidProjectContext ? useCases : []), [useCases, rowsProject, activeProjectId, hasValidProjectContext]);
   const [templates, setTemplates] = useState<UseCaseTemplateOption[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -144,19 +155,50 @@ export function UseCases() {
 
   const load = useCallback(async () => {
     if (!hasValidProjectContext || !activeProjectId) return;
+    const generation = scope.current.generation, request = ++listRequest.current;
     const [ucRes, templatesRes] = await Promise.all([
       fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/use-cases`),
       fetchWithAuth(`${API_BASE}/api/use-case-templates`),
     ]);
-    const ucData = await parseJson(ucRes);
-    if (ucRes.ok) setUseCases(Array.isArray(ucData) ? ucData : []);
-    const templatesData = await parseJson(templatesRes);
+    const [ucData, templatesData] = await Promise.all([parseJson(ucRes), parseJson(templatesRes)]);
+    if (scope.current.generation !== generation || listRequest.current !== request) return;
+    if (ucRes.ok) { setUseCases(Array.isArray(ucData) ? ucData : []); setRowsProject(activeProjectId); }
     if (templatesRes.ok) setTemplates(Array.isArray(templatesData) ? templatesData : []);
   }, [hasValidProjectContext, activeProjectId]);
 
   useEffect(() => {
-    load();
+    setSelectedId(null);
+    setLifecycleStates({}); setLifecycleNotice(null); savingIds.current.clear();
+    void load();
   }, [load]);
+
+  const saveLifecycle = async (row: { id: string; name: string; status: string | null }, status: UseCaseStatus | null) => {
+    if (!hasValidProjectContext || !activeProjectId || rowsProject !== activeProjectId || savingIds.current.has(row.id) || row.status === status) return;
+    const project = activeProjectId, generation = scope.current.generation;
+    const current = () => scope.current.generation === generation;
+    savingIds.current.add(row.id);
+    // An older list response must not replace the saved lifecycle.
+    ++listRequest.current;
+    setLifecycleStates(prev => ({ ...prev, [row.id]: { saving: true } }));
+    setLifecycleNotice(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${project}/use-cases/${row.id}`, {
+        method: 'PATCH', body: JSON.stringify({ status }),
+      });
+      const saved = await parseJson(res);
+      if (!res.ok) throw new Error(typeof saved?.error === 'string' ? saved.error : 'Could not save lifecycle. Try again.');
+      if (saved.id !== row.id || !(saved.status === null || USE_CASE_STATUSES.includes(saved.status))) throw new Error('Could not confirm the saved lifecycle. Refresh and try again.');
+      if (!current()) return;
+      // Only update the edited field; other list data may have changed while the request ran.
+      setUseCases(prev => prev.map(uc => uc.id === row.id ? { ...uc, status: saved.status } : uc));
+      setLifecycleStates(prev => ({ ...prev, [row.id]: {} }));
+      setLifecycleNotice(`${row.name}: lifecycle saved.`);
+    } catch (error) {
+      if (current()) setLifecycleStates(prev => ({ ...prev, [row.id]: { error: error instanceof Error ? error.message : 'Could not save lifecycle. Try again.' } }));
+    } finally {
+      if (current()) savingIds.current.delete(row.id);
+    }
+  };
 
   useEffect(() => {
     if (selectedItemIdToEdit && useCases.some((uc) => uc.id === selectedItemIdToEdit)) {
@@ -250,7 +292,9 @@ export function UseCases() {
         <Button variant="outline" onClick={implementation.reload}>Refresh mapped evidence</Button>
         {implementation.error&&<p role="alert">Mapped configuration unavailable: {implementation.error}</p>}
         {implementation.rows&&<ImplementationSummary rows={implementation.rows} projectId={activeProjectId!}/>}
+        {lifecycleNotice && <p role="status" className="text-sm text-gray-600">{lifecycleNotice}</p>}
         <UseCasesTable
+          lifecycleEditor={{ onChange: (row, status) => void saveLifecycle(row, status), states: lifecycleStates }}
           implementation={implementation.rows}
           rows={viewRows}
           onOpen={(row) => setSelectedId(row.id)}

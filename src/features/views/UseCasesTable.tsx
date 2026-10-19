@@ -10,11 +10,12 @@ import { PriorityBadge, StatusBadge } from '@/src/components/ui/badges';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { EntityIcon } from '@/src/components/ui/EntityIcon';
+import { EnumSelect } from '@/src/components/ui/EnumSelect';
 import { HintTh } from '@/src/components/ui/FieldHint';
 import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
 import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
 import { useViewState } from '@/src/hooks/useViewState';
-import { USE_CASE_STATUSES, USE_CASE_TYPES } from '@/src/domain/enums';
+import { USE_CASE_STATUSES, USE_CASE_TYPES, type UseCaseStatus } from '@/src/domain/enums';
 import { enumLabel } from '@/src/domain/enumLabels';
 import { ActionsCell, CELL, HEAD_TEXT, NoMatchRow, OrDash, RowName, ViewFrame, ViewRow, ViewToolbar, useDensity } from './ViewParts';
 import { filterOptions, matchesFilter, matchesSearch, withKnownOrder } from './viewModel';
@@ -22,7 +23,12 @@ import type { UseCaseViewRow, ViewSlots } from './types';
 
 const PRIORITY_ORDER = ['critical', 'high', 'medium', 'low'];
 
-export function UseCasesTable({ rows, rowActions, onOpen, commentCount, commentsInActions, readOnly = false, empty, toolbarExtra, implementation }: ViewSlots<UseCaseViewRow>&{implementation?:Record<string,UseCaseImplementation>}) {
+export interface UseCaseLifecycleEditor {
+  onChange: (row: UseCaseViewRow, status: UseCaseStatus | null) => void;
+  states: Record<string, { saving?: boolean; error?: string }>;
+}
+
+export function UseCasesTable({ rows, rowActions, onOpen, commentCount, commentsInActions, readOnly = false, empty, toolbarExtra, implementation, lifecycleEditor }: ViewSlots<UseCaseViewRow>&{implementation?:Record<string,UseCaseImplementation>; lifecycleEditor?:UseCaseLifecycleEditor}) {
   const [density, setDensity] = useDensity();
   const [search, setSearch] = useViewState('search', '');
   const debouncedSearch = useDebouncedValue(search.trim().toLowerCase(), 200);
@@ -88,7 +94,9 @@ export function UseCasesTable({ rows, rowActions, onOpen, commentCount, comments
         </thead>
         <tbody className="divide-y">
           {sorted.map((u) => {
-            const open = onOpen ? () => onOpen(u) : undefined;
+            const lifecycle = !readOnly ? lifecycleEditor : undefined;
+            const saving = !!lifecycle?.states[u.id]?.saving;
+            const open = onOpen && !saving ? () => onOpen(u) : undefined;
             return (
               <ViewRow key={u.id} onOpen={open} testId="use-case-row">
                 <td className={`${cell} whitespace-nowrap text-gray-500`}><OrDash value={u.code} /></td>
@@ -104,7 +112,16 @@ export function UseCasesTable({ rows, rowActions, onOpen, commentCount, comments
                 </td>
                 <td className={`${cell} text-gray-500`}><OrDash value={u.type ? enumLabel('use_case_type', u.type) : null} /></td>
                 {!readOnly && <td className={cell}><PriorityBadge priority={u.priority} /></td>}
-                <td className={cell}><StatusBadge status={u.status} /></td>
+                <td className={cell}>
+                  {lifecycle ? <div onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>
+                    <EnumSelect kind="status" values={USE_CASE_STATUSES} emptyLabel="Unset"
+                      aria-label={`Agreed lifecycle for ${u.name}`} value={u.status ?? ''} disabled={saving}
+                      onChange={e => lifecycle.onChange(u, (e.target.value || null) as UseCaseStatus | null)}
+                      className="h-8 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs" />
+                    {saving && <span role="status" className="block text-xs text-gray-500">Saving…</span>}
+                    {lifecycle.states[u.id]?.error && <span role="alert" className="block text-xs text-red-800">{lifecycle.states[u.id].error}</span>}
+                  </div> : <StatusBadge status={u.status} />}
+                </td>
                 {implementation&&<><td className={cell}><ConfigurationCell row={implementation[u.id]}/></td><td className={cell}><QaEvidenceCell row={implementation[u.id]}/></td></>}
                 {!readOnly && <td className={`${cell} text-gray-500`}><OrDash value={u.owner} /></td>}
                 {showRequirements && <td className={`${cell} tabular-nums ${u.requirement_count ? 'text-gray-600' : 'text-gray-300'}`}>{u.requirement_count ?? '—'}</td>}

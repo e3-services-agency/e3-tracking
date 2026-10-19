@@ -555,6 +555,7 @@ function upsertAndResolve(projectId: string, run: EngineRun): { open: Record<str
 export function runComparison(projectId: string, options: {captureReport?: boolean;event?:string;qa_run_id?:string} = {}): ComparisonSummary {
  return getDb().transaction(() => {
  ProjectDAL.getProjectOrThrow(projectId);
+   getDb().prepare('INSERT INTO mcp_project_revisions(project_id,generation) VALUES(?,1) ON CONFLICT(project_id) DO UPDATE SET generation=generation+1').run(projectId);
  for(const key of ['event','qa_run_id'] as const)if(options[key]!==undefined&&(typeof options[key]!=='string'||!options[key]!.trim()))throw new ValidationError(`${key} must be a nonempty identifier.`,key);
  if(options.event && !EventDAL.getEventById(projectId,options.event))throw new NotFoundError('Event not found.');
  if(options.qa_run_id && !QaRunDAL.getQaRunById(projectId,options.qa_run_id))throw new NotFoundError('QA run not found.');

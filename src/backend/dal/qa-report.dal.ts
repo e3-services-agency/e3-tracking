@@ -1,4 +1,5 @@
 import { getDb } from '../db';
+import { getActor } from '../context/actor';
 import { newId, nowIso } from '../db/util';
 import { NotFoundError } from '../errors';
 import type { FindingRow } from './finding.dal';
@@ -18,6 +19,8 @@ export function allocateQaSequence(projectId: string, kind: 'finding' | 'report'
     return row.number;
 }
 export interface QaReport {
+    actor?: string | null;
+    agent?: string | null;
     id: string;
     report_sequence: number;
     completed_at: string;
@@ -34,7 +37,7 @@ export interface ReportItem {
     current_status: string | null;
     current_acknowledged: boolean;
 }
-function report(row: Record<string, unknown>): QaReport { return { id: String(row.id), report_sequence: Number(row.report_sequence), completed_at: String(row.completed_at), snapshot_version: Number(row.snapshot_version), scope: JSON.parse(String(row.scope_json)), summary: JSON.parse(String(row.summary_json)) }; }
+function report(row: Record<string, unknown>): QaReport { return { id: String(row.id), actor: typeof row.actor === 'string' ? row.actor : null, agent: typeof row.agent === 'string' ? row.agent : null, report_sequence: Number(row.report_sequence), completed_at: String(row.completed_at), snapshot_version: Number(row.snapshot_version), scope: JSON.parse(String(row.scope_json)), summary: JSON.parse(String(row.summary_json)) }; }
 export function listQaReports(projectId: string): QaReport[] {
     const reports = (getDb().prepare('SELECT * FROM qa_reports WHERE project_id=? ORDER BY report_sequence DESC').all(projectId) as Record<string, unknown>[]).map(report);
     if (reports.some(r => !r.summary.recorded_counts)) {
@@ -78,7 +81,7 @@ export function captureQaReport(projectId: string, scope: Record<string, unknown
     const uniqueItems = items.filter(item => { if (seen.has(item.finding.fingerprint))
         return false; seen.add(item.finding.fingerprint); return true; });
     const capturedSummary = { ...summary, recorded_counts: { items: uniqueItems.length, produced: uniqueItems.filter(i => i.disposition === 'produced').length, newly_resolved: uniqueItems.filter(i => i.disposition === 'resolved').length } };
-    db.prepare('INSERT INTO qa_reports(id,project_id,report_sequence,completed_at,scope_json,summary_json) VALUES (?,?,?,?,?,?)').run(id, projectId, sequence, completed, JSON.stringify(scope), JSON.stringify(capturedSummary));
+    db.prepare('INSERT INTO qa_reports(id,project_id,report_sequence,completed_at,scope_json,summary_json,actor,agent) VALUES (?,?,?,?,?,?,?,?)').run(id, projectId, sequence, completed, JSON.stringify(scope), JSON.stringify(capturedSummary), getActor().actor, getActor().agent ?? null);
     const labels = new Map(['events', 'variants', 'properties'].map(table => [table, new Map((db.prepare(`SELECT id,name FROM ${table} WHERE project_id=?`).all(projectId) as {
             id: string;
             name: string;

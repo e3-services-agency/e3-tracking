@@ -32,13 +32,14 @@ describe('get_history', () => {
     const event = EventDAL.createEvent(projectId, { name: 'cart_update', class: 'custom' });
     EventDAL.updateEvent(projectId, event.id, { description: 'Fires on cart change.' });
 
-    const rows = await getHistory({
+    const { items: rows, total } = await getHistory({
       project_key: projectKey,
       entity_type: 'event',
       entity_id: event.id,
     });
 
     expect(rows).toHaveLength(2);
+    expect(total).toBe(2);
     expect(rows[0].action).toBe('update');
     expect(rows[1].action).toBe('create');
     expect(rows.every((r) => r.entity_id === event.id)).toBe(true);

@@ -7,6 +7,7 @@
  * (D-21), so `archived` is the only lifecycle flag that changes what a run contributes.
  */
 import { getDb } from '../db';
+import { getActor } from '../context/actor';
 import { newId, nowIso, parseJsonColumn, toJsonColumn, toSqliteBool, fromSqliteBool } from '../db/util';
 import { NotFoundError, ValidationError } from '../errors';
 import { QA_RUN_KINDS, QA_RUN_ENVIRONMENTS, QA_RUN_SOURCES } from '../../domain/enums';
@@ -16,6 +17,7 @@ export interface QaRunRow {
   project_id: string;
   kind: string;
   actor: string | null;
+  agent: string | null;
   environment: string | null;
   started_at: string;
   finished_at: string | null;
@@ -98,13 +100,14 @@ export function createQaRun(projectId: string, input: QaRunInput): QaRunRow {
   const id = newId();
   const now = nowIso();
   db.prepare(
-    `INSERT INTO qa_runs (id, project_id, kind, actor, environment, started_at, finished_at, notes, archived, customer_id, source_meta_json, source, manifest_json, samples_json)
-     VALUES (@id, @project_id, @kind, @actor, @environment, @started_at, NULL, @notes, 0, @customer_id, @source_meta_json, @source, @manifest_json, @samples_json)`
+    `INSERT INTO qa_runs (id, project_id, kind, actor, environment, started_at, finished_at, notes, archived, customer_id, source_meta_json, source, manifest_json, samples_json, agent)
+     VALUES (@id, @project_id, @kind, @actor, @environment, @started_at, NULL, @notes, 0, @customer_id, @source_meta_json, @source, @manifest_json, @samples_json, @agent)`
   ).run({
     id,
     project_id: projectId,
     kind: input.kind,
-    actor: input.actor?.trim() || null,
+    actor: getActor().source === 'mcp' ? getActor().actor : input.actor?.trim() || null,
+    agent: getActor().agent ?? null,
     environment: input.environment ?? null,
     started_at: now,
     notes: input.notes?.trim() || null,

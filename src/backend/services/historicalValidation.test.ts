@@ -85,5 +85,5 @@ it('preserves immutable JSON/hashes and actual source bytes through native backu
 it('enforces a same-project companion/report foreign key even for crafted restored rows', async () => {
   const { manifest } = await fixture(), preview = await previewHistoricalValidation(project, manifest), report = await applyHistoricalValidation(project, manifest, preview.payload_hash);
   const other = captureQaReport(foreign, { type: 'historical_file_validation' }, {}, []);
-  expect(() => getDb().prepare('INSERT INTO historical_validation_reports SELECT ?,project_id,?,identity_hash || ?,preview_hash,definition_hash,engine_hash,source_ids_json,manifest_json,snapshot_json,result_json,created_at,actor,oauth_grant_id,restored_from_id FROM historical_validation_reports WHERE report_id=?').run('crafted-cross-project', other.id, '-other', report.report_id)).toThrow('FOREIGN KEY');
+  expect(() => getDb().prepare('INSERT INTO historical_validation_reports SELECT ?,project_id,?,identity_hash || ?,preview_hash,definition_hash,engine_hash,source_ids_json,manifest_json,snapshot_json,result_json,created_at,actor,oauth_grant_id,restored_from_id,agent FROM historical_validation_reports WHERE report_id=?').run('crafted-cross-project', other.id, '-other', report.report_id)).toThrow('FOREIGN KEY');
 });

@@ -1,3 +1,4 @@
+import { durableStep } from '../idempotency';
 /**
  * `finish_qa_run` (T-2-10 addendum: the plan table, `PLAN-PHASE2-2026-09-25.md` lines ~205-225, is
  * authoritative -- this was missing from the first cut). `project_key?, qa_run_id` -> sets
@@ -21,9 +22,12 @@ export interface FinishQaRunInput {
 }
 
 export async function finishQaRun(input: FinishQaRunInput): Promise<QaRunRow> {
+  return durableStep('mutation', () => {
   if (!input.qa_run_id?.trim()) throw new McpToolError('VALIDATION_ERROR', 'qa_run_id is required.');
   const project = resolveProject(input.project_key);
   return QaRunDAL.finishQaRun(project.id, input.qa_run_id, input.notes);
+
+  });
 }
 
 export interface DeleteQaRunInput {
@@ -42,9 +46,12 @@ export interface DeleteQaRunResult {
  * `runComparison` so the returned findings summary reflects what is left.
  */
 export async function deleteQaRun(input: DeleteQaRunInput): Promise<DeleteQaRunResult> {
+  return durableStep('mutation', () => {
   if (!input.qa_run_id?.trim()) throw new McpToolError('VALIDATION_ERROR', 'qa_run_id is required.');
   const project = resolveProject(input.project_key);
   QaRunDAL.deleteQaRun(project.id, input.qa_run_id);
   const comparison = runComparison(project.id);
   return { deleted: true, comparison };
+
+  });
 }

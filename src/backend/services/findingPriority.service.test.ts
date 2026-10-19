@@ -256,12 +256,12 @@ describe('MCP list_findings', () => {
   it('returns priority order, open by default, with an optional priority filter', async () => {
     finding(ids.pageVisit, 'warning', 'normal-warning');
     finding(ids.purchase, 'warning', 'tx-warning');
-    const all = await mcpListFindings({ project_key: 'acme-eu' });
-    expect(all.map((f) => [f.message, f.priority])).toEqual([
+    const all = await mcpListFindings({ project_key: 'acme-eu', fields: ['message', 'priority'] });
+    expect(all.items.map((f) => [f.message, f.priority])).toEqual([
       ['tx-warning', 'P2'],
       ['normal-warning', 'P4'],
     ]);
-    expect((await mcpListFindings({ project_key: 'acme-eu', priority: 'P4' })).map((f) => f.message)).toEqual(['normal-warning']);
+    expect((await mcpListFindings({ project_key: 'acme-eu', priority: 'P4', fields: ['message'] })).items.map((f) => f.message)).toEqual(['normal-warning']);
     await expect(mcpListFindings({ project_key: 'acme-eu', priority: 'urgent' })).rejects.toMatchObject({ code: 'PRIORITY_INVALID' });
   });
 });

@@ -137,6 +137,7 @@ const EXPECTED_KEYS = [
   'use_case_asset_links',
   'historical_file_sources',
   'historical_validation_reports',
+  'external_references',
   'files',
   'files_missing',
   'warnings',

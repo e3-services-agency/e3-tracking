@@ -14,13 +14,13 @@ QA round without going through the web UI.
 - Database: the same `getDb()` singleton and migrations as the Express API (`src/backend/db/index.ts`),
   opened via `E3_DB_PATH` — point it at the same file as the running app (`./data/e3-tracking.sqlite`)
   to see the same projects, or at a scratch/`:memory:` path to experiment without touching your data.
-- Tools: twenty-nine (nineteen read/QA tools plus the ten write tools below), implemented as plain async handlers in `src/mcp/tools/*.ts` and registered in
+- Tools: see the generated inventory below, implemented as plain async handlers in `src/mcp/tools/*.ts` and registered in
   `src/mcp/registerTools.ts` (so a later HTTP transport can mount the same handlers without touching
   their logic): `list_projects`, `list_events`, `get_event_card`, `get_expected_payload`,
-  `list_use_cases`, `get_use_case`, `list_findings`, `get_coverage_grid`, `get_tracking_document`,
+  `list_use_cases`, `get_use_case`, `list_findings`, `summarize_findings`, `get_finding`, `get_coverage_grid`, `get_tracking_document`,
   `submit_observation`, `submit_observations_batch`, `finish_qa_run`, `run_comparison`,
   `update_observation`, `delete_observation`, `delete_qa_run`, `list_use_case_templates`,
-  `instantiate_use_case_template`, `get_history` — the plan table's twelve
+  `instantiate_use_case_template`, `get_history`, `preview_historical_validation`, `apply_historical_validation`, `get_historical_validation` — the plan table's twelve
   (`PLAN-PHASE2-2026-09-25.md` lines ~205-225) plus `get_tracking_document` (not in the plan table),
   three QA evidence tools added in T-3-07 (D-52: each mirrors the matching REST route and is followed
   by `run_comparison`), `list_use_case_templates`/`instantiate_use_case_template` (T-3-10, D-55: the
@@ -31,13 +31,9 @@ QA round without going through the web UI.
   answers for unresolved standard-event targets, saved as standard event mappings before the
   requirements are created) and `dry_run?` (when true, returns the resolve preview -- `resolved`,
   `unresolved` with candidates, plus the templates page's `groups` -- without creating anything).
-- Actor attribution (T-3-02, D-44): every tool call runs inside `runWithActor({actor: <agent_name, if
-  the tool accepts one, else "MCP agent">, source: "mcp"})`, so a future write tool's `change_log`
-  rows are attributed to the calling agent automatically. The QA evidence tools
-  (`submit_observation`, `submit_observations_batch`, `finish_qa_run`) are excluded from `change_log`
-  (D-44); the definition write tools below are attributed to `agent_name`.
+- Actor attribution: the authenticated Workspace grant supplies the human actor; the supplied agent_name is retained separately as an agent label. Local stdio uses an explicitly unverified local actor. Change records, QA runs and write receipts retain both. See [shared agent conventions](AGENT-CONVENTIONS.md).
 - Finding priority (D-89, T-5-47): `list_findings` rows carry `priority` (`P1`-`P4`),
-  `priority_rank` and `priority_reasons`, derived at read time by `src/domain/findingPriority.ts`
+  `priority_rank` and, with `include: "detail"` or field selection, `priority_reasons`, derived at read time by `src/domain/findingPriority.ts`
   (severity x the event's tier: transactional `server_api` event, then required by a live use case
   at level R, then event priority critical/high; see `docs/TRACKING-DOCUMENT.md`), and come back in
   priority order (lowest `priority_rank` first, the same as the internal `GET /findings` default). The
@@ -45,19 +41,99 @@ QA round without going through the web UI.
   `PRIORITY_INVALID` tool error. `get_event_card` and `get_tracking_document` carry the same three
   fields on every finding, and `findings_summary.open_p1_count`.
 
+## Compact reads and migration (2026-10-19)
+
+**Documented default change:** `list_findings`, `list_events`, `list_use_cases` and `get_history`
+now return a page envelope instead of a bare array. Existing argument names still work, but callers
+must read `result.items` and follow `next_offset` until it is `null`. Default `limit` is **10** for findings/history and **100** for events/use cases,
+maximum **1000**, and default `offset` is **0**. This replaces the old unbounded lists and the
+history tool's old 100-row default. REST/UI response shapes and business logic are unchanged.
+All MCP tool text uses compact JSON serialization.
+
+```json
+{"items":[],"total":0,"offset":0,"limit":10,"returned":0,"next_offset":null,"truncated":false,"result_marker":"collection-hash"}
+```
+
+`total` counts the entire filtered result before paging; `truncated` means there are more rows
+after this page. A terminal or out-of-range page has `next_offset: null` and `truncated: false`.
+To retrieve every row, repeat identical filters/field selection with the returned `next_offset`.
+For a result of at most 1000 rows, `limit: 1000, include: "detail"` retrieves its full public rows
+in one response. Each page and marker come from the same database snapshot. Compare
+`result_marker` across pages and restart if it changes. Database revisions cover definitions,
+derived-priority inputs, closures/reopenings and completed comparisons, including unchanged output.
+
+Every list accepts `fields: ["id", ...]` for exact field selection or `include: "detail"` / `include: "body"` for all
+public fields. `fields` overrides `include`. Unknown/private fields are errors, including on empty
+pages. `project_id` is omitted from every row, including detail rows. Detail and explicit large
+pages can exceed the typical 10k-character target; no field value is silently shortened.
+
+| Tool | Default row fields | Additional detail/selectable fields |
+| --- | --- | --- |
+| `list_findings` | `id`, `finding_sequence`, `fingerprint`, `priority`, `priority_rank`, `status`, `severity`, `comparison`, `kind`, `event_id`, `event_name`, `property_id`, `property_name`, `first_seen_at`, `last_seen_at`, `resolved_at` | `variant_id`, `observation_id`, `qa_run_id`, `resolved_by`, `message`, `expected_json`, `actual_json`, `priority_reasons` |
+| `list_events` | `id`, `name`, `class`, `status`, `priority`, `created_at`, `updated_at` | `certification`, `variants`, `discriminators`, `contexts`, `required_properties` |
+| `list_use_cases` | `id`, `code`, `name`, `type`, `status`, `priority`, `created_at`, `updated_at`, `requirement_count` | `description`, `narrative`, `documentation_url` |
+| `get_history` | `id`, `entity_type`, `entity_id`, `entity_label`, `parent_entity_id`, `action`, `actor`, `agent`, `source`, `batch_id`, `changed_at` | `diff_json` |
+
+**Findings summary and filters.** Start operator investigations with
+`summarize_findings({project_key: "one-day-only-production"})`. It returns `total`, `by_status`,
+`by_priority`, `by_severity`, `by_comparison`, `by_kind`, `by_event` (an array of
+`{event_id,event_name,count}`, with null IDs/names for unattached or missing definitions),
+`newest_first_seen_at` and `newest_last_seen_at`. Empty results have empty
+count maps and null newest dates. Both findings tools default to `status: "open"`; explicitly
+use `status: "all"` for open and resolved findings together. Summary counts and dates cover the
+entire filtered result, never just one page.
+
+The summary and list accept identical filters: `event` (name/ID), `property` (name/ID; an
+ambiguous name requires an ID), `severity`, `priority` (comma-separated, e.g. `"P1,P2"`),
+`comparison`, `kind`, `status`, `qa_run_id`, and inclusive `first_seen_from`, `first_seen_to`,
+`last_seen_from`, `last_seen_to`. Ranges require ISO timestamps with an explicit timezone.
+`list_events` retains the default custom-class filter; pass `class: "all"` for every class.
+
+**Conditional object reads.** `get_event_card`, `get_use_case`, `get_finding` (takes `finding_id`)
+and `get_historical_validation` add a SHA-256 `hash` to their normal full public response.
+Send that value as `if_hash` on subsequent reads:
+
+```json
+{"unchanged":true,"id":"object-id","hash":"previous-64-character-sha256","state":"open"}
+```
+
+A match returns only these metadata fields; a mismatch returns the new full response and hash.
+Hashes cover canonical public response content, including derived priority/coverage and related
+definitions or requirements. Internal use-case notes/URLs remain excluded. Historical hashes are
+specific to the requested `limit`/`offset` page and cover live source availability and linked event
+labels; the immutable `identity_hash` is a separate provenance field and is not a cache validator.
+Historical reads retain their existing default/max limit of 100 checks and existing response keys,
+and add `total`, `next_offset`, `truncated` and `hash`.
+
+**Deferred:** a durable `since` change cursor across findings/history/reports is a later phase.
+First-/last-seen date filters do not claim to detect closures or reopenings. That cursor needs a
+mutation stream covering edits and every lifecycle transition; it cannot safely use observation
+timestamps alone. This change adds no business statuses, approval/certification or comparison rules.
+
+Acceptance verification: `src/mcp/tools/compactReads.test.ts` checks summary totals, response sizes,
+all detail pages and matching/changed conditional finding reads against an in-memory database.
+`node --import tsx scripts/verify-mcp-finding-rows.ts <captured-findings.json>` checks the summary
+projection and pagination against an existing MCP response without opening a database. That command
+prints only counts/size/check results. A read-only capture of the live ODO default
+`list_findings` on 2026-10-19 had **486 open rows** and **524,502 response characters**; the new
+summary projection was **1,692 characters**, its readable default page **6,026 characters**, and concatenated
+detail pages preserved every public field (excluding repeated `project_id`). This was local
+verification against captured live rows, not a deployment of the new tools.
+
 ## Definition write tools (T-5-01)
 
-Ten tools write project definitions: `create_event`, `update_event`, `create_property`,
+The definition tools are: `create_event`, `update_event`, `create_property`,
 `update_property`, `link_event_property`, `unlink_event_property`, `create_identity_rule`,
 `set_event_identifiers`, `create_catalog_field` and `batch_apply`. They call the same DAL functions
-as the REST routes (so the same validation, error codes and `change_log` rows) and share three
-arguments: `project_key` (or the `E3_PROJECT_KEY` default), `agent_name` (the `change_log` actor,
-source `mcp`) and `dry_run` (**default true**).
+as the REST routes (so the same validation, error codes and `change_log` rows). Common arguments
+are `project_key` (or the `E3_PROJECT_KEY` default), `agent_name` (a label separate from the verified
+human actor), `dry_run` (**default true**), and optional `idempotency_key`.
 
 **The dry-run pattern (D-04).** With `dry_run: true` (or omitted) the tool runs the real write inside
-a SQLite transaction that is always rolled back: you get full validation and the exact resulting row,
-and nothing is stored, not even `change_log` rows. Review the diff, then repeat the identical call
-with `dry_run: false` to apply. Result shape (same for every single tool):
+a SQLite transaction that is always rolled back: you get full validation and the resulting row,
+without domain or `change_log` writes. An optional key retains an operational preview receipt.
+Review the diff, then repeat with `dry_run: false`, using a new key if the preview had one.
+Result shape (same for every definition tool):
 
 ```json
 {
@@ -98,7 +174,7 @@ type, ...), plus `EVENT_NOT_FOUND`, `PROPERTY_NOT_FOUND`, `AMBIGUOUS_PROPERTY` (
 
 **`batch_apply`.** Runs the operations in order with one `dry_run` flag. Applied operations run in one
 import batch (`runWithImportBatch`), so all their `change_log` rows share a `batch_id` and show up
-grouped on the History page (source `import:mcp`, actor `agent_name`). It stops at the first error:
+grouped on the History page (source `import:mcp`, verified human actor and separate agent label). It stops at the first error:
 the result is `{dry_run, batch_id, total, applied, failed, not_run, results[]}` where each
 `results[i]` is `{index, op, ok, result | error: {code, message}}`. Applying is not atomic (earlier
 operations stay written, like the import apply paths); a dry run executes the whole list in one
@@ -238,7 +314,7 @@ beyond the stderr line `[mcp] INFO e3-tracking MCP server ready on stdio`. To co
 without an MCP client, spawn it as a child process and speak minimal JSON-RPC over its stdin/stdout
 (this is exactly what `src/mcp/server.ts`'s own manual verification used, T-2-10): send an
 `initialize` request, then a `tools/list` request, and check the response's `result.tools.length` is
-`29` and every name in the "Tools" list above appears. Verify with the *exact* `.mcp.json` command on
+the generated inventory count and every generated tool name appears. Verify with the *exact* `.mcp.json` command on
 your platform — on native Windows that means spawning `command: "cmd", args: ["/c", "npx", "tsx",
 "src/mcp/server.ts"]`, not a bare `npx` (`spawn('npx', ...)` without a shell fails with `ENOENT` there,
 since `npx` resolves to `npx.cmd`, not a directly-executable file). `src/mcp/tools/tools.test.ts` and
@@ -273,7 +349,7 @@ Stdout must carry JSON-RPC only, so:
   (and `gcloud compute ssh --command ... -- -t` is the opposite flag, do not add it).
 - The entrypoint and all MCP logs write to stderr only (`src/mcp/log.ts`); compose's "Creating/Running"
   lines also go to stderr. `src/deploy/mcpContainer.test.ts` runs the real image through
-  `docker compose run --rm -T mcp` (base compose file, not the VM command or the ssh hop) and asserts every stdout line is JSON-RPC and `tools/list` has 32 tools.
+  `docker compose run --rm -T mcp` (base compose file, not the VM command or the ssh hop) and asserts every stdout line is JSON-RPC and `tools/list` matches the generated inventory.
 - `E3_PROJECT_KEY` is set with `-e E3_PROJECT_KEY=<key>` inside the remote command (the environment of
   your laptop does not reach the container through ssh).
 
@@ -291,7 +367,7 @@ The connector requests all supported scopes up front (`projects:read projects:wr
 
 Settings links to **My MCP connections** at `/mcp/connections`. This staff-owned page shows granted projects, scopes and expiry, and permits CSRF-protected revocation of your own connections. Staff API equivalents are `GET /api/mcp/connections` and `POST /api/mcp/connections` with the returned CSRF value, management cookie and exact application Origin. Revocation immediately invalidates the family's access and refresh tokens. Ordinary restart preserves connections and their revocations.
 
-Authorization requests expire after 10 minutes, codes after 5 minutes, access tokens after at most 15 minutes, and refresh families after 30 days absolute. Codes are consumed once; refresh tokens rotate once. Reusing a consumed refresh token revokes the whole grant, including all access tokens. Only hashes of opaque cookies, CSRF values, codes and tokens are stored. Operational audit contains event/tool metadata, not arguments, payloads or credentials. Registrations, pending requests, grants, tokens and audit have storage bounds. Portable project backups exclude every `mcp_oauth_*` table. Each remote connection's automatic QA run is isolated durably by grant and project; stdio retains its process-local behavior. Remote audit actors always come from the verified Workspace grant, even when `agent_name` is omitted or forged.
+Authorization requests expire after 10 minutes, codes after 5 minutes, access tokens after at most 15 minutes, and refresh families after 30 days absolute. Codes are consumed once; refresh tokens rotate once. Reusing a consumed refresh token revokes the whole grant, including all access tokens. Only hashes of opaque cookies, CSRF values, codes and tokens are stored. Operational audit contains event/tool metadata, not arguments, payloads or credentials. Registrations, pending requests, grants, tokens and audit have storage bounds. Portable project backups exclude every `mcp_oauth_*` table. Each remote connection's automatic QA run is isolated durably by grant, project and agent; stdio retains its process-local behavior. Remote audit actors always come from the verified Workspace grant, even when `agent_name` is omitted or forged.
 
 Enable only with `E3_MCP_HTTP_ENABLED=1`, an exact HTTPS `E3_PUBLIC_ORIGIN`, `WORKSPACE_DOMAIN`, production `AUTH_MODE=proxy` and a correctly scoped `TRUSTED_PROXY_CIDR`. The default is disabled. Use the reviewed narrow Caddy routes: only the MCP resource, OAuth metadata and registration/token/revocation endpoints bypass browser forward-auth. Consent and connection management remain Workspace protected. Public machine routes strip browser cookies and caller/Google identity headers; only `/mcp` preserves its dedicated Authorization header. Unsupported methods, unexpected Host/Origin and malformed/bounded request bodies fail closed.
 
@@ -331,3 +407,60 @@ A normal restart preserves durable grants. A **full snapshot restore** of a data
 Local testing of the HTTPS connector: `E3_PUBLIC_ORIGIN` must be an HTTPS origin, so a local run uses the production origin value with a matching `Host` header on each request (as QA did); there is no plain-HTTP mode.
 
 Staff form posts (consent, connection revoke) are accepted as same-origin when `Origin` equals the canonical origin, or when `Origin` is absent or the literal `null` (Chrome's behavior on some same-origin form posts) and `Sec-Fetch-Site` is `same-origin` on the canonical `Host`. Anything else, including `null` without `Sec-Fetch-Site`, is rejected; the staff pages are served with `Referrer-Policy: same-origin`.
+
+
+
+## Agent collaboration and references
+
+The [shared response contract](AGENT-CONVENTIONS.md) defines page markers, conditional state, field aliases, attribution and safe errors for both Tracking and Cortex. The [Cortex connection diagnostic](MCP-CORTEX-CONNECTION.md) explains the local three-tool allowlist.
+
+get_server_info reports registered and visible inventory counts, effective scopes/projects, write visibility, default/max limits and separate token/grant expiry timestamps. It is available to template-only grants without project resolution. It never returns credentials.
+
+Every write tool, including QA, historical apply, add_reference and batch_apply, accepts optional idempotency_key and agent_name. Supplied actor input is ignored. Identical canonical arguments replay the original receipt; changed arguments need a new key. Durable operation receipts recover interrupted non-atomic batches without repeating committed operations. In-progress retries wait for the existing request or its 60-second lease. Operational receipts stay out of portable backups; no background job or since cursor is introduced.
+
+add_reference accepts target_kind (finding/use_case), target_id, dry_run (default true), and a reference containing system=cortex, client, project, record_type, record_id, revision, content_hash and optional note. It stores a deduplicated unverified pointer. Detail reads return references; statuses, priority and certification remain unchanged. Attaching any real review is a separate authorized data action.
+
+Inventory artifacts are generated with node --import tsx scripts/generate-mcp-inventory.ts. CI/local checks use the same command with --check; deployment smoke checks compare names as well as counts. ODO has 33 use cases; the 100-row default returns them in one page. Using captured public IDs/names/counts with standard fixed-width ISO timestamps, its estimated compact response is 8.6–8.8k characters, depending on priority labels.
+
+<!-- BEGIN GENERATED MCP INVENTORY -->
+Registered tools: **36**. Visible counts depend on the authenticated grant.
+
+| Tool | Required scopes |
+| --- | --- |
+| `get_server_info` | Any authenticated grant |
+| `add_reference` | projects:read, projects:write |
+| `list_projects` | projects:read |
+| `preview_historical_validation` | projects:read |
+| `apply_historical_validation` | projects:read, projects:write |
+| `get_historical_validation` | projects:read |
+| `list_events` | projects:read |
+| `get_event_card` | projects:read |
+| `get_expected_payload` | projects:read |
+| `list_use_cases` | projects:read |
+| `get_use_case` | projects:read |
+| `list_findings` | projects:read |
+| `summarize_findings` | projects:read |
+| `get_finding` | projects:read |
+| `get_coverage_grid` | projects:read |
+| `get_tracking_document` | projects:read |
+| `submit_observation` | projects:read, projects:write |
+| `submit_observations_batch` | projects:read, projects:write |
+| `finish_qa_run` | projects:read, projects:write |
+| `run_comparison` | projects:read, projects:write |
+| `update_observation` | projects:read, projects:write |
+| `delete_observation` | projects:read, projects:write |
+| `delete_qa_run` | projects:read, projects:write |
+| `list_use_case_templates` | templates:read |
+| `instantiate_use_case_template` | projects:read, projects:write, templates:read |
+| `get_history` | projects:read |
+| `create_event` | projects:read, projects:write |
+| `update_event` | projects:read, projects:write |
+| `create_property` | projects:read, projects:write |
+| `update_property` | projects:read, projects:write |
+| `link_event_property` | projects:read, projects:write |
+| `unlink_event_property` | projects:read, projects:write |
+| `create_identity_rule` | projects:read, projects:write |
+| `set_event_identifiers` | projects:read, projects:write |
+| `create_catalog_field` | projects:read, projects:write |
+| `batch_apply` | projects:read, projects:write |
+<!-- END GENERATED MCP INVENTORY -->

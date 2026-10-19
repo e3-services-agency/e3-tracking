@@ -10,26 +10,32 @@ import { EVENT_CLASSES } from '../../domain/enums';
 import { resolveEvent, resolveProject, resolveVariant } from '../resolve';
 import { McpToolError } from '../errors';
 import type { EventCard, EventCardRule } from '../../domain/document/trackingDocument';
+import { conditionalRead, paginate, readSnapshot, type ConditionalInput, type ListOptions } from '../readOptions';
 
-export interface ListEventsInput {
+export interface ListEventsInput extends ListOptions {
   project_key?: string;
   class?: string;
   status?: string;
 }
 
 export interface ListEventsRow {
+  id: string;
   name: string;
   class: string;
   status: string;
-  certification: EventCard['certification'];
-  variants: { id: string; name: string }[];
-  discriminators: string[];
-  contexts: string[];
-  required_properties: string[];
+  priority: string | null;
+  created_at: string;
+  updated_at: string;
+  certification?: EventCard['certification'];
+  variants?: { id: string; name: string }[];
+  discriminators?: string[];
+  contexts?: string[];
+  required_properties?: string[];
 }
 
 /** Default `class` filter is `custom` (plan table, T-2-10 acceptance "list_events default class filter"): an agent asking "what events are there" almost always means the client's own tracking, not Bloomreach's SDK/platform noise. Pass `class: 'all'` (or any explicit `EVENT_CLASSES` value) to see the rest. */
-export async function listEvents(input: ListEventsInput): Promise<ListEventsRow[]> {
+export async function listEvents(input: ListEventsInput) {
+  return readSnapshot(() => {
   const project = resolveProject(input.project_key);
   const classFilter = input.class ?? 'custom';
   if (classFilter !== 'all' && !(EVENT_CLASSES as readonly string[]).includes(classFilter)) {
@@ -41,31 +47,37 @@ export async function listEvents(input: ListEventsInput): Promise<ListEventsRow[
     return true;
   });
 
-  const ctx = buildEventCardContext(project.id);
-  return events.map((event) => {
-    const card = buildEventCard(project.id, event.id, ctx);
+  const detailFields = ['certification', 'variants', 'discriminators', 'contexts', 'required_properties'];
+  const needsDetail = input.fields ? input.fields.some(f => detailFields.includes(f)) : !!input.include;
+  const ctx = needsDetail ? buildEventCardContext(project.id) : undefined;
+  const rows = events.map((event) => {
+    const card = ctx ? buildEventCard(project.id, event.id, ctx) : undefined;
     return {
-      name: card.name,
-      class: card.class,
-      status: card.status,
-      certification: card.certification,
-      variants: card.variants.map((v) => ({ id: v.id, name: v.name })),
-      discriminators: card.properties.filter((p) => p.role === 'discriminator').map((p) => p.payload_key),
-      contexts: card.contexts.map((c) => c.payload_key),
-      required_properties: card.properties.filter((p) => p.required).map((p) => p.payload_key),
+      id: event.id, name: event.name, class: event.class, status: event.status,
+      priority: event.priority, created_at: event.created_at, updated_at: event.updated_at,
+      ...(card ? {
+        certification: card.certification,
+        variants: card.variants.map((v) => ({ id: v.id, name: v.name })),
+        discriminators: card.properties.filter((p) => p.role === 'discriminator').map((p) => p.payload_key),
+        contexts: card.contexts.map((c) => c.payload_key),
+        required_properties: card.properties.filter((p) => p.required).map((p) => p.payload_key),
+      } : {}),
     };
+  });
+  const compact = ['id', 'name', 'class', 'status', 'priority', 'created_at', 'updated_at'];
+  return paginate(rows, input, compact, [...compact, ...detailFields], { project_id: project.id, collection: 'events', filters: { class: classFilter, status: input.status }, default_limit: 100 });
   });
 }
 
-export interface GetEventCardInput {
+export interface GetEventCardInput extends ConditionalInput {
   project_key?: string;
   event: string;
 }
 
-export async function getEventCard(input: GetEventCardInput): Promise<EventCard> {
+export async function getEventCard(input: GetEventCardInput) {
   const project = resolveProject(input.project_key);
   const event = resolveEvent(project.id, input.event);
-  return buildEventCard(project.id, event.id);
+  return conditionalRead(event.id, buildEventCard(project.id, event.id), input);
 }
 
 export interface GetExpectedPayloadInput {

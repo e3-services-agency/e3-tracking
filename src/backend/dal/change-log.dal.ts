@@ -68,6 +68,7 @@ export interface ChangeLogRow {
   parent_entity_id: string | null;
   action: ChangeLogAction;
   actor: string;
+  agent: string | null;
   source: string;
   batch_id: string | null;
   changed_at: string;
@@ -134,9 +135,9 @@ export function recordChange(input: RecordChangeInput): void {
     .prepare(
       `INSERT INTO change_log (
         id, project_id, entity_type, entity_id, entity_label, parent_entity_id, action, actor,
-        source, batch_id, changed_at, diff_json
+        source, batch_id, changed_at, diff_json, agent
       ) VALUES (@id, @project_id, @entity_type, @entity_id, @entity_label, @parent_entity_id,
-        @action, @actor, @source, @batch_id, @changed_at, @diff_json)`
+        @action, @actor, @source, @batch_id, @changed_at, @diff_json, @agent)`
     )
     .run({
       id: newId(),
@@ -147,6 +148,7 @@ export function recordChange(input: RecordChangeInput): void {
       parent_entity_id: input.parentEntityId ?? null,
       action: input.action,
       actor: actor.actor,
+      agent: actor.agent ?? null,
       source: actor.source,
       batch_id: actor.batch_id ?? null,
       changed_at: nowIso(),
@@ -173,6 +175,7 @@ export interface ListChangesFilter {
   /** The `id` half of the composite cursor; only takes effect together with `before`. */
   beforeId?: string;
   limit?: number;
+  offset?: number;
 }
 
 export const DEFAULT_LIMIT = 100;
@@ -184,7 +187,7 @@ export const MAX_LIMIT = 1000;
  * id < beforeId)`, so a page boundary that falls inside a batch of same-millisecond rows still
  * covers every row exactly once across pages (fix round ERROR 1).
  */
-export function listChanges(projectId: string, filter: ListChangesFilter = {}): ChangeLogRow[] {
+function changeConditions(projectId: string, filter: ListChangesFilter) {
   const conditions: string[] = ['project_id = ?'];
   const params: unknown[] = [projectId];
 
@@ -228,12 +231,22 @@ export function listChanges(projectId: string, filter: ListChangesFilter = {}): 
     params.push(filter.before);
   }
 
+  return { conditions, params };
+}
+
+export function countChanges(projectId: string, filter: ListChangesFilter = {}): number {
+  const { conditions, params } = changeConditions(projectId, filter);
+  return (getDb().prepare(`SELECT COUNT(*) AS n FROM change_log WHERE ${conditions.join(' AND ')}`).get(...params) as { n: number }).n;
+}
+
+export function listChanges(projectId: string, filter: ListChangesFilter = {}): ChangeLogRow[] {
+  const { conditions, params } = changeConditions(projectId, filter);
   const limit = Math.max(1, Math.min(filter.limit ?? DEFAULT_LIMIT, MAX_LIMIT));
-  params.push(limit);
+  params.push(limit, filter.offset ?? 0);
 
   const rows = getDb()
     .prepare(
-      `SELECT * FROM change_log WHERE ${conditions.join(' AND ')} ORDER BY changed_at DESC, id DESC LIMIT ?`
+      `SELECT * FROM change_log WHERE ${conditions.join(' AND ')} ORDER BY changed_at DESC, id DESC LIMIT ? OFFSET ?`
     )
     .all(...params) as ChangeLogDbRow[];
   return rows.map(mapChangeLogRow);

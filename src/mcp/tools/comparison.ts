@@ -1,3 +1,4 @@
+import { durableStep } from '../idempotency';
 /**
  * `run_comparison` (T-2-10): "returns the summary shape of the existing comparison route" (T-2-10
  * task instruction) -- exactly `POST /comparison/run`'s body, `ComparisonSummary`
@@ -14,6 +15,9 @@ export interface RunComparisonInput {
 }
 
 export async function runComparison(input: RunComparisonInput): Promise<ComparisonSummary> {
+  return durableStep('mutation', () => {
   const project = resolveProject(input.project_key);
   return runComparisonService(project.id,{event:input.scope?.event,qa_run_id:input.scope?.qa_run_id});
+
+  });
 }

@@ -56,11 +56,13 @@ beforeEach(() => {
   projectId = ProjectDAL.createProject({ client_id: client.id, key: 'acme-eu', name: 'Acme EU' }).id;
 });
 
-afterEach(() => {
+afterEach(async () => {
   closeDb();
   delete process.env.E3_DB_PATH;
   delete process.env.E3_FILES_PATH;
   fs.rmSync(filesDir, { recursive: true, force: true });
+  // CPU-heavy restore fixtures must let worker RPC acknowledgements run between cases.
+  await new Promise<void>(resolve => setImmediate(resolve));
 });
 
 function retypeForTypeMismatches(): void {

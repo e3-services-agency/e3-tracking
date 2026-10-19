@@ -97,7 +97,7 @@ describe('list_events', () => {
     EventDAL.createEvent(projectId, { name: 'session_start', class: 'sdk' });
     EventDAL.createEvent(projectId, { name: 'campaign', class: 'platform' });
 
-    const rows = await listEvents({ project_key: projectKey });
+    const { items: rows } = await listEvents({ project_key: projectKey, include: 'detail' });
 
     expect(rows.map((r) => r.name)).toEqual(['cart_update']);
     expect(rows[0].discriminators).toEqual(['action']);
@@ -108,7 +108,7 @@ describe('list_events', () => {
     setUpCartUpdate();
     EventDAL.createEvent(projectId, { name: 'session_start', class: 'sdk' });
 
-    const rows = await listEvents({ project_key: projectKey, class: 'all' });
+    const { items: rows } = await listEvents({ project_key: projectKey, class: 'all' });
     expect(rows.map((r) => r.name).sort()).toEqual(['cart_update', 'session_start']);
   });
 });

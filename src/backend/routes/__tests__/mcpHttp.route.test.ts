@@ -1,3 +1,4 @@
+import { getToolInventory } from '../../../mcp/registerTools';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -8,6 +9,7 @@ import { createClient } from '../../dal/client.dal';
 import { createProject } from '../../dal/project.dal';
 import { listEvents, createEvent } from '../../dal/event.dal';
 import { createBundle } from '../../dal/bundle.dal';
+import { upsertFinding } from '../../dal/finding.dal';
 import { listQaRuns } from '../../dal/qa-run.dal';
 import { buildBackup } from '../../services/backup.service';
 import { CLAUDE_CALLBACK, CONSENT_COOKIE, MANAGEMENT_COOKIE } from '../../services/mcpOAuth.service';
@@ -63,10 +65,45 @@ beforeAll(async () => { process.env.NODE_ENV = 'test'; process.env.AUTH_MODE = '
 afterAll(async () => { await new Promise<void>(r => server.close(() => r())); closeDb(); for (const env of ['AUTH_MODE', 'TRUSTED_PROXY_CIDR', 'E3_DB_PATH', 'E3_PROJECT_KEY'])
     delete process.env[env]; });
 describe('authenticated stateless HTTPS MCP', () => {
+    it('validates write metadata and durable replay through the real SDK without losing delete receipts', async () => {
+        const connection = await grant('projects:read projects:write', 'one@example.com', true);
+        const invoke = async (name: string, args: Record<string, unknown>) => {
+            const response = await mcp(connection.access_token, name, args);
+            expect(response.status).toBe(200);
+            return (await response.json()).result;
+        };
+        const input = { name: 'receipt_http_event', dry_run: false, idempotency_key: 'http-create', agent_name: 'Claude', actor: 'forged@example.com' };
+        const first = await invoke('create_event', input);
+        const data = JSON.parse(first.content[0].text);
+        expect(data).toMatchObject({ actor: 'one@example.com', agent: 'Claude' });
+        expect(await invoke('create_event', input)).toEqual(first);
+        const conflict = await invoke('create_event', { ...input, name: 'receipt_http_changed' });
+        expect(conflict.isError).toBe(true); expect(conflict.content[0].text).toMatch(/^IDEMPOTENCY_CONFLICT:/);
+        const observation = JSON.parse((await invoke('submit_observation', { event_type: 'receipt_http_event', properties: {}, agent_name: 'Claude' })).content[0].text);
+        const deletion = { qa_run_id: observation.qa_run_id, idempotency_key: 'http-delete' };
+        const deleted = await invoke('delete_qa_run', deletion);
+        expect(deleted.isError).not.toBe(true);
+        expect(await invoke('delete_qa_run', deletion)).toEqual(deleted);
+    });
+    it('serves compact pages, summary and conditional reads to a read-only grant without exposing foreign findings', async () => {
+        const grantInfo = await grant();
+        const row = upsertFinding(project, { comparison: 'definition_vs_observations', kind: 'missing_event', severity: 'error', fingerprint: 'compact-http', message: 'Detail only', event_id: createEvent(project, { name: 'compact_http_target' }).id });
+        const other = upsertFinding(foreign, { comparison: 'definition_vs_observations', kind: 'missing_event', severity: 'error', fingerprint: 'foreign-http' });
+        const call = async (name: string, args: Record<string, unknown> = {}) => (await (await mcp(grantInfo.access_token, name, args)).json()).result;
+        const page = JSON.parse((await call('list_findings', { event: row.event_id, fields: ['id', 'finding_sequence', 'fingerprint'], limit: 1 })).content[0].text);
+        expect(page).toMatchObject({ total: 1, next_offset: null, truncated: false });
+        expect(page.items).toEqual([{ id: row.id, finding_sequence: row.finding_sequence, fingerprint: row.fingerprint }]);
+        expect(JSON.parse((await call('summarize_findings', { event: row.event_id })).content[0].text).total).toBe(page.total);
+        const first = JSON.parse((await call('get_finding', { finding_id: row.id })).content[0].text);
+        expect(JSON.parse((await call('get_finding', { finding_id: row.id, if_hash: first.hash })).content[0].text)).toEqual({ unchanged: true, id: row.id, hash: first.hash, state: 'open' });
+        expect((await call('get_finding', { finding_id: other.id })).isError).toBe(true);
+        expect((await call('list_findings', { fields: ['project_id'] })).isError).toBe(true);
+        expect((await call('list_findings', { limit: 0 })).isError).toBe(true);
+    });
     it('returns exact metadata and Bearer challenges, never Google redirect/SPA', async () => { const meta = await fetch(base + '/.well-known/oauth-authorization-server', { headers: headers() }); expect(meta.status).toBe(200); const m = await meta.json(); expect(m.authorization_endpoint).toBe(origin + '/mcp/oauth/authorize'); expect(m.registration_endpoint).toBe(origin + '/mcp/oauth/register'); expect(m.client_id_metadata_document_supported).toBeUndefined(); const res = await fetch(base + '/mcp', { headers: headers() }); expect(res.status).toBe(401); expect(res.headers.get('www-authenticate')).toContain('scope="projects:read projects:write templates:read"'); const protectedMeta = await fetch(base + '/.well-known/oauth-protected-resource/mcp', { headers: headers() }); expect((await protectedMeta.json()).scopes_supported).toEqual(['projects:read', 'projects:write', 'templates:read']); expect(res.headers.get('www-authenticate')).toContain('/.well-known/oauth-protected-resource/mcp'); expect(res.headers.get('location')).toBeNull(); });
     it('rejects unexpected host/origin, unsupported client/redirect and spoofed staff', async () => { expect((await fetch(base + '/mcp', { headers: headers({ Host: 'evil.example' }) })).status).toBe(403); expect((await register({ redirect_uris: ['http://localhost/callback'] })).status).toBe(400); expect((await register({ token_endpoint_auth_method: 'client_secret_basic' })).status).toBe(400); expect((await register({ client_uri: 'https://evil.example/metadata' })).status).toBe(400); const c = await (await register()).json(); const p = new URLSearchParams({ client_id: c.client_id, response_type: 'code', redirect_uri: CLAUDE_CALLBACK, code_challenge: challenge, code_challenge_method: 'S256', resource }); expect((await fetch(base + '/mcp/oauth/authorize?' + p, { headers: headers({ 'X-Forwarded-Email': 'evil@other.com' }) })).status).toBe(401); });
     it('enforces client, exact resource, PKCE and one-use authorization codes', async () => { const c = await (await register()).json(); const code = await consent(c.client_id); expect((await token(c.client_id, code, { resource: origin + '/other' })).status).toBe(400); expect((await token(c.client_id, code, { code_verifier: 'wrong' })).status).toBe(400); const wrong = await (await register()).json(); expect((await token(wrong.client_id, code)).status).toBe(400); expect((await token(c.client_id, code)).status).toBe(200); expect((await token(c.client_id, code)).status).toBe(400); });
-    it('discovers the read-scope tools only (all 32 are registered, filtered by scope) and refuses write/template scope with full step-up challenge', async () => { const g = await grant(); const res = await json('/mcp', { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }, { Authorization: 'Bearer ' + g.access_token, Accept: 'application/json, text/event-stream' }); expect(res.status).toBe(200); expect((await res.json()).result.tools).toHaveLength(12); const write = await mcp(g.access_token, 'create_event', { name: 'denied', dry_run: true }); expect(write.status).toBe(403); expect(write.headers.get('www-authenticate')).toContain('projects:read projects:write'); expect((await mcp(g.access_token, 'list_use_case_templates')).status).toBe(403); expect(listEvents(project).some(e => e.name === 'denied')).toBe(false); });
+    it('discovers the read-scope tools only (inventory filtered by scope) and refuses write/template scope with full step-up challenge', async () => { const g = await grant(); const res = await json('/mcp', { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }, { Authorization: 'Bearer ' + g.access_token, Accept: 'application/json, text/event-stream' }); expect(res.status).toBe(200); expect((await res.json()).result.tools).toHaveLength(getToolInventory().filter(t=>t.scopes.every(s=>['projects:read'].includes(s))).length); const write = await mcp(g.access_token, 'create_event', { name: 'denied', dry_run: true }); expect(write.status).toBe(403); expect(write.headers.get('www-authenticate')).toContain('projects:read projects:write'); expect((await mcp(g.access_token, 'list_use_case_templates')).status).toBe(403); expect(listEvents(project).some(e => e.name === 'denied')).toBe(false); });
     it('filters project discovery and ignores ambient default/foreign project requests', async () => { const g = await grant(); process.env.E3_PROJECT_KEY = 'mcp-foreign'; const list = await mcp(g.access_token, 'list_projects'); expect(list.status).toBe(200); expect(JSON.stringify(await list.json())).not.toContain('mcp-foreign'); expect((await mcp(g.access_token, 'list_events')).status).toBe(200); const denied = await mcp(g.access_token, 'list_events', { project_key: 'mcp-foreign' }); expect(denied.status).toBe(403); expect(denied.headers.get('www-authenticate')).toBeNull(); });
     it('preauthorizes every transport/nested batch operation before any write', async () => { const g = await grant('projects:read projects:write', 'one@example.com', true); const before = listEvents(project).length; const foreignEvent = createEvent(foreign, { name: 'foreign_alias', class: 'custom' }); const aliasDenied = await mcp(g.access_token, 'batch_apply', { dry_run: false, operations: [{ op: 'create_event', name: 'alias_would_write' }, { op: 'update_event', event: foreignEvent.id, description: 'forbidden' }] }); expect(aliasDenied.status).toBe(403); const foreignBundle = createBundle(foreign, { name: 'foreign_bundle' }); const bundleDenied = await mcp(g.access_token, 'batch_apply', { dry_run: false, operations: [{ op: 'create_event', name: 'bundle_would_write' }, { op: 'create_property', name: 'new', scope: 'event', data_type: 'string', bundle_ids: [foreignBundle.id] }] }); expect(bundleDenied.status).toBe(403); const denied = await mcp(g.access_token, 'batch_apply', { dry_run: false, operations: [{ op: 'create_event', name: 'would_write' }, { op: 'create_event', name: 'foreign', project_key: 'mcp-foreign' }] }); expect(denied.status).toBe(403); const body = [{ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'create_event', arguments: { name: 'transport_write', dry_run: false } } }, { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'unknown' } }]; expect((await json('/mcp', body, { Authorization: 'Bearer ' + g.access_token, Accept: 'application/json, text/event-stream' })).status).toBe(400); expect(listEvents(project)).toHaveLength(before); });
     it('records verified actors and isolates durable automatic QA runs by principal', async () => { const one = await grant('projects:read projects:write', 'one@example.com', true), two = await grant('projects:read projects:write', 'two@example.com', true); expect((await mcp(one.access_token, 'create_event', { name: 'verified_actor', dry_run: false, agent_name: 'forged' })).status).toBe(200); expect(getDb().prepare("SELECT actor FROM change_log WHERE entity_label='verified_actor' ORDER BY rowid DESC LIMIT 1").get()).toEqual({ actor: 'one@example.com' }); const submit = (g: typeof one, timestamp: number) => mcp(g.access_token, 'submit_observation', { event_type: 'purchase', properties: { total: 1 }, timestamp }); const results = await Promise.all([submit(one, 10), submit(two, 11)]); for (const r of results)
@@ -204,10 +241,10 @@ describe('authenticated stateless HTTPS MCP', () => {
         expect((await fetch(base + '/mcp/oauth/authorize?' + params, { headers: headers({ 'X-Forwarded-Email': 'one@example.com' }), redirect: 'manual' })).status).not.toBe(200);
         const tools = async (a: string) => (await (await json('/mcp', { jsonrpc: '2.0', id: 1, method: 'tools/list' }, { Authorization: 'Bearer ' + a, Accept: 'application/json, text/event-stream' })).json()).result.tools.length;
         const readOnly = await grant('projects:read projects:write');
-        expect(await tools(readOnly.access_token)).toBe(12);
+        expect(await tools(readOnly.access_token)).toBe(getToolInventory().filter(t=>t.scopes.every(s=>['projects:read'].includes(s))).length);
         const writer = await grant('projects:read projects:write', 'one@example.com', true);
         expect(OAuth.access(writer.access_token, resource).scopes).toEqual(['projects:read', 'projects:write']);
-        expect(await tools(writer.access_token)).toBe(30);
+        expect(await tools(writer.access_token)).toBe(getToolInventory().filter(t=>t.scopes.every(s=>['projects:read','projects:write'].includes(s))).length);
         const tpl = await grant('projects:read templates:read');
         expect(OAuth.access(tpl.access_token, resource).scopes).toEqual(['projects:read', 'templates:read']);
     });

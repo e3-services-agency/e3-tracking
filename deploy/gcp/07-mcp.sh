@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Usage: 07-mcp.sh [--dry-run]. T-5-09 (D-72 item 7): prints the .mcp.json block for the values in config.env and
-# smoke-tests the MCP server over the IAP SSH tunnel (initialize + tools/list, expects 32 tools). Read-only on GCP.
+# smoke-tests the MCP server over the IAP SSH tunnel against the generated tool inventory. Read-only on GCP.
 # Optional: E3_PROJECT_KEY=<key> in the environment sets the default project key in the block.
 set -euo pipefail
 # shellcheck source=lib.sh
@@ -34,10 +34,13 @@ if [ "$DRY_RUN" = 1 ]; then exit 0; fi
 # Launch through this Bash so an exported Windows SDK wrapper remains available.
 # Native Windows Node needs the native path to Git Bash, not /usr/bin/bash.
 MCP_BASH="$BASH"
+MCP_INVENTORY="$(dirname "${BASH_SOURCE[0]}")/mcp-inventory.json"
 if command -v cygpath >/dev/null 2>&1; then MCP_BASH="$(cygpath -w "$BASH")"; fi
-node - "$MCP_BASH" "${GC[@]}" <<'MCP_SMOKE_NODE'
+if command -v cygpath >/dev/null 2>&1; then MCP_INVENTORY="$(cygpath -w "$MCP_INVENTORY")"; fi
+node - "$MCP_BASH" "$MCP_INVENTORY" "${GC[@]}" <<'MCP_SMOKE_NODE'
 const { spawn, spawnSync } = require('node:child_process');
-const [bash, ...command] = process.argv.slice(2);
+const [bash, inventoryPath, ...command] = process.argv.slice(2);
+const expectedTools = JSON.parse(require('node:fs').readFileSync(inventoryPath, 'utf8')).map(t=>t.name).sort();
 const child = spawn(bash, ['-c', '"$@"', '07-mcp', ...command], {
   stdio: ['pipe', 'pipe', 'pipe'],
   windowsHide: true,
@@ -103,7 +106,8 @@ child.stdout.on('data', chunk => {
     } else {
       if (!Array.isArray(response.result.tools)) return fail('tools/list response missing tools');
       const count = response.result.tools.length;
-      if (count !== 32) return fail(`tools/list returned ${count} tools (expected 32)`);
+      if (count !== expectedTools.length) return fail(`tools/list returned ${count} tools (expected ${expectedTools.length})`);
+      if (JSON.stringify(response.result.tools.map(t=>t.name).sort()) !== JSON.stringify(expectedTools)) return fail('tools/list membership differs from the generated inventory');
       complete = true;
       stage = 'transport shutdown';
       // EOF only after both actual responses; no startup-dependent sleep.
@@ -117,7 +121,7 @@ child.on('close', (code, signal) => {
   if (!complete || pending.trim()) return fail(`transport closed before a valid ${stage} completion`);
   finished = true;
   clearTimeout(timer);
-  console.log('OK: tools/list returned 32 tools over the IAP tunnel.');
+  console.log(`OK: tools/list returned ${expectedTools.length} tools over the IAP tunnel.`);
 });
 send({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {
   protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: '07-mcp', version: '0' },

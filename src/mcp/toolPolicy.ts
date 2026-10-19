@@ -3,10 +3,11 @@ import * as ProjectDAL from '../backend/dal/project.dal';
 import { ownedReference } from '../backend/dal/mcp-oauth.dal';
 import { WRITE_TOOLS } from './tools/writeTools';
 import { parseArgs } from './tools/writeCore';
+import { knownWriteRequest } from './idempotency';
 export const MCP_SCOPES = ['projects:read', 'projects:write', 'templates:read'] as const;
-const read = ['list_projects', 'list_events', 'get_event_card', 'get_expected_payload', 'list_use_cases', 'get_use_case', 'list_findings', 'get_coverage_grid', 'get_tracking_document', 'get_history', 'preview_historical_validation', 'get_historical_validation'];
-const write = ['submit_observation', 'submit_observations_batch', 'finish_qa_run', 'run_comparison', 'update_observation', 'delete_observation', 'delete_qa_run', ...WRITE_TOOLS.map(t => t.name), 'batch_apply', 'apply_historical_validation'];
-export const TOOL_POLICY: Readonly<Record<string, readonly string[]>> = Object.freeze(Object.fromEntries([...read.map(n => [n, ['projects:read']]), ...write.map(n => [n, ['projects:read', 'projects:write']]), ['list_use_case_templates', ['templates:read']], ['instantiate_use_case_template', ['projects:read', 'projects:write', 'templates:read']]]));
+const read = ['list_projects', 'list_events', 'get_event_card', 'get_expected_payload', 'list_use_cases', 'get_use_case', 'list_findings', 'summarize_findings', 'get_finding', 'get_coverage_grid', 'get_tracking_document', 'get_history', 'preview_historical_validation', 'get_historical_validation'];
+const write = ['add_reference', 'submit_observation', 'submit_observations_batch', 'finish_qa_run', 'run_comparison', 'update_observation', 'delete_observation', 'delete_qa_run', ...WRITE_TOOLS.map(t => t.name), 'batch_apply', 'apply_historical_validation'];
+export const TOOL_POLICY: Readonly<Record<string, readonly string[]>> = Object.freeze(Object.fromEntries([['get_server_info', []], ...read.map(n => [n, ['projects:read']]), ...write.map(n => [n, ['projects:read', 'projects:write']]), ['list_use_case_templates', ['templates:read']], ['instantiate_use_case_template', ['projects:read', 'projects:write', 'templates:read']]]));
 export class McpAuthorizationError extends Error {
     readonly code = 'MCP_FORBIDDEN';
     constructor(public readonly scopes?: readonly string[]) { super('This connection is not authorized for that request.'); }
@@ -56,9 +57,10 @@ export function authorizeHttpTool(name: string, input: unknown) {
     if (!input || typeof input !== 'object' || Array.isArray(input))
         throw new McpAuthorizationError();
     const args = input as Record<string, unknown>;
-    if (name === 'list_projects' || name === 'list_use_case_templates')
+    if (name === 'get_server_info' || name === 'list_projects' || name === 'list_use_case_templates')
         return;
     const project = remoteProject(args.project_key)!;
+    if (scopes.includes('projects:write') && knownWriteRequest(name, args, project.id)) return;
     references(project.id, args);
     if (name === 'batch_apply') {
         if (!Array.isArray(args.operations) || args.operations.length > 50)

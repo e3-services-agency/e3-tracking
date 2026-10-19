@@ -77,7 +77,7 @@ export interface UseCaseInput {
 
 export function listUseCases(projectId: string): UseCaseRow[] {
   return getDb()
-    .prepare('SELECT * FROM use_cases WHERE project_id = ? AND deleted_at IS NULL ORDER BY sort_order, created_at')
+    .prepare('SELECT * FROM use_cases WHERE project_id = ? AND deleted_at IS NULL ORDER BY sort_order, created_at, id')
     .all(projectId) as UseCaseRow[];
 }
 

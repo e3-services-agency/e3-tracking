@@ -16,6 +16,7 @@ import { createPropertyTool, updatePropertyTool, linkEventPropertyTool, unlinkEv
 import { createIdentityRuleTool, createCatalogFieldTool } from './writeIdentityCatalogs';
 import { executeOp, parseArgs, runWriteTool, withRollback, writeCommonShape } from './writeCore';
 import type { WriteCommonInput, WriteResult, WriteTool } from './writeCore';
+import { durableStep, currentWriteRequest } from '../idempotency';
 
 export const WRITE_TOOLS: WriteTool[] = [
   createEventTool,
@@ -36,7 +37,7 @@ export type WriteHandler = (input: Record<string, unknown> & WriteCommonInput) =
 export function writeHandler(tool: WriteTool): WriteHandler {
   return async (input) => {
     const project = resolveProject(input.project_key);
-    return runWriteTool(project.id, tool, input, input.dry_run !== false);
+    return durableStep('mutation', () => runWriteTool(project.id, tool, input, input.dry_run !== false));
   };
 }
 
@@ -67,10 +68,13 @@ export async function batchApply(input: BatchApplyInput): Promise<BatchApplyResu
     for (let index = 0; index < input.operations.length; index++) {
       const { op: opName, ...args } = input.operations[index];
       try {
+        const result = durableStep(`operation:${index}`, () => {
         const tool = WRITE_TOOLS.find((t) => t.name === opName);
         if (!tool) throw new McpToolError('UNKNOWN_OPERATION', `Unknown operation "${opName}". Allowed: ${WRITE_TOOLS.map((t) => t.name).join(', ')}.`);
         const op = tool.prepare(project.id, parseArgs(tool, args));
-        results.push({ index, op: opName, ok: true, result: executeOp(op, !dryRun) });
+        return executeOp(op, !dryRun);
+        });
+        results.push({ index, op: opName, ok: true, result });
       } catch (err) {
         const code = (err as { code?: string })?.code ?? 'INTERNAL_ERROR';
         results.push({ index, op: opName, ok: false, error: { code, message: err instanceof Error ? err.message : String(err) } });
@@ -83,7 +87,7 @@ export async function batchApply(input: BatchApplyInput): Promise<BatchApplyResu
   if (dryRun) {
     withRollback(loop);
   } else {
-    batchId = runWithImportBatch('mcp', loop).batchId;
+    batchId = runWithImportBatch('mcp', loop, currentWriteRequest()?.batch_id).batchId;
   }
 
   const applied = results.filter((r) => r.ok).length;

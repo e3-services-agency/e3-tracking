@@ -1,0 +1,237 @@
+[
+  {
+    "name": "get_server_info",
+    "scopes": []
+  },
+  {
+    "name": "add_reference",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "list_projects",
+    "scopes": [
+      "projects:read"
+    ]
+  },
+  {
+    "name": "preview_historical_validation",
+    "scopes": [
+      "projects:read"
+    ]
+  },
+  {
+    "name": "apply_historical_validation",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "get_historical_validation",
+    "scopes": [
+      "projects:read"
+    ]
+  },
+  {
+    "name": "list_events",
+    "scopes": [
+      "projects:read"
+    ]
+  },
+  {
+    "name": "get_event_card",
+    "scopes": [
+      "projects:read"
+    ]
+  },
+  {
+    "name": "get_expected_payload",
+    "scopes": [
+      "projects:read"
+    ]
+  },
+  {
+    "name": "list_use_cases",
+    "scopes": [
+      "projects:read"
+    ]
+  },
+  {
+    "name": "get_use_case",
+    "scopes": [
+      "projects:read"
+    ]
+  },
+  {
+    "name": "list_findings",
+    "scopes": [
+      "projects:read"
+    ]
+  },
+  {
+    "name": "summarize_findings",
+    "scopes": [
+      "projects:read"
+    ]
+  },
+  {
+    "name": "get_finding",
+    "scopes": [
+      "projects:read"
+    ]
+  },
+  {
+    "name": "get_coverage_grid",
+    "scopes": [
+      "projects:read"
+    ]
+  },
+  {
+    "name": "get_tracking_document",
+    "scopes": [
+      "projects:read"
+    ]
+  },
+  {
+    "name": "submit_observation",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "submit_observations_batch",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "finish_qa_run",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "run_comparison",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "update_observation",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "delete_observation",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "delete_qa_run",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "list_use_case_templates",
+    "scopes": [
+      "templates:read"
+    ]
+  },
+  {
+    "name": "instantiate_use_case_template",
+    "scopes": [
+      "projects:read",
+      "projects:write",
+      "templates:read"
+    ]
+  },
+  {
+    "name": "get_history",
+    "scopes": [
+      "projects:read"
+    ]
+  },
+  {
+    "name": "create_event",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "update_event",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "create_property",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "update_property",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "link_event_property",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "unlink_event_property",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "create_identity_rule",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "set_event_identifiers",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "create_catalog_field",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  },
+  {
+    "name": "batch_apply",
+    "scopes": [
+      "projects:read",
+      "projects:write"
+    ]
+  }
+]

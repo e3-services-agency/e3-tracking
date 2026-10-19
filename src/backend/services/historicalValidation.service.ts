@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { getDb } from '../db';
 import { newId, nowIso } from '../db/util';
 import { getActor } from '../context/actor';
+import { durableStep, recoveredStep } from '../../mcp/idempotency';
 import { getProjectOrThrow } from '../dal/project.dal';
 import { captureQaReport, getQaReport } from '../dal/qa-report.dal';
 import { getFileStore } from '../files/FileStore';
@@ -136,22 +137,24 @@ function previewPublic(prepared: Awaited<ReturnType<typeof prepare>>) {
 }
 export async function previewHistoricalValidation(projectId: string, raw: unknown) { return previewPublic(await prepare(projectId, raw)); }
 export async function applyHistoricalValidation(projectId: string, raw: unknown, expectedHash: string) {
+  const recovered = recoveredStep<ReportRow>('historical_report');
+  if (recovered) return getHistoricalValidation(projectId, recovered.report_id);
   const prepared = await prepare(projectId, raw);
   if (prepared.previewHash !== expectedHash) throw new PayloadChangedError('Bytes, mapping, project, definitions/rules or engine changed since preview.');
-  const row = getDb().transaction(() => {
+  const row = durableStep('historical_report', () => getDb().transaction(() => {
     if (hash(canonicalHistorical(semanticSnapshot(projectId))) !== prepared.definitionHash) throw new PayloadChangedError('Definitions changed since preview.');
     const existing = getDb().prepare('SELECT * FROM historical_validation_reports WHERE project_id=? AND identity_hash=?').get(projectId, prepared.previewHash) as ReportRow | undefined;
     if (existing) return existing;
     const now = nowIso(), report = captureQaReport(projectId, { type: 'historical_file_validation', original_event_time: 'unavailable' },
       { historical_file_validation: true, checked: prepared.result.totals.checked, failed: prepared.result.totals.failed, skipped: prepared.result.totals.skipped, limitations: prepared.result.limitations }, []);
     const reportId = newId();
-    getDb().prepare('INSERT INTO historical_validation_reports VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(reportId, projectId, report.id,
+    getDb().prepare('INSERT INTO historical_validation_reports(id,project_id,report_id,identity_hash,preview_hash,definition_hash,engine_hash,source_ids_json,manifest_json,snapshot_json,result_json,created_at,actor,oauth_grant_id,restored_from_id,agent) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(reportId, projectId, report.id,
       prepared.previewHash, prepared.previewHash, prepared.definitionHash, prepared.engineHash, JSON.stringify(prepared.sources.map(s => s.id)),
       canonicalHistorical(prepared.manifest), canonicalHistorical({ definitions: prepared.snapshot, sources: prepared.sources, policy: HISTORICAL_FILE_POLICY,
         engine_hash: prepared.engineHash, node_version: process.versions.node, build_revision: process.env.E3_BUILD_REVISION || 'unavailable', original_event_time: null }),
-      canonicalHistorical(prepared.result), now, getActor().actor, httpMcpContext()?.grantId ?? null, null);
+      canonicalHistorical(prepared.result), now, getActor().actor, httpMcpContext()?.grantId ?? null, null, getActor().agent ?? null);
     return getDb().prepare('SELECT * FROM historical_validation_reports WHERE id=?').get(reportId) as ReportRow;
-  }).immediate();
+  }).immediate());
   return getHistoricalValidation(projectId, row.report_id);
 }
 export function listHistoricalValidations(projectId: string) {
@@ -172,7 +175,7 @@ export async function getHistoricalValidation(projectId: string, reportId: strin
   offset = Number.isSafeInteger(offset) && offset >= 0 ? offset : 0; limit = Number.isSafeInteger(limit) ? Math.max(1, Math.min(100, limit)) : 100;
   const native = getQaReport(projectId, row.report_id);
   const manifest = JSON.parse(row.manifest_json) as HistoricalManifest;
-  return { id: row.id, report_id: row.report_id, report_sequence: native.report_sequence, kind: result.kind, created_at: row.created_at, actor: row.actor,
+  return { id: row.id, report_id: row.report_id, report_sequence: native.report_sequence, kind: result.kind, created_at: row.created_at, actor: row.actor, agent: (row as ReportRow & { agent: string | null }).agent,
     identity_hash: row.identity_hash, definition_hash: row.definition_hash, engine_hash: row.engine_hash, restored_from_id: row.restored_from_id,
     sources: snapshot.sources, source_availability: availability, original_event_time: null, policy: result.policy, totals: result.totals,
     unmapped_columns: manifest.files.reduce((n, f) => n + f.source_only_columns.length, 0),

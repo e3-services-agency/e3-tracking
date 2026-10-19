@@ -1,3 +1,4 @@
+import { durableStep } from '../idempotency';
 /**
  * `submit_observation`, `submit_observations_batch` (T-2-10, plan MCP table). `submit_observation`
  * creates an `agent_session` `QaRun` when `qa_run_id` is absent and reuses it on later calls within
@@ -60,6 +61,7 @@ function resolveOrCreateSessionRun(projectId: string, qaRunId: string | undefine
 }
 
 export async function submitObservation(input: SubmitObservationInput): Promise<SubmitObservationResult> {
+  return durableStep('mutation', () => {
   if (!input.event_type?.trim()) throw new McpToolError('VALIDATION_ERROR', 'event_type is required.');
   const project = resolveProject(input.project_key);
   const qaRunId = resolveOrCreateSessionRun(project.id, input.qa_run_id, input.agent_name, input.environment);
@@ -81,6 +83,8 @@ export async function submitObservation(input: SubmitObservationInput): Promise<
   // `createObservation` returns `null` for a duplicate `raw_hash` on this run (not an error, plan
   // "Observation" storage convention): report the run id either way so the caller can still poll it.
   return { observation, qa_run_id: qaRunId, duplicate: observation === null };
+
+  });
 }
 
 export interface SubmitObservationsBatchInput {
@@ -118,6 +122,7 @@ export interface SubmitObservationsBatchResult {
  * whether or not `qa_run_id` is reused.
  */
 export async function submitObservationsBatch(input: SubmitObservationsBatchInput): Promise<SubmitObservationsBatchResult> {
+  return durableStep('mutation', () => {
   const project = resolveProject(input.project_key);
   if (input.qa_run_id) QaRunDAL.getQaRunOrThrow(project.id, input.qa_run_id);
   const preview = previewCustomerEventsExport(project.id, input.export);
@@ -135,6 +140,8 @@ export async function submitObservationsBatch(input: SubmitObservationsBatchInpu
     input.qa_run_id
   );
   return { qa_run_id: result.run.id, inserted: result.inserted, duplicates: preview.duplicate_count };
+
+  });
 }
 
 /**
@@ -174,6 +181,7 @@ export interface UpdateObservationResult {
  * followed by `runComparison` so the returned findings summary reflects the correction.
  */
 export async function updateObservation(input: UpdateObservationInput): Promise<UpdateObservationResult> {
+  return durableStep('mutation', () => {
   if (!input.observation_id?.trim()) throw new McpToolError('VALIDATION_ERROR', 'observation_id is required.');
   const project = resolveProject(input.project_key);
   ObservationDAL.updateObservation(project.id, input.observation_id, {
@@ -187,6 +195,8 @@ export async function updateObservation(input: UpdateObservationInput): Promise<
   // the PATCH route -- the pre-recompute return value would otherwise be stale.
   const observation = ObservationDAL.getObservationOrThrow(project.id, input.observation_id);
   return { observation, comparison };
+
+  });
 }
 
 export interface DeleteObservationInput {
@@ -204,9 +214,12 @@ export interface DeleteObservationResult {
  * (`observation.dal.ts#deleteObservation`), followed by `runComparison`.
  */
 export async function deleteObservation(input: DeleteObservationInput): Promise<DeleteObservationResult> {
+  return durableStep('mutation', () => {
   if (!input.observation_id?.trim()) throw new McpToolError('VALIDATION_ERROR', 'observation_id is required.');
   const project = resolveProject(input.project_key);
   ObservationDAL.deleteObservation(project.id, input.observation_id);
   const comparison = runComparison(project.id);
   return { deleted: true, comparison };
+
+  });
 }

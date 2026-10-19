@@ -119,7 +119,7 @@ export function listFindings(projectId: string, filter?: FindingFilter): Finding
   const rows = getDb()
     .prepare(
       `SELECT * FROM findings WHERE ${clauses.join(' AND ')}
-       ORDER BY CASE severity WHEN 'error' THEN 0 WHEN 'warning' THEN 1 WHEN 'info' THEN 2 ELSE 3 END, last_seen_at DESC`
+       ORDER BY CASE severity WHEN 'error' THEN 0 WHEN 'warning' THEN 1 WHEN 'info' THEN 2 ELSE 3 END, last_seen_at DESC, id`
     )
     .all(...params) as FindingDbRow[];
   return rows.map(mapRow);

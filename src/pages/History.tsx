@@ -22,6 +22,7 @@ interface ChangeLogRow {
   parent_entity_id: string | null;
   action: string;
   actor: string;
+  agent?: string | null;
   source: string;
   batch_id: string | null;
   changed_at: string;
@@ -43,6 +44,7 @@ interface Batch {
   batch_id: string | null;
   source: string;
   actor: string;
+  agent?: string | null;
   changed_at: string;
   rows: ChangeLogRow[];
 }
@@ -65,6 +67,7 @@ function groupByBatch(rows: ChangeLogRow[]): Batch[] {
         batch_id: row.batch_id,
         source: row.source,
         actor: row.actor,
+        agent: row.agent,
         changed_at: row.changed_at,
         rows: [row],
       };
@@ -76,6 +79,7 @@ function groupByBatch(rows: ChangeLogRow[]): Batch[] {
         batch_id: null,
         source: row.source,
         actor: row.actor,
+        agent: row.agent,
         changed_at: row.changed_at,
         rows: [row],
       });
@@ -208,7 +212,7 @@ export function History() {
                 >
                   <div className="text-sm text-gray-700">
                     <span className="font-medium text-gray-900">{new Date(batch.changed_at).toLocaleString()}</span>{' '}
-                    · {batch.actor} · {batch.source}
+                    · {batch.agent ? `${batch.agent} on behalf of ${batch.actor}` : batch.actor} · {batch.source}
                     {batch.batch_id && (
                       <span className="ml-2 text-xs text-gray-400 font-mono">batch {batch.batch_id.slice(0, 8)}</span>
                     )}

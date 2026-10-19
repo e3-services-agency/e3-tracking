@@ -15,6 +15,7 @@ import { newId } from '../db/util';
 
 export interface ActorContext {
   actor: string;
+  agent?: string | null;
   source: string;
   batch_id?: string;
 }
@@ -49,8 +50,8 @@ export function getActor(): ActorContext {
  * alongside the `batchId` used, since every apply response echoes `batch_id` back to the caller
  * (D-44) -- `fn` itself never needs to know the id, only the `change_log` rows it triggers do.
  */
-export function runWithImportBatch<T>(format: string, fn: () => T): { result: T; batchId: string } {
-  const batchId = newId();
+export function runWithImportBatch<T>(format: string, fn: () => T, retainedBatchId?: string): { result: T; batchId: string } {
+  const batchId = retainedBatchId ?? newId();
   const result = runWithActor({ ...getActor(), source: `import:${format}`, batch_id: batchId }, fn);
   return { result, batchId };
 }

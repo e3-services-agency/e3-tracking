@@ -1,3 +1,4 @@
+import { durableStep } from '../idempotency';
 /**
  * `list_use_cases`, `get_use_case` (T-2-10, plan MCP table). `get_use_case` resolves every
  * requirement's target to a display label via `requirements-matrix.service.ts#buildTargetLabelResolver`
@@ -14,6 +15,8 @@ import * as UseCaseTemplateDAL from '../../backend/dal/use-case-template.dal';
 import { buildTargetLabelResolver } from '../../backend/services/requirements-matrix.service';
 import { resolveProject, resolveUseCase } from '../resolve';
 import { McpToolError } from '../errors';
+import { referencesFor } from './references';
+import { conditionalRead, paginate, readSnapshot, type ConditionalInput, type ListOptions } from '../readOptions';
 
 /**
  * D-59 fix round (ERROR 2, reviewer 2026-09-28 17:12): the one place every MCP-facing use case
@@ -45,27 +48,39 @@ function sanitizeUseCase(uc: UseCaseDAL.UseCaseRow): PublicUseCaseFields {
   };
 }
 
-export interface ListUseCasesInput {
+export interface ListUseCasesInput extends ListOptions {
   project_key?: string;
 }
 
 export interface ListUseCasesRow {
+  id: string;
   code: string | null;
   name: string;
   type: string | null;
   status: string | null;
+  priority: string | null;
+  created_at: string;
+  updated_at: string;
   requirement_count: number;
+  description?: string | null;
+  narrative?: string | null;
+  documentation_url?: string | null;
 }
 
-export async function listUseCases(input: ListUseCasesInput): Promise<ListUseCasesRow[]> {
+export async function listUseCases(input: ListUseCasesInput) {
+  return readSnapshot(() => {
   const project = resolveProject(input.project_key);
-  return UseCaseDAL.listUseCases(project.id).map((uc) => {
+  const refs = input.include || input.fields?.includes('references') ? referencesFor(project.id, 'use_case') : [];
+  const rows = UseCaseDAL.listUseCases(project.id).map((uc) => {
     const { code, name, type, status } = sanitizeUseCase(uc);
-    return { code, name, type, status, requirement_count: RequirementDAL.listRequirements(project.id, uc.id).length };
+    return { ...sanitizeUseCase(uc), id: uc.id, code, name, type, status, priority: uc.priority, created_at: uc.created_at, updated_at: uc.updated_at, requirement_count: RequirementDAL.listRequirements(project.id, uc.id).length, references: refs.filter(ref => ref.target_id === uc.id) };
+  });
+  const compact = ['id', 'code', 'name', 'type', 'status', 'priority', 'created_at', 'updated_at', 'requirement_count'];
+  return paginate(rows, input, compact, [...compact, 'description', 'narrative', 'documentation_url', 'references'], { project_id: project.id, collection: 'use_cases', default_limit: 100 });
   });
 }
 
-export interface GetUseCaseInput {
+export interface GetUseCaseInput extends ConditionalInput {
   project_key?: string;
   use_case: string;
 }
@@ -79,10 +94,11 @@ export interface GetUseCaseRequirement {
 }
 
 export interface GetUseCaseResult extends PublicUseCaseFields {
+  id: string;
   requirements: GetUseCaseRequirement[];
 }
 
-export async function getUseCase(input: GetUseCaseInput): Promise<GetUseCaseResult> {
+export async function getUseCase(input: GetUseCaseInput) {
   const project = resolveProject(input.project_key);
   const useCase = resolveUseCase(project.id, input.use_case);
   const labelFor = buildTargetLabelResolver(project.id);
@@ -93,7 +109,7 @@ export async function getUseCase(input: GetUseCaseInput): Promise<GetUseCaseResu
     status: r.status,
     note: r.note,
   }));
-  return { ...sanitizeUseCase(useCase), requirements };
+  return conditionalRead(useCase.id, { id: useCase.id, ...sanitizeUseCase(useCase), requirements, references: referencesFor(project.id, 'use_case', useCase.id) }, input);
 }
 
 export interface ListUseCaseTemplatesRow {
@@ -149,6 +165,7 @@ export interface InstantiateUseCaseTemplateInput {
 export async function instantiateUseCaseTemplate(
   input: InstantiateUseCaseTemplateInput
 ): Promise<unknown> {
+  return durableStep('mutation', () => {
   const project = resolveProject(input.project_key);
   const template = resolveTemplateByCode(input.template_code);
 
@@ -163,4 +180,6 @@ export async function instantiateUseCaseTemplate(
   const requirements = RequirementDAL.listRequirements(project.id, useCase.id);
   const unresolved_count = requirements.filter((r) => r.status === 'gap').length;
   return { ...sanitizeUseCase(useCase), unresolved_count };
+
+  });
 }

@@ -11,6 +11,7 @@ import * as OAuth from '../../backend/dal/mcp-oauth.dal';
 import { oauthProvider, CLAUDE_CALLBACK } from '../../backend/services/mcpOAuth.service';
 import { uploadHistoricalSource } from '../../backend/services/historicalValidation.service';
 import { registerTools } from '../registerTools';
+import { getHistoricalFileValidation } from './historicalValidation';
 import { withHttpMcpContext, type HttpMcpContext } from '../httpContext';
 let project: string, event: string, property: string, directory: string;
 beforeEach(() => {
@@ -42,4 +43,20 @@ it('allows pure read preview but refuses read-scope apply; write uses verified O
   expect(applied.actor).toBe('verified@example.com');
   expect(getDb().prepare('SELECT oauth_grant_id FROM historical_validation_reports WHERE report_id=?').get(applied.report_id)).toEqual({ oauth_grant_id: write.grantId });
   expect((await run(read, 'get_historical_validation', { report_id: applied.report_id })).isError).not.toBe(true);
+  const input = { project_key: 'native', report_id: applied.report_id, limit: 1 };
+  const first = await getHistoricalFileValidation(input);
+  if ('unchanged' in first) throw new Error('First read must include a body.');
+  expect(first.total).toBe(first.checks_total);
+  expect(first.next_offset).toBe(1);
+  expect(first.truncated).toBe(true);
+  const same = await run(read, 'get_historical_validation', { report_id: applied.report_id, limit: 1, if_hash: first.hash });
+  expect(JSON.parse(same.content[0].text)).toEqual({ unchanged: true, id: first.id, hash: first.hash, state: null });
+  const next = await getHistoricalFileValidation({ ...input, offset: 1, if_hash: first.hash });
+  expect(next.hash).not.toBe(first.hash);
+  const sourcePath = getDb().prepare('SELECT file_path FROM historical_file_sources WHERE id=?').get(source.id) as { file_path: string };
+  fs.unlinkSync(path.join(directory, sourcePath.file_path));
+  const missing = await getHistoricalFileValidation({ ...input, if_hash: first.hash });
+  expect(missing.hash).not.toBe(first.hash);
+  if ('unchanged' in missing) throw new Error('Changed source availability must include a body.');
+  expect(missing.source_availability[0].available).toBe(false);
 });

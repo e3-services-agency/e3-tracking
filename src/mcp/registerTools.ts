@@ -20,7 +20,7 @@ import { audit as auditMcp } from '../backend/dal/mcp-oauth.dal';
  * `submit_observations_batch`, `finish_qa_run`) only touch QA evidence, which D-44 excludes from the
  * log, so this has no visible effect yet, but every future write tool inherits it for free.
  */
-import { httpMcpContext } from './httpContext';
+import { httpMcpContext, currentHttpRights } from './httpContext';
 import { authorizeHttpTool, TOOL_POLICY } from './toolPolicy';
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -30,7 +30,8 @@ import { runWithActor } from '../backend/context/actor';
 import { listProjects } from './tools/projects';
 import { listEvents, getEventCard, getExpectedPayload } from './tools/events';
 import { listUseCases, getUseCase, listUseCaseTemplates, instantiateUseCaseTemplate } from './tools/useCases';
-import { listFindings } from './tools/findings';
+import { listFindings, summarizeFindings, getFinding } from './tools/findings';
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from './readOptions';
 import { getCoverageGrid } from './tools/coverage';
 import { getTrackingDocument } from './tools/trackingDocument';
 import { submitObservation, submitObservationsBatch, updateObservation, deleteObservation } from './tools/observations';
@@ -40,6 +41,10 @@ import { getHistory } from './tools/history';
 import { WRITE_TOOLS, writeHandler, writeCommonShape, batchApply } from './tools/writeTools';
 import { previewHistoricalFileValidation, applyHistoricalFileValidation, getHistoricalFileValidation } from './tools/historicalValidation';
 import { historicalManifestSchema } from '../backend/services/historicalValidation.service';
+import { getServerInfo } from './serverInfo';
+import { withIdempotency } from './idempotency';
+import { addReference, referenceShape } from './tools/references';
+import { safeErrorMessage } from './publicErrors';
 
 type ToolHandler<I> = (input: I) => Promise<unknown>;
 
@@ -65,9 +70,16 @@ function register<Shape extends ZodRawShape>(
       // context's own default), so a change_log row from an MCP write is always recognisable as one
       // even when the calling agent didn't identify itself.
       const agentName = (args as { agent_name?: unknown }).agent_name;
-      const actor = httpMcpContext()?.owner ?? (typeof agentName === 'string' && agentName.trim() ? agentName.trim() : 'MCP agent');
-      const result = await runWithActor({ actor, source: 'mcp' }, () => handler(httpMcpContext() && typeof args === 'object' && args !== null ? {...args,agent_name:actor} : args));
-      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
+      const actor = currentHttpRights()?.owner ?? 'local MCP user';
+      const agent = typeof agentName === 'string' && agentName.trim() ? agentName.trim() : null;
+      const writing = (TOOL_POLICY[name] ?? []).includes('projects:write');
+      const { actor: _untrustedActor, ...trustedArgs } = args as Record<string, unknown>;
+      const execute = async () => {
+        const value = await runWithActor({ actor, agent, source: 'mcp' }, () => handler(trustedArgs as typeof args));
+        return writing && value && typeof value === 'object' ? { ...value, actor, agent } : value;
+      };
+      const result = writing ? await withIdempotency(name, trustedArgs, execute) : await execute();
+      return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] };
     } catch (err) {
       const code = (err as { code?: string })?.code ?? 'INTERNAL_ERROR';
       let message = err instanceof Error ? err.message : String(err);
@@ -76,33 +88,54 @@ function register<Shape extends ZodRawShape>(
       if (details !== undefined && details !== null && details !== '') {
         message += ` (details: ${typeof details === 'string' ? details : JSON.stringify(details)})`;
       }
-      if (httpMcpContext()) return {isError:true,content:[{type:'text' as const,text:code === 'INTERNAL_ERROR' ? 'INTERNAL_ERROR: Request failed.' : `${code}: Request could not be completed.`}]};
+      if (httpMcpContext()) return {isError:true,content:[{type:'text' as const,text:`${code}: ${safeErrorMessage(code)}`}]};
       if (code === 'INTERNAL_ERROR') log.error(`tool ${name} failed unexpectedly`, err);
       return { isError: true, content: [{ type: 'text' as const, text: `${code}: ${message}` }] };
     }
   };
-  const registered = server.registerTool(name, { description, inputSchema }, callback as Parameters<McpServer['registerTool']>[2]);
+  const metadata = { agent_name: z.string().trim().min(1).max(100).optional(), actor: z.unknown().optional(), idempotency_key: z.string().min(1).max(200).optional() };
+  const writing = (TOOL_POLICY[name] ?? []).includes('projects:write');
+  const schema = writing ? inputSchema instanceof z.ZodObject ? inputSchema.extend(metadata) : { ...inputSchema, ...metadata } : inputSchema;
+  const registered = server.registerTool(name, { description, inputSchema: schema }, callback as Parameters<McpServer['registerTool']>[2]);
   // A remote grant only sees the tools its scopes allow (tools/list); calls are still preauthorized.
   const http = httpMcpContext();
   if (http && !(TOOL_POLICY[name] ?? []).every((s) => http.scopes.includes(s))) registered?.disable?.();
 }
 
 const projectKeyShape = { project_key: z.string().optional() };
+const conditionalShape = { if_hash: z.string().regex(/^[a-f0-9]{64}$/).optional().describe('Hash from the same object/page; a match returns unchanged, id and hash only.') };
+const listShape = {
+  limit: z.number().int().min(1).max(MAX_PAGE_SIZE).optional().describe(`Page size; default ${DEFAULT_PAGE_SIZE}.`),
+  offset: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
+  fields: z.array(z.string()).optional().describe('Exact public field selection; overrides include. Unknown fields are errors.'),
+  include: z.enum(['detail', 'body']).optional().describe('Include full public fields. Lists still return a page envelope.'),
+};
+const inventoryListShape = { ...listShape, limit: listShape.limit.describe('Page size; default 100, maximum 1000.') };
+const findingsFilterShape = {
+  ...projectKeyShape,
+  event: z.string().optional(), property: z.string().optional().describe('Property name or ID; use ID for ambiguous names.'),
+  severity: z.string().optional(), priority: z.string().optional().describe('Comma-separated priorities, e.g. P1,P2.'),
+  comparison: z.string().optional(), kind: z.string().optional(), status: z.string().optional().describe('Default open; all includes resolved findings.'), qa_run_id: z.string().optional(),
+  first_seen_from: z.string().optional(), first_seen_to: z.string().optional(),
+  last_seen_from: z.string().optional(), last_seen_to: z.string().optional(),
+};
 
 export function registerTools(server: McpServer): void {
+  register(server, 'get_server_info', 'Read current server/contract version, registered and visible tool counts, granted projects/scopes, paging limits and expiry timestamps. Every authenticated grant; no secrets.', {}, getServerInfo);
+  register(server, 'add_reference', 'Attach a scoped pinned Cortex pointer to a finding/use case. Dry run by default; deduplicated, unverified pointers only. Never changes status, priority, certification or external authority.', { ...projectKeyShape, ...referenceShape }, addReference);
   register(server, 'list_projects', 'Projects grouped by client.', {}, listProjects);
   register(server, 'preview_historical_validation', 'Read-only preview of staged historical CSV sources against a frozen native definition/rule revision. Takes opaque project-scoped source IDs, never raw CSV or fetched URLs. Returns exact confirmation hash and limitations; creates no observations.',
     { ...projectKeyShape, manifest: historicalManifestSchema }, previewHistoricalFileValidation);
   register(server, 'apply_historical_validation', 'After reviewing the exact preview, persist one immutable numbered historical-file report. Requires confirmed=true and payload_hash. No runtime observations, findings, certification or approvals are changed; exact replay is idempotent.',
     { ...projectKeyShape, manifest: historicalManifestSchema, payload_hash: z.string().regex(/^[a-f0-9]{64}$/), confirmed: z.boolean() }, applyHistoricalFileValidation);
   register(server, 'get_historical_validation', 'Read an immutable historical-file report with bounded privacy-safe record/column diagnostics and current source-byte availability; limit at most100. This is separate from observed-event QA.',
-    { ...projectKeyShape, report_id: z.string().uuid(), offset: z.number().int().nonnegative().optional(), limit: z.number().int().min(1).max(100).optional() }, getHistoricalFileValidation);
+    { ...projectKeyShape, ...conditionalShape, report_id: z.string().uuid(), offset: z.number().int().nonnegative().optional(), limit: z.number().int().min(1).max(100).optional() }, getHistoricalFileValidation);
 
   register(
     server,
     'list_events',
-    'Events of a project (default: custom class only), with certification, variants, discriminators, contexts and required properties.',
-    { ...projectKeyShape, class: z.string().optional(), status: z.string().optional() },
+    'Compact event pages (default: custom class, 100 rows). Returns items,total,returned,next_offset,truncated,result_marker; include=detail adds certification, variants and property lists.',
+    { ...projectKeyShape, ...inventoryListShape, class: z.string().optional(), status: z.string().optional() },
     listEvents
   );
 
@@ -110,7 +143,7 @@ export function registerTools(server: McpServer): void {
     server,
     'get_event_card',
     'The full EventCard for one event (name or id): definition, variants, rules, coverage, findings, codegen.',
-    { ...projectKeyShape, event: z.string() },
+    { ...projectKeyShape, ...conditionalShape, event: z.string() },
     getEventCard
   );
 
@@ -122,32 +155,25 @@ export function registerTools(server: McpServer): void {
     getExpectedPayload
   );
 
-  register(server, 'list_use_cases', 'Use cases of a project with their requirement count.', projectKeyShape, listUseCases);
+  register(server, 'list_use_cases', 'Compact use-case pages (100 rows by default), with IDs and requirement counts. Returns items,total,returned,next_offset,truncated,result_marker; include=detail adds public narrative and description.', { ...projectKeyShape, ...inventoryListShape }, listUseCases);
 
   register(
     server,
     'get_use_case',
     'One use case (code or id) with its requirements resolved to names/levels and its narrative.',
-    { ...projectKeyShape, use_case: z.string() },
+    { ...projectKeyShape, ...conditionalShape, use_case: z.string() },
     getUseCase
   );
 
   register(
     server,
     'list_findings',
-    'Open findings (or another status), highest priority first (P1-P4 with reasons; transactional backend events first), optionally filtered by event, severity, priority, comparison, kind, or QA run.',
-    {
-      ...projectKeyShape,
-      event: z.string().optional(),
-      severity: z.string().optional(),
-      priority: z.string().optional().describe('Comma-separated priorities to keep, e.g. "P1,P2".'),
-      comparison: z.string().optional(),
-      kind: z.string().optional(),
-      status: z.string().optional(),
-      qa_run_id: z.string().optional(),
-    },
+    'Compact finding pages, highest priority first (default open, 10 rows). Returns items,total,next_offset,truncated. IDs, sequences, fingerprints and dates preserved; include=detail or fields adds evidence/messages/reasons. Use summarize_findings for counts.',
+    { ...findingsFilterShape, ...listShape },
     listFindings
   );
+  register(server, 'summarize_findings', 'Counts by status, priority, severity, comparison, kind and event ID, newest first_seen_at/last_seen_at and total. Same filters/default open as list_findings; no evidence bodies.', findingsFilterShape, summarizeFindings);
+  register(server, 'get_finding', 'Full public finding by ID with derived priority and hash. if_hash returns unchanged,id,hash on a match.', { ...projectKeyShape, ...conditionalShape, finding_id: z.string() }, getFinding);
 
   register(
     server,
@@ -277,8 +303,8 @@ export function registerTools(server: McpServer): void {
   register(
     server,
     'get_history',
-    'Change history for one entity (event, property, use case, etc.): who changed what and when, newest first.',
-    { ...projectKeyShape, entity_type: z.string(), entity_id: z.string(), limit: z.number().optional() },
+    'Compact change-history pages for one entity, newest first (10 rows by default). Returns items,total,next_offset,truncated; include=detail or fields=[diff_json,...] adds full diffs.',
+    { ...projectKeyShape, ...listShape, entity_type: z.string(), entity_id: z.string() },
     getHistory
   );
 
@@ -305,4 +331,11 @@ export function registerTools(server: McpServer): void {
     }).strict() as unknown as ZodRawShape,
     batchApply as ToolHandler<never>
   );
+}
+
+/** The registration path is the inventory; callers/tests/docs never maintain a second count. */
+export function getToolInventory() {
+  const inventory: { name: string; scopes: readonly string[] }[] = [];
+  registerTools({ registerTool(name: string) { inventory.push({ name, scopes: TOOL_POLICY[name] ?? [] }); return { disable() {} }; } } as unknown as McpServer);
+  return inventory;
 }

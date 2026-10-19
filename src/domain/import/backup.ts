@@ -67,6 +67,7 @@ export const PROJECT_SCOPED_TABLES = [
   'use_case_asset_links',
   'historical_file_sources',
   'historical_validation_reports',
+  'external_references',
 ] as const;
 
 export type ProjectScopedTable = (typeof PROJECT_SCOPED_TABLES)[number];

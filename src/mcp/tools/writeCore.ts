@@ -24,12 +24,15 @@ export const writeCommonShape = {
   project_key: z.string().optional(),
   agent_name: z.string().optional(),
   dry_run: z.boolean().optional(),
+  idempotency_key: z.string().min(1).max(200).optional(),
+  actor: z.unknown().optional(),
 };
 
 export interface WriteCommonInput {
   project_key?: string;
   agent_name?: string;
   dry_run?: boolean;
+  idempotency_key?: string;
 }
 
 export type WriteAction = 'create' | 'update' | 'unchanged' | 'delete';

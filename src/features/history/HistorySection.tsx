@@ -28,6 +28,7 @@ export interface HistoryRow {
   parent_entity_id: string | null;
   action: string;
   actor: string;
+  agent?: string | null;
   source: string;
   batch_id: string | null;
   changed_at: string;
@@ -89,7 +90,7 @@ function HistoryTable({ rows, wrap }: { rows: HistoryRow[]; wrap: boolean }) {
                 {i === 0 && (
                   <>
                     <td className={`py-1 pr-3 text-gray-500 ${cell}`} rowSpan={diffs.length}>{new Date(row.changed_at).toLocaleString()}</td>
-                    <td className={`py-1 pr-3 text-gray-700 ${cell}`} rowSpan={diffs.length}>{row.actor}</td>
+                    <td className={`py-1 pr-3 text-gray-700 ${cell}`} rowSpan={diffs.length}>{row.agent ? `${row.agent} on behalf of ${row.actor}` : row.actor}</td>
                     <td className={`py-1 pr-3 text-gray-500 ${cell}`} rowSpan={diffs.length}>{row.source}</td>
                     <td className={`py-1 pr-3 text-gray-700 ${cell}`} rowSpan={diffs.length}>{row.action}</td>
                     <td className={`py-1 pr-3 text-gray-700 ${cell}`} rowSpan={diffs.length}>{row.entity_label ?? row.entity_type}</td>

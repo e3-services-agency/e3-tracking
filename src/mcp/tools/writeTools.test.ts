@@ -61,7 +61,7 @@ describe('events', () => {
     expect(EventDAL.listEvents(projectId).map((e) => e.name)).toContain('page_view');
     expect(r.data.change_log_id).toBeTruthy();
     const row = ChangeLogDAL.getChangeOrThrow(projectId, r.data.change_log_id);
-    expect(row.actor).toBe('agent-x');
+    expect(row.actor).toBe('local MCP user'); expect(row.agent).toBe('agent-x');
     expect(row.source).toBe('mcp');
     expect(row.action).toBe('create');
   });
@@ -122,7 +122,7 @@ describe('properties and links', () => {
     const fields = upd.data.differences.map((d: any) => d.field);
     expect(fields).toContain('kind');
     const log = ChangeLogDAL.getChangeOrThrow(projectId, upd.data.change_log_id);
-    expect(log.actor).toBe('bot');
+    expect(log.actor).toBe('local MCP user'); expect(log.agent).toBe('bot');
   });
 
   it('link_event_property creates a named definition, updates an existing link, and unlink deletes', async () => {
@@ -197,7 +197,7 @@ describe('identity rules and catalog fields', () => {
     expect(countRows('catalog_fields')).toBe(0);
     const applied = await callTool('create_catalog_field', { project_key: key, catalog: 'products', name: 'sku', data_type: 'string', lookup_key: true, dry_run: false, agent_name: 'bot' });
     expect(countRows('catalog_fields')).toBe(1);
-    expect(ChangeLogDAL.getChangeOrThrow(projectId, applied.data.change_log_id).actor).toBe('bot');
+    expect(ChangeLogDAL.getChangeOrThrow(projectId, applied.data.change_log_id).agent).toBe('bot');
     const nope = await callTool('create_catalog_field', { project_key: key, catalog: 'ghost', name: 'x' });
     expect(nope.text).toMatch(/^CATALOG_NOT_FOUND/);
   });
@@ -227,7 +227,7 @@ describe('batch_apply', () => {
     const rows = ChangeLogDAL.listChanges(projectId, { batch_id: r.data.batch_id });
     expect(rows.length).toBeGreaterThanOrEqual(3);
     expect(new Set(rows.map((x) => x.batch_id))).toEqual(new Set([r.data.batch_id]));
-    expect(new Set(rows.map((x) => x.actor))).toEqual(new Set(['sheet-bot']));
+    expect(new Set(rows.map((x) => x.actor))).toEqual(new Set(['local MCP user']));
     expect(countRows('event_properties')).toBe(1);
   });
 

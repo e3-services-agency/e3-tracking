@@ -1,3 +1,4 @@
+import { getToolInventory } from '../mcp/registerTools';
 /** Operator smoke transport: exported Bash wrapper, real stdio and bounded failures, no cloud. */
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -16,6 +17,7 @@ const config = path.join(fixture, 'config.env');
 const server = path.join(fixture, 'fake-sdk.cjs');
 writeFileSync(path.join(fixture, 'lib.sh'), readFileSync(path.join(sourceDir, 'lib.sh'), 'utf8').replace(/\r\n/g, '\n'));
 writeFileSync(config, readFileSync(path.join(sourceDir, 'config.env.example'), 'utf8').replace(/\r\n/g, '\n'));
+writeFileSync(path.join(fixture, 'mcp-inventory.json'), JSON.stringify(getToolInventory()));
 writeFileSync(server, `
 const readline = require('node:readline');
 const mode = process.env.E3_TEST_MODE;
@@ -47,7 +49,7 @@ lines.on('line', line => {
     if (!initialized || !notified) process.exit(31);
     listed = true;
     reply({jsonrpc:'2.0',id:mode === 'wrong-id' ? 9 : 2,
-      result:{tools:Array.from({length:mode === 'wrong-count' ? 31 : 32},(_,i)=>({name:'tool'+i}))}});
+      result:{tools:${JSON.stringify(getToolInventory())}.slice(0, mode === 'wrong-count' ? -1 : undefined)}});
   }
 });
 lines.on('close', () => {
@@ -82,12 +84,12 @@ describe.skipIf(!hasBash)('07 MCP response-driven smoke', () => {
   it('uses an exported SDK wrapper and waits for initialize before tools/list', async () => {
     const result = await run();
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain('OK: tools/list returned 32 tools');
+    expect(result.stdout).toContain(`OK: tools/list returned ${getToolInventory().length} tools`);
   });
   it('keeps stdin open through startup beyond the former 20-second lifetime', async () => {
     const result = await run('normal', 21000);
     expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain('OK: tools/list returned 32 tools');
+    expect(result.stdout).toContain(`OK: tools/list returned ${getToolInventory().length} tools`);
   }, 35000);
   it('retains the actual transport exit and actionable stderr', async () => {
     const result = await run('transport-error');
@@ -100,7 +102,7 @@ describe.skipIf(!hasBash)('07 MCP response-driven smoke', () => {
     ['null-response', 'non-object JSON-RPC stdout'],
     ['array-response', 'non-object JSON-RPC stdout'],
     ['wrong-id', 'unexpected response ID'],
-    ['wrong-count', '31 tools (expected 32)'],
+    ['wrong-count', `${getToolInventory().length - 1} tools (expected ${getToolInventory().length})`],
     ['rpc-error', 'initialize returned an error response'],
   ])('rejects %s without claiming success', async (mode, reason) => {
     const result = await run(mode);

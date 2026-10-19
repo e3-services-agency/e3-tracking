@@ -15,6 +15,8 @@ export interface ListDerivation {
   id_field: string;
   form: DerivationForm;
   quantity_field?: string;
+  /** Explicit allowlist for rich item objects. Values are copied without coercion. */
+  fields?: string[];
 }
 
 export interface SumDerivation {
@@ -64,6 +66,9 @@ export function validateDerivation(value: unknown): string | null {
   if (!(DERIVATION_FORMS as readonly unknown[]).includes(d.form)) {
     return `derivation_json.form must be one of: ${DERIVATION_FORMS.join(', ')}.`;
   }
+  if (d.form === 'object_fields') {
+    if (!Array.isArray(d.fields) || d.fields.length < 1 || d.fields.length > 100 || d.fields.some(f => typeof f !== 'string' || !FIELD_NAME.test(f) || ['__proto__', 'constructor', 'prototype'].includes(f)) || new Set(d.fields).size !== d.fields.length || !d.fields.includes(d.id_field)) return 'object_fields requires 1-100 distinct safe item fields, including id_field.';
+  } else if (d.fields !== undefined) return 'fields are only supported by object_fields derivations.';
   if (d.quantity_field !== undefined && (typeof d.quantity_field !== 'string' || !FIELD_NAME.test(d.quantity_field))) {
     return 'derivation_json.quantity_field must be an item field name.';
   }
@@ -80,18 +85,20 @@ export function parseDerivation(value: unknown): PropertyDerivation | null {
 export function describeDerivation(d: PropertyDerivation | null | undefined): string | null {
   if (!d) return null;
   if (isSumDerivation(d)) return `sum of ${d.sum} over items`;
+  if (d.form === 'object_fields') return `{${d.fields!.join(', ')}} of each item`;
   const q = d.quantity_field || 'quantity';
   return d.form === 'ids' ? `${d.id_field} of each item` : `{${d.id_field}, ${q}} of each item`;
 }
 
 /** A derivation rule with the property name it fills; the shape `brPayload` consumes. */
 export type NamedDerivation = { name: string } & (
-  | { form: DerivationForm; id_field: string; quantity_field?: string }
+  | { form: DerivationForm; id_field: string; quantity_field?: string; fields?: string[] }
   | { sum: string }
 );
 
 export function toNamedDerivation(name: string, d: PropertyDerivation): NamedDerivation {
   if (isSumDerivation(d)) return { name, sum: d.sum };
+  if (d.form === 'object_fields') return {name,form:d.form,id_field:d.id_field,fields:[...d.fields!]};
   return d.quantity_field
     ? { name, form: d.form, id_field: d.id_field, quantity_field: d.quantity_field }
     : { name, form: d.form, id_field: d.id_field };

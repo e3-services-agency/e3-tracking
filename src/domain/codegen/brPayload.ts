@@ -7,7 +7,7 @@
  */
 import type { NamedDerivation } from './derivation';
 
-export const BR_PAYLOAD_VERSION = '1';
+export const BR_PAYLOAD_VERSION = '2';
 
 export interface BloomreachDataLayer {
   event?: string;
@@ -45,6 +45,8 @@ export function computeBrPayload(br: BloomreachDataLayer | null | undefined, rul
       out[r.name] = sumOver(items, r.sum);
     } else if (r.form === 'ids') {
       out[r.name] = items.map((i) => i[r.id_field]).filter(defined);
+    } else if (r.form === 'object_fields') {
+      out[r.name] = items.filter(i => defined(i[r.id_field])).map(i => Object.fromEntries((r.fields || []).filter(f => !['__proto__','constructor','prototype'].includes(f) && Object.prototype.hasOwnProperty.call(i,f) && i[f] !== undefined).map(f => [f,i[f]])));
     } else {
       const q = r.quantity_field || 'quantity';
       out[r.name] = items
@@ -78,6 +80,12 @@ export const BR_PAYLOAD_SOURCE = `function brPayload(br, rules) {
       out[r.name] = Math.round(total * 1e6) / 1e6;
     } else if (r.form === 'ids') {
       out[r.name] = items.map(function (i) { return i[r.id_field]; }).filter(defined);
+    } else if (r.form === 'object_fields') {
+      out[r.name] = items.filter(function (i) { return defined(i[r.id_field]); }).map(function (i) {
+        var o = {};
+        (r.fields || []).forEach(function (f) { if (f !== '__proto__' && f !== 'constructor' && f !== 'prototype' && Object.prototype.hasOwnProperty.call(i,f) && i[f] !== undefined) o[f] = i[f]; });
+        return o;
+      });
     } else {
       var q = r.quantity_field || 'quantity';
       out[r.name] = items.filter(function (i) { return defined(i[r.id_field]); }).map(function (i) {

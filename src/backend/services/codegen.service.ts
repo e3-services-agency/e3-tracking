@@ -7,6 +7,7 @@
  * Always-sent properties are included; sometimes-sent properties get a "// Optional:" comment above the line.
  * Output event names may differ per method via `codegen_event_name_overrides` (canonical `events.name` unchanged).
  */
+import type { ItemSchemaField } from '../../domain/rules/types';
 import { exampleValuesFor } from '../../domain/examples';
 import type {
   CodegenEventNameOverrides,
@@ -50,6 +51,7 @@ export interface AttachedPropertyForCodegen {
   property_data_formats?: string[] | null;
   property_example_values_json?: PropertyExampleValue[] | null;
   property_value_schema_json?: PropertyValueSchema | null;
+  property_item_schema_json?: ItemSchemaField[] | null;
   property_object_child_property_refs_json?: Record<string, string> | null;
   object_child_snapshots_by_field?: Record<string, ObjectChildFieldSnapshot> | null;
   /** D-63 (T-4-17): property kind, derivation rule and link role; default `event` / none / `normal`. */
@@ -211,6 +213,9 @@ export function jsonSampleValueForProperty(p: AttachedPropertyForCodegen): unkno
   }
 
   if (dt === 'array') {
+    if (p.derivation && 'form' in p.derivation && p.derivation.form === 'object_fields' && p.property_item_schema_json?.length) {
+      return [Object.fromEntries(p.property_item_schema_json.filter(f=>p.derivation && 'fields' in p.derivation && p.derivation.fields?.includes(f.field)).map(f=>[f.field,jsonSampleValueForProperty({property_name:f.field,required:f.required??false,property_data_type:f.data_type,property_data_formats:f.data_formats})]))];
+    }
     // Array examples are derived from linked canonical element property identity.
     // The array builder persists object_child_property_refs_json = { "$items": "<id>" } and
     // event hydration resolves that into object_child_snapshots_by_field["$items"].
@@ -368,6 +373,7 @@ export function toAttachedPropertyForCodegen(
       if (derived.length > 0) return derived as PropertyExampleValue[];
       return firstAllowed ? [{ value: firstAllowed.value as string }] : null;
     })(),
+    property_item_schema_json: (link.property.item_schema_json as ItemSchemaField[] | null) ?? null,
     property_value_schema_json:
       (link.property.value_schema_json as AttachedPropertyForCodegen['property_value_schema_json']) ?? null,
   };
@@ -629,6 +635,7 @@ export function toCodegenProperty(p: AttachedPropertyForCodegen): CodegenPropert
     required: p.required,
     role: p.role,
     sample: jsonSampleValueForProperty(p),
+    ...(p.derivation && 'form' in p.derivation && p.derivation.form === 'object_fields' ? {field_samples:Object.fromEntries((p.property_item_schema_json || []).map(f=>[f.field,jsonSampleValueForProperty({property_name:f.field,required:f.required??false,property_data_type:f.data_type,property_data_formats:f.data_formats})]))} : {}),
   };
 }
 

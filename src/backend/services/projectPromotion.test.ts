@@ -82,7 +82,7 @@ it('detects edited documentation after promotion, while new revisions use hosted
     const d = listDecisions(destination)[0];
     expect(() => actOnDecision(destination, d.id, d.content_hash, 'request_execution_plan', 'Reviewer', 'Plan', true)).toThrow('changed');
     expect(() => apply()).toThrow('differs');
-    const { project_id: _, revision: __, baselines: ___, ...seed } = d.payload;
+    const { project_id: _, revision: __, baselines: ___,payload_version:_v,dependency_snapshot:_d, ...seed } = d.payload;
     const fresh = { ...seed, key: 'HOSTED-NEW', patches: seed.patches.map(p => ({ ...p, add_requirements: [] })) };
     const added = importDecision(destination, fresh, previewDecision(destination, fresh).content_hash);
     expect(added.payload.project_id).toBe(destination); expect(added.stale).toBe(false);

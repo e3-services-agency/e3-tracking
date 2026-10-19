@@ -68,7 +68,7 @@ export const DEFAULT_PROPERTY_KIND: PropertyKind = 'event';
 
 // derivation_json.form for a list derivation: ids = array of ids, id_quantity = array of
 // {<id_field>, quantity} objects.
-export const DERIVATION_FORMS = ['ids', 'id_quantity'] as const;
+export const DERIVATION_FORMS = ['ids', 'id_quantity', 'object_fields'] as const;
 export type DerivationForm = (typeof DERIVATION_FORMS)[number];
 
 // ----- EventProperty role (D-03, D-16) -----

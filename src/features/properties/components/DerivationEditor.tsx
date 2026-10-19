@@ -16,6 +16,7 @@ export interface DerivationDraft {
   idField: string;
   form: string;
   quantityField: string;
+  fields?: string;
   sum: string;
 }
 
@@ -31,7 +32,7 @@ export function draftFromDerivation(value: unknown): DerivationDraft {
   const d = parseDerivation(value);
   if (!d) return EMPTY_DERIVATION_DRAFT;
   if (isSumDerivation(d)) return { ...EMPTY_DERIVATION_DRAFT, mode: 'sum', sum: d.sum };
-  return { ...EMPTY_DERIVATION_DRAFT, mode: 'list', idField: d.id_field, form: d.form, quantityField: d.quantity_field ?? 'quantity' };
+  return { ...EMPTY_DERIVATION_DRAFT, mode: 'list', idField: d.id_field, form: d.form, quantityField: d.quantity_field ?? 'quantity', fields:d.fields?.join(', ')??'' };
 }
 
 /** The `derivation_json` to save for `kind` (`null` unless it is a state list). */
@@ -41,7 +42,8 @@ export function derivationFromDraft(kind: string, draft: DerivationDraft): Prope
   return {
     source: 'items',
     id_field: draft.idField.trim(),
-    form: draft.form as 'ids' | 'id_quantity',
+    form: draft.form as 'ids' | 'id_quantity' | 'object_fields',
+    ...(draft.form === 'object_fields' ? {fields:(draft.fields??'').split(',').map(f=>f.trim()).filter(Boolean)} : {}),
     ...(draft.form === 'id_quantity' && draft.quantityField.trim() ? { quantity_field: draft.quantityField.trim() } : {}),
   };
 }
@@ -90,6 +92,7 @@ export function DerivationEditor({
                   {DERIVATION_FORMS.map((f) => <option key={f} value={f}>{f}</option>)}
                 </select>
               </div>
+              {draft.form === 'object_fields' && <div className="space-y-2"><FieldLabel className="text-sm font-medium text-gray-700" hint="Explicit item fields">Item fields to copy</FieldLabel><Input aria-label="Item fields to copy" value={draft.fields??''} onChange={e=>patch({fields:e.target.value})} placeholder="product_id, sku, quantity, price"/><p className="text-xs text-gray-500">Comma-separated field names, including the ID. Only these fields are copied, without changing their values or types.</p></div>}
               {draft.form === 'id_quantity' && (
                 <div className="space-y-2">
                   <FieldLabel className="text-sm font-medium text-gray-700" hintScope="Properties">Quantity field</FieldLabel>

@@ -48,8 +48,8 @@ it('defaults to current executable proposals with truthful queue counts, stale/d
   const old=named('old',{key:'same',state:'superseded'}),newer=named('latest',{key:'same',revision:2});
   state.handler=()=>list([old,newer,named('stale',{stale:true}),named('deferred',{state:'deferred'}),doc('choice'),doc('done',{state:'documented'}),named('restored',{restored:true})]);
   await mount();expect(articles()).toHaveLength(3);expect(container.textContent).toContain('E3 changes (3)');expect(container.textContent).toContain('Business choices (1)');expect(container.textContent).toContain('Completed / closed (2)');
-  expect(container.textContent).toContain('1 ready to approve · 1 need updated evidence or data · 1 awaiting input');expect(articles().every(a=>!a.querySelector('details')!.open)).toBe(true);
-  await click('Business choices (1)');expect(articles()).toHaveLength(1);expect(container.textContent).toContain('Proposal choice');expect(container.textContent).toContain('no automatic status, variant or required-field changes');
+  expect(container.textContent).toContain('1 ready to approve · 1 need review of relevant changes · 1 awaiting input');expect(articles().every(a=>!a.querySelector('details')!.open)).toBe(true);
+  await click('Business choices (1)');expect(articles()).toHaveLength(1);expect(container.textContent).toContain('Proposal choice');expect(container.textContent).toContain('Approval does not implement property types');
   await click('Completed / closed (2)');expect(articles()).toHaveLength(2);expect(articles().every(a=>!a.querySelector('details')!.open)).toBe(true);
   await click('All revisions (7)');expect(articles()).toHaveLength(7);
 });
@@ -132,4 +132,91 @@ it('links a successful application to its saved receipt after it leaves the acti
  expect(articles()).toHaveLength(0);const link=container.querySelector<HTMLAnchorElement>('a[href="#decision-record-native"]')!;expect(link.textContent).toBe('View saved result and decision record');
  await act(async()=>{window.location.hash=link.hash;window.dispatchEvent(new Event('hashchange'));});
  expect(articles()).toHaveLength(1);expect(articles()[0].querySelector('details')!.open).toBe(true);expect(container.querySelector('[aria-label="Execution receipt"]')).not.toBe(null);
+});
+
+function reconciled(c:DecisionCard,status:NonNullable<DecisionCard['reconciliation']>['status'],extra:Partial<NonNullable<DecisionCard['reconciliation']>>={}) {
+  c.reconciliation={status,can_approve:status==='ready'||status==='partially_satisfied',can_reconcile:status==='legacy_review'||status==='conflict',remaining_operations:1,satisfied_operations:0,conflicts:[],summary:`Reconciliation: ${status}`,...extra};return c;
+}
+it('moves already satisfied proposals out of pending without inventing approval and retains mixed remaining work',async()=>{
+ const satisfied=reconciled(named('satisfied'),'satisfied',{remaining_operations:0,satisfied_operations:2});
+ const partial=reconciled(named('partial'),'partially_satisfied',{remaining_operations:1,satisfied_operations:1});
+ state.handler=()=>list([satisfied,partial]);await mount();expect(articles()).toHaveLength(1);expect(articles()[0].id).toBe('decision-record-partial');
+ expect(button('E3 changes (1)')).toBeDefined();await click('Completed / closed (1)');expect(container.textContent).toContain('Already satisfied');await open();
+ expect(container.textContent).toContain('Satisfaction records current configuration, not human approval');expect(container.querySelector('article input[type=checkbox]')).toBe(null);expect(container.querySelector('[aria-label="Execution receipt"]')).toBe(null);
+});
+it('shows exact relevant conflicts with a remedy and keeps approval blocked',async()=>{
+ const c=reconciled(named('conflict'),'conflict',{conflicts:[{path:'use_case.status',label:'Cart recovery lifecycle',before:'proposed',current:'in_progress',intended:'approved',resolution:'Review whether to replace the current lifecycle.'}]});
+ state.handler=()=>list([c]);await mount();await open();const table=container.querySelector('table')!;
+ for(const value of ['Cart recovery lifecycle','proposed','in_progress','approved','Review whether to replace'])expect(table.textContent).toContain(value);
+ await confirm();expect(button('Approve and apply').disabled).toBe(true);expect(button('Review updated proposal').disabled).toBe(false);
+});
+it('does not block a ready reconciled proposal because an unrelated legacy whole-record hash changed',async()=>{
+ const c=reconciled(named('ready',{stale:true}),'ready');state.handler=()=>list([c]);await mount();await open();await confirm();expect(button('Approve and apply').disabled).toBe(false);
+});
+it('explains unavailable legacy baselines without claiming exact historical values',async()=>{
+ const c=reconciled(doc('legacy',{stale:true}),'legacy_review');state.handler=()=>list([c]);await mount();await click('Business choices (1)');await open();
+ expect(container.textContent).toContain('exact earlier field values are unavailable');expect(container.querySelector('[aria-label="Documentation approval scope"]')!.textContent).toContain('recording these notes alone does not deliver that benefit');
+ await confirm();expect(button('Approve documentation').disabled).toBe(true);
+});
+it('previews current data and saves a fresh unapproved revision without sending approval authority',async()=>{
+ const c=reconciled(named('legacy'),'legacy_review'),fresh=reconciled(named('fresh',{key:'legacy',revision:2}),'ready');const writes:{url:string;body:Record<string,unknown>}[]=[];let saved=false;
+ state.handler=(url,init)=>{
+  if(init?.method==='POST'){const body=JSON.parse(init.body as string);writes.push({url,body});if(url.endsWith('/reconcile/preview'))return json({content_hash:'preview-token',payload:fresh.payload,reconciliation:fresh.reconciliation});saved=true;return json(fresh);}
+  return list(saved?[{...c,state:'superseded'},fresh]:[c]);
+ };
+ await mount();await open();await click('Review updated proposal');expect(container.querySelector('[aria-label="Updated proposal preview"]')!.textContent).toContain('Saving applies no configuration changes and records no approval');
+ expect(writes).toHaveLength(1);await click('Save unapproved revision');expect(writes).toHaveLength(2);expect(writes[1].url).toContain('/legacy/reconcile/apply');expect(writes[1].body).toEqual({content_hash:'hash',preview_hash:'preview-token',note:''});
+ expect(writes.every(w=>!('human_confirmed' in w.body)&&!('action' in w.body))).toBe(true);expect(container.textContent).toContain('Decision legacy saved');expect(articles()[0].id).toBe('decision-record-fresh');
+});
+it('refreshes derived reconciliation when returning to the inbox without issuing mutations',async()=>{
+ let reads=0;state.handler=(_url,init)=>{expect(init?.method).toBeUndefined();reads++;return list([reconciled(named('native'),reads===1?'ready':'satisfied')]);};
+ await mount();expect(articles()).toHaveLength(1);await act(async()=>window.dispatchEvent(new Event('focus')));expect(articles()).toHaveLength(0);expect(button('Completed / closed (1)')).toBeDefined();
+});
+
+it('does not unlock an unknown action outcome when a pre-action focus read resolves late',async()=>{
+ let resolveRead!:(value:Response)=>void,reads=0,posts=0;
+ state.handler=(_url,init)=>{if(init?.method==='POST'){posts++;return Promise.reject(Error('Lost write response'));}reads++;return reads===2?new Promise(resolve=>{resolveRead=resolve;}):list([named('native')]);};
+ await mount();await open();await confirm();
+ await act(async()=>{window.dispatchEvent(new Event('focus'));button('Approve and apply').click();});
+ expect(posts).toBe(1);expect(container.textContent).toContain('outcome is unknown');
+ await act(async()=>resolveRead(await list([named('native')])));
+ expect(container.textContent).toContain('outcome is unknown');expect(button('Approve and apply').disabled).toBe(true);expect(button('Retry loading').disabled).toBe(false);
+ await click('Retry loading');expect(button('Approve and apply').disabled).toBe(false);
+});
+
+function schemaCard() {
+ const c=reconciled(named('schema'),'ready');c.payload.payload_version=2;c.payload.dependency_snapshot={notes:{},requirements:{},native:{}};
+ c.native_targets=[{id:'list',name:'product_list',scope:'global_property',affected_events:[{id:'cart',name:'cart_update'},{id:'purchase',name:'purchase'}]}];
+ c.payload.native_changes=[{op:'property_schema',property_id:'list',from:{data_type:'string',item_schema_json:null,derivation_json:null},to:{data_type:'array',item_schema_json:[{field:'product_id',data_type:'string',required:true}],derivation_json:{source:'items',id_field:'product_id',form:'object_fields',fields:['product_id']}}}];return c;
+}
+it('shows shared schema before/after, generation inputs, affected events and object receipts',()=>{
+ const c=schemaCard(),dom=render(c),changes=dom.querySelector('[aria-label="Native E3 changes"]')!;
+ for(const value of ['Update shared property','product_list','cart_update, purchase','Before','After approval','product_id','string','array','Payload derivation','object_fields'])expect(changes.textContent).toContain(value);
+ expect(dom.body.textContent).toContain('1 shared property schema updates');
+ c.state='documented';c.history=[{id:'receipt',action:'approve_and_apply',actor:'Reviewer',created_at:'now',detail:{native_results:[{op:'property_schema',action:'updated',entity_id:'list',entity_name:'product_list',before:c.payload.native_changes![0].op==='property_schema'?c.payload.native_changes![0].from:null,after:c.payload.native_changes![0].op==='property_schema'?c.payload.native_changes![0].to:null}]}}];
+ expect(render(c).querySelector('[aria-label="Execution receipt"]')!.textContent).toContain('product_id');expect(render(c).body.textContent).not.toContain('[object Object]');
+});
+it('edits schema JSON as typed values, blocks malformed JSON and strips immutable payload metadata from amendments',async()=>{
+ const c=schemaCard();let amendment:Record<string,unknown>|undefined;state.handler=(_url,init)=>{if(init?.method==='POST'){amendment=JSON.parse(init.body as string).amendment;return json(c);}return list([c]);};
+ await mount();await open();await click('Amend');await confirm();
+ const note=container.querySelector<HTMLInputElement>('article input[placeholder="Required for amend, defer or reject"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(note,'Review the schema explicitly');note.dispatchEvent(new Event('input',{bubbles:true}));});
+ const textarea=container.querySelector<HTMLTextAreaElement>('[aria-label="to item_schema_json for change 1"]')!;
+ const edit=async(value:string)=>{await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(textarea,value);textarea.dispatchEvent(new Event('input',{bubbles:true}));});};
+ await edit('{broken');expect(button('Save new revision').disabled).toBe(true);expect(container.textContent).toContain('Enter valid schema');
+ await edit('[{"field":"product_id","data_type":"string","required":true}]');expect(button('Save new revision').disabled).toBe(false);await click('Save new revision');
+ expect(amendment).toBeDefined();expect(amendment).not.toHaveProperty('payload_version');expect(amendment).not.toHaveProperty('dependency_snapshot');expect(amendment).not.toHaveProperty('baselines');
+ expect((amendment!.native_changes as {to:{item_schema_json:unknown}}[])[0].to.item_schema_json).toEqual([{field:'product_id',data_type:'string',required:true}]);
+});
+
+it('shows missing business questions prominently and saves answers only in a new unapproved amendment',async()=>{
+ const c=reconciled(doc('choice'),'input_required');c.payload.questions=[{id:'identity-format',label:'Which identity format should producers use?',answer:null}];
+ let amendment:Record<string,unknown>|undefined;state.handler=(_url,init)=>{if(init?.method==='POST'){const body=JSON.parse(init.body as string);expect(body.action).toBe('amend');amendment=body.amendment;return json(c);}return list([c]);};
+ await mount();await click('Business choices (1)');expect(container.querySelector('[aria-label="Decision inputs"]')!.textContent).toContain('Which identity format');expect(container.textContent).toContain('Answer required');
+ await open();await confirm();expect(button('Approve documentation').disabled).toBe(true);await click('Amend');
+ const answer=container.querySelector<HTMLTextAreaElement>('[aria-label="Answer identity-format"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value')!.set!.call(answer,'Use the customer UUID');answer.dispatchEvent(new Event('input',{bubbles:true}));});
+ const note=container.querySelector<HTMLInputElement>('article input[placeholder="Required for amend, defer or reject"]')!;
+ await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(note,'Confirm identity business choice');note.dispatchEvent(new Event('input',{bubbles:true}));});
+ await click('Save new revision');expect(amendment!.questions).toEqual([{id:'identity-format',label:'Which identity format should producers use?',answer:'Use the customer UUID'}]);
 });

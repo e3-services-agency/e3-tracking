@@ -1,17 +1,28 @@
-import { FieldLabel } from '@/src/components/ui/FieldHint';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 import React, { useEffect, useRef, useState } from 'react';
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
-import { decisionRoles, decisionRoleLabels, type DecisionCard, type DecisionSeed } from '@/src/domain/decisionInbox';
+import { decisionRoles, decisionRoleLabels, type DecisionCard, type DecisionSeed, type DecisionPayload } from '@/src/domain/decisionInbox';
 import { Button } from '@/src/components/ui/Button';
-import { USE_CASE_STATUSES, VARIANT_OPERATORS } from '@/src/domain/enums';
+import { USE_CASE_STATUSES, VARIANT_OPERATORS, PROPERTY_DATA_TYPES } from '@/src/domain/enums';
 
 type InboxView = 'actions' | 'choices' | 'completed' | 'history';
-const needsDecision = (c:DecisionCard) => ['proposed','deferred'].includes(c.state) && !c.restored;
+const needsDecision = (c:DecisionCard) => ['proposed','deferred'].includes(c.state) && !c.restored && !['satisfied','superseded','closed','restored'].includes(c.reconciliation?.status??'');
 const hasNativeChanges = (c:DecisionCard) => !!c.payload.native_changes?.length;
-const isBlocked = (c:DecisionCard) => c.stale || c.source_review?.requires_review;
+const isBlocked = (c:DecisionCard) => (c.reconciliation ? !c.reconciliation.can_approve : c.stale) || c.source_review?.requires_review || c.payload.questions?.some(question=>!question.answer?.trim());
+type ReconciliationPreview = {content_hash:string;payload:DecisionPayload;reconciliation:NonNullable<DecisionCard['reconciliation']>};
+const reconciliationLabels:Record<string,string>={ready:'Ready to approve',input_required:'Input required - answer the questions below',partially_satisfied:'Partly satisfied · review remaining changes',satisfied:'Already satisfied · no approval needed',conflict:'Relevant change needs review',legacy_review:'Review current data to prepare this proposal',source_review:'Cited evidence needs review',restored:'Restored history',closed:'Closed',superseded:'Superseded'};
+const shownValue=(value:unknown)=>value===undefined?'Unavailable':value===null?'Unset':typeof value==='string'?value:JSON.stringify(value);
+function SchemaValue({value}:{value:unknown}) {
+  const schema=(value??{}) as {data_type?:string;item_schema_json?:unknown;derivation_json?:unknown};
+  const formatted=(value:unknown)=>value==null?'Unset':JSON.stringify(value,null,2);
+  return <dl className="space-y-1"><dt className="font-medium">Data type</dt><dd>{schema.data_type??'Unavailable'}</dd><dt className="font-medium">Item schema</dt><dd><pre className="whitespace-pre-wrap break-words">{formatted(schema.item_schema_json)}</pre></dd>{Object.hasOwn(schema,'derivation_json')&&<><dt className="font-medium">Payload derivation</dt><dd><pre className="whitespace-pre-wrap break-words">{formatted(schema.derivation_json)}</pre></dd></>}</dl>;
+}
+function SchemaDiff({name,before,after,affected}:{name:string;before:unknown;after:unknown;affected?:{id:string;name:string}[]}) {
+  return <section className="space-y-2"><p>Update shared property <strong>{name}</strong>. Applies to every event using this property.</p>{affected&&<p>Currently linked events: {affected.length?affected.map(event=>event.name).join(', '):'None'}.</p>}<div className="grid gap-4 sm:grid-cols-2"><section><h4 className="font-semibold">Before</h4><SchemaValue value={before}/></section><section><h4 className="font-semibold">After approval</h4><SchemaValue value={after}/></section></div></section>;
+}
 const fragment = () => typeof window === 'undefined' ? '' : window.location.hash;
 function linkedCard(cards:DecisionCard[], hash:string) {
   return cards.find(c=>hash===`#decision-record-${c.id}`)
@@ -42,15 +53,31 @@ export function DecisionInbox() {
     return ()=>{generation.current++;request.current++;};
   },[activeProjectId]);
   useEffect(()=>{const change=()=>setHash(fragment());window.addEventListener('hashchange',change);return()=>window.removeEventListener('hashchange',change);},[]);
+  useEffect(()=>{
+    const refresh=()=>{if(document.visibilityState==='visible'&&!actionInFlight.current)void load(generation.current);};
+    window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);
+    return()=>{window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};
+  },[activeProjectId]);
   const linked=linkedCard(cards,hash);
   useEffect(()=>{if(linked)document.getElementById(`decision-record-${linked.id}`)?.scrollIntoView?.({block:'start'});},[linked?.id]);
-  async function act(card:DecisionCard,action:string,note:string,confirmed:boolean,amendment?:DecisionSeed) {
+  async function prepare(card:DecisionCard):Promise<ReconciliationPreview|undefined> {
     if(actionInFlight.current||unresolved)return;
-    actionInFlight.current=true;const g=generation.current;setBusy(true);setError('');setSuccess(null);
+    actionInFlight.current=true;const g=generation.current;setBusy(true);setError('');
+    try {
+      const r=await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/decision-inbox/${card.id}/reconcile/preview`,{method:'POST',body:JSON.stringify({content_hash:card.content_hash})});
+      const body=await r.json();if(!r.ok)throw Error(body.error??'Could not prepare the updated proposal.');
+      if(g===generation.current)return body;
+    }catch(e){if(g===generation.current)setError(e instanceof Error?e.message:String(e));}
+    finally{if(g===generation.current){setBusy(false);actionInFlight.current=false;}}
+  }
+  async function act(card:DecisionCard,action:string,note:string,confirmed:boolean,amendment?:DecisionSeed,previewHash?:string) {
+    if(actionInFlight.current||unresolved)return;
+    actionInFlight.current=true;const g=generation.current;++request.current;setLoading(false);setBusy(true);setError('');setSuccess(null);
     let accepted=false,knownRejection=false;
     try {
-      const r=await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/decision-inbox/${card.id}/actions`,{
-        method:'POST',body:JSON.stringify({action,note,human_confirmed:confirmed,content_hash:card.content_hash,amendment}),
+      const reconciling=action==='save_reconciled_revision';
+      const r=await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/decision-inbox/${card.id}/${reconciling?'reconcile/apply':'actions'}`,{
+        method:'POST',body:JSON.stringify(reconciling?{content_hash:card.content_hash,preview_hash:previewHash,note}:{action,note,human_confirmed:confirmed,content_hash:card.content_hash,amendment}),
       });
       // A response status establishes a rejection even if its error body cannot be read.
       knownRejection=!r.ok&&r.status>=400&&r.status<500;
@@ -91,40 +118,58 @@ export function DecisionInbox() {
           <FieldLabel hint="Decision role view">For<select aria-label="Role view" className="block border rounded p-2" value={role} onChange={e=>setRole(e.target.value)}><option value="all">All roles</option>{decisionRoles.map(r=><option key={r} value={r}>{decisionRoleLabels[r]}</option>)}</select></FieldLabel>
           <Button variant="secondary" disabled={loading||busy} onClick={()=>load(generation.current)}>Refresh</Button>
         </div>
-        {filter==='actions'&&<p className="text-sm">{actions.filter(c=>!isBlocked(c)&&c.state==='proposed').length} ready to approve · {actions.filter(isBlocked).length} need updated evidence or data · {actions.filter(c=>!isBlocked(c)&&c.state==='deferred').length} awaiting input</p>}
-        {filter==='choices'&&<p className="text-sm">These proposals record business choices, notes or requirements. They contain no automatic status, variant or required-field changes. Review their exact scope before approving.</p>}
-        {filter==='completed'&&<p className="text-sm">Saved results and closed decisions. Open a record to inspect evidence, receipts and any remaining planning action.</p>}
+        {filter==='actions'&&<p className="text-sm">{actions.filter(c=>!isBlocked(c)&&c.state==='proposed').length} ready to approve · {actions.filter(isBlocked).length} need review of relevant changes · {actions.filter(c=>!isBlocked(c)&&c.state==='deferred').length} awaiting input</p>}
+        {filter==='choices'&&<p className="text-sm">These proposals save only the displayed notes and requirement rows. Approval does not implement property types, item schemas, rules, GTM or Bloomreach changes. Remaining work is shown in each proposal.</p>}
+        {filter==='completed'&&<p className="text-sm">Saved results, already satisfied proposals and closed decisions. Already satisfied means the intended configuration exists; it does not record your approval or certify tracking QA.</p>}
         {filter==='actions'&&!actions.length&&<p>No executable E3 proposals are awaiting approval. Review Business choices for unresolved decisions; approval there records only the stated documentation changes.</p>}
         {!visible.length&&!(filter==='actions'&&!actions.length)&&<p>No decisions match this view and its filters.</p>}
-        {reveal&&<section aria-label="Linked decision" className="space-y-2"><p>This linked revision is outside the selected queue or filters.</p><DecisionItem key={reveal.id} card={reveal} busy={busy||loading||unresolved} act={act} expanded/></section>}
-        {visible.map(c=><DecisionItem key={c.id} card={c} busy={busy||loading||unresolved} act={act} expanded={linked?.id===c.id}/>)}
+        {reveal&&<section aria-label="Linked decision" className="space-y-2"><p>This linked revision is outside the selected queue or filters.</p><DecisionItem key={reveal.id} card={reveal} busy={busy||loading||unresolved} act={act} prepare={prepare} expanded/></section>}
+        {visible.map(c=><DecisionItem key={c.id} card={c} busy={busy||loading||unresolved} act={act} prepare={prepare} expanded={linked?.id===c.id}/>)}
       </>}
     </PageBody>
   </>;
 }
-export function DecisionItem({card:c,busy,act,expanded=false}:{card:DecisionCard;busy:boolean;expanded?:boolean;act:(c:DecisionCard,a:string,n:string,h:boolean,s?:DecisionSeed)=>Promise<void>}) {
+export function DecisionItem({card:c,busy,act,prepare,expanded=false}:{card:DecisionCard;busy:boolean;expanded?:boolean;prepare?:(c:DecisionCard)=>Promise<ReconciliationPreview|undefined>;act:(c:DecisionCard,a:string,n:string,h:boolean,s?:DecisionSeed,previewHash?:string)=>Promise<void>}) {
   const [detailsOpen,setDetailsOpen]=useState(expanded);
   useEffect(()=>{if(expanded)setDetailsOpen(true);},[expanded]);
-  const [note,setNote]=useState(''),[confirmed,setConfirmed]=useState(false),[editing,setEditing]=useState(false);
-  const seed=():DecisionSeed=>{const {project_id:_,revision:__,baselines:___,native_baselines:____,...s}=c.payload;return s;};
+  const [note,setNote]=useState(''),[confirmed,setConfirmed]=useState(false),[editing,setEditing]=useState(false),[preview,setPreview]=useState<ReconciliationPreview|null>(null),[schemaText,setSchemaText]=useState<Record<string,string>>({}),[schemaErrors,setSchemaErrors]=useState<Record<string,string>>({});
+  const seed=():DecisionSeed=>{const {project_id:_,revision:__,baselines:___,native_baselines:____,payload_version:_____,dependency_snapshot:______,...s}=c.payload;return s;};
   const [draft,setDraft]=useState(seed);
-  useEffect(()=>{setConfirmed(false);setEditing(false);setDraft(seed());},[c.id,c.state]);
-  const open=['proposed','deferred'].includes(c.state)&&!c.restored;
+  useEffect(()=>{setConfirmed(false);setEditing(false);setDraft(seed());setPreview(null);setSchemaText({});setSchemaErrors({});},[c.id,c.state,c.content_hash]);
+  const open=needsDecision(c);
   const requested=c.history.some(e=>e.action==='request_execution_plan');
   const hasNative=!!c.payload.native_changes?.length;
   const applied=c.history.find(e=>e.action==='approve_and_apply');
+  const affectedEvents=(id:string)=>c.native_targets?.find(t=>t.id===id)?.affected_events;
   const targetName=(id:string)=>c.native_targets?.find(t=>t.id===id)?.name??id;
-  const results=Array.isArray(applied?.detail.native_results)?applied.detail.native_results as {op:string;action:string;entity_id:string;entity_name:string;before?:string|boolean|null;after?:string|boolean|null}[]:[];
+  const results=Array.isArray(applied?.detail.native_results)?applied.detail.native_results as {op:string;action:string;entity_id:string;entity_name:string;before?:unknown;after?:unknown}[]:[];
   return <article id={`decision-record-${c.id}`} className="border rounded-lg bg-white p-5 space-y-3">
     <span id={`decision-${c.key}`}/><div className="flex flex-wrap items-center gap-3 text-sm"><strong>{c.key} · revision {c.revision}</strong>
       <span>Evidence confidence: <strong>{c.payload.confidence.toUpperCase()}</strong></span>
-      <span>{c.restored?'Restored history':applied?'E3 changes applied · QA pending':c.state==='documented'?'Documentation recorded':open?isBlocked(c)?'Update required before approval':c.state==='deferred'?'Awaiting input':hasNative?'Ready to approve':'Business choice required':c.state}</span>
-      {c.stale&&!c.restored&&<strong className="text-[var(--color-danger)]">{c.source_review?.requires_review?'Cited evidence changed — review the follow-up':'Reviewed E3 data changed — amend before approval'}</strong>}
+      <span>{c.restored?'Restored history':applied?'E3 changes applied · QA pending':c.state==='documented'?'Documentation recorded':c.reconciliation?reconciliationLabels[c.reconciliation.status]:open?isBlocked(c)?'Update required before approval':c.state==='deferred'?'Awaiting input':hasNative?'Ready to approve':'Business choice required':c.state}</span>
+      {c.stale&&!c.restored&&!c.reconciliation&&<strong className="text-[var(--color-danger)]">{c.source_review?.requires_review?'Cited evidence changed — review the follow-up':'Reviewed E3 data changed — amend before approval'}</strong>}
     </div>
     <h2 className="text-lg font-semibold">{c.payload.summary}</h2>
-    <p className="text-sm text-gray-600">{hasNative?`${c.payload.native_changes!.length} E3 change${c.payload.native_changes!.length===1?'':'s'} · ${c.payload.native_changes!.filter(x=>x.op==='use_case_status').length} status updates · ${c.payload.native_changes!.filter(x=>x.op==='create_variant').length} variants · ${c.payload.native_changes!.filter(x=>x.op==='event_property_required').length} required-field updates`:'Documentation / business choice · no automatic status, variant or required-field changes'}</p>
+    <p className="text-sm text-gray-600">{hasNative?`${c.payload.native_changes!.length} E3 change${c.payload.native_changes!.length===1?'':'s'} · ${c.payload.native_changes!.filter(x=>x.op==='use_case_status').length} status updates · ${c.payload.native_changes!.filter(x=>x.op==='create_variant').length} variants · ${c.payload.native_changes!.filter(x=>x.op==='event_property_required').length} required-field updates - ${c.payload.native_changes!.filter(x=>x.op==='property_schema').length} shared property schema updates`:'Documentation / business choice · no automatic status, variant or required-field changes'}</p>
+    {!!c.payload.questions?.length&&<section aria-label="Decision inputs" className="border rounded p-3 space-y-2 text-sm"><h3 className="font-semibold">What you need to decide</h3><ul className="space-y-2">{c.payload.questions.map(question=><li key={question.id}><strong>{question.label}</strong><p className="whitespace-pre-wrap">{question.answer??'Answer required. Open the proposal and choose Amend to save your answer in a new unapproved revision.'}</p></li>)}</ul><p>Approval records the reviewed answers in use-case notes. It does not perform the remaining external implementation.</p></section>}
     <p className="text-sm">Reviewer: {decisionRoleLabels[c.payload.review_role]} · <a className="underline" href={`#decision-record-${c.id}`}>Link to this revision</a></p>
     <details open={detailsOpen} onToggle={e=>setDetailsOpen(e.currentTarget.open)}><summary className="cursor-pointer font-medium">{open?'Review exact changes and decide':'View saved result and history'}</summary><div className="mt-3 space-y-3">
+    {c.reconciliation&&<section aria-label="Proposal reconciliation" className="border rounded p-3 space-y-2 text-sm">
+      <p>{c.reconciliation.summary}</p>{c.reconciliation.status==='legacy_review'&&<p>This earlier revision retained only a whole-record hash. Its exact earlier field values are unavailable. Review the current data and updated proposal before creating a fresh unapproved revision.</p>}
+      {hasNative&&<p>{c.reconciliation.remaining_operations} remaining proposed operations · {c.reconciliation.satisfied_operations} already satisfied. Satisfaction records current configuration, not human approval.</p>}
+      {c.reconciliation.conflicts.length>0&&<div className="overflow-x-auto"><table className="w-full text-left"><caption className="text-left font-semibold">Relevant changes to review</caption><thead><tr><HintTh hint="Decision conflict field">Field</HintTh><HintTh hint="Decision reviewed value">Reviewed before</HintTh><HintTh hint="Decision current value">Current</HintTh><HintTh hint="Decision intended value">Intended</HintTh><HintTh hint="Decision conflict remedy">Next step</HintTh></tr></thead><tbody>{c.reconciliation.conflicts.map((conflict,i)=><tr key={`${conflict.path}-${i}`}><th scope="row" className="align-top pr-3">{conflict.label}<span className="block text-xs font-normal">{conflict.path}</span></th><td className="align-top pr-3 whitespace-pre-wrap break-words">{shownValue(conflict.before)}</td><td className="align-top pr-3 whitespace-pre-wrap break-words">{shownValue(conflict.current)}</td><td className="align-top pr-3 whitespace-pre-wrap break-words">{shownValue(conflict.intended)}</td><td className="align-top whitespace-pre-wrap">{conflict.resolution}</td></tr>)}</tbody></table></div>}
+      {open&&prepare&&c.reconciliation.can_reconcile&&!preview&&<Button variant="secondary" disabled={busy} onClick={async()=>{const result=await prepare(c);if(result)setPreview(result);}}>Review updated proposal</Button>}
+      {preview&&<section aria-label="Updated proposal preview" className="border rounded p-3 space-y-2">
+        <h3 className="font-semibold">Updated proposal — not approved</h3><p>{preview.reconciliation.summary}</p>
+        <p>The current relevant data will become this new revision's review baseline. Saving applies no configuration changes and records no approval. Review the revised changes before approving.</p>
+        {!!preview.payload.questions?.length&&<ul>{preview.payload.questions.map(question=><li key={question.id}><strong>{question.label}</strong>: {question.answer??'Answer required'}</li>)}</ul>}
+        <p>{preview.payload.native_changes?.length??0} E3 changes · {preview.payload.patches.length} use-case documentation patches</p>
+        <ol className="list-decimal pl-5">{preview.payload.native_changes?.map((change,i)=><li key={i}>{change.op==='use_case_status'?<>Set {targetName(change.use_case_id)} status: {change.from??'Unset'} to {change.to??'Unset'}.</>:change.op==='property_schema'?<SchemaDiff name={targetName(change.property_id)} before={change.from} after={change.to} affected={affectedEvents(change.property_id)}/>:change.op==='event_property_required'?<>Set {targetName(change.event_id)}.{targetName(change.property_id)}: {change.from?'Required':'Optional'} to {change.to?'Required':'Optional'}.</>:<>Create variant on {targetName(change.event_id)}: {change.conditions.map(condition=>`${targetName(condition.property_id)} ${condition.operator==='equals'?'=':'in'} ${condition.values.join(' / ')}`).join(' AND ')}.</>}</li>)}</ol>
+        {preview.payload.patches.map(p=><section key={p.use_case_id}><h4 className="font-semibold">{c.documents.find(d=>d.use_case_id===p.use_case_id)?.name??p.use_case_id}</h4><p className="whitespace-pre-wrap">{p.append_notes}</p><ul>{p.add_requirements.map((requirement,i)=><li key={i}>{requirement.level}: {requirement.note}</li>)}</ul></section>)}
+        <Button disabled={busy} onClick={()=>act(c,'save_reconciled_revision',note,false,undefined,preview.content_hash)}>Save unapproved revision</Button> <Button variant="secondary" disabled={busy} onClick={()=>setPreview(null)}>Cancel update</Button>
+      </section>}
+    </section>}
+    {!hasNative&&<section aria-label="Documentation approval scope" className="border rounded p-3 text-sm space-y-2"><h3 className="font-semibold">What approval saves</h3><p>{c.payload.patches.length} use-case note additions · {c.payload.patches.reduce((total,p)=>total+p.add_requirements.length,0)} new requirement rows. Existing configuration is unchanged.</p><p>Property types, collection schemas, generated payloads, rules, GTM and Bloomreach changes require their own implementation. The recommendation below describes the intended benefit; recording these notes alone does not deliver that benefit.</p></section>}
     <p className="text-sm text-gray-600">{c.payload.impact}</p>
     <p className="text-sm text-gray-600">Recommended reviewer: {decisionRoleLabels[c.payload.review_role]} · Relevant to {c.payload.audiences.map(r=>decisionRoleLabels[r]).join(', ')}</p>
     {c.source_review?.tracked&&<p className="text-sm">Cited-source check: {c.source_review.source_count} source group · {c.source_review.checked_at}. {c.source_review.requires_review?'Previous approval retained as history; planning from this evidence is blocked.':'Selected cited content matches its recorded baseline.'} {c.source_review.partial_captures>0?'Incomplete captures are retained without replacing complete evidence.':''}</p>}
@@ -135,13 +180,13 @@ export function DecisionItem({card:c,busy,act,expanded=false}:{card:DecisionCard
       <h3 className="font-semibold">{applied?'Approved E3 changes':open?'E3 changes applied when you approve':'Proposed E3 changes (historical)'}</h3>
       <ol className="list-decimal pl-5">{c.payload.native_changes!.map((change,i)=><li key={i}>{change.op==='use_case_status'
         ? <>Set {targetName(change.use_case_id)} status: <strong>{change.from??'Unset'}</strong> → <strong>{change.to??'Unset'}</strong>.</>
-        : change.op==='event_property_required'?<>Set <strong>{targetName(change.event_id)}.{targetName(change.property_id)}</strong>: <strong>{change.from?'Required':'Optional'}</strong> → <strong>{change.to?'Required':'Optional'}</strong>.</>
+        : change.op==='property_schema'?<SchemaDiff name={targetName(change.property_id)} before={change.from} after={change.to} affected={affectedEvents(change.property_id)}/>:change.op==='event_property_required'?<>Set <strong>{targetName(change.event_id)}.{targetName(change.property_id)}</strong>: <strong>{change.from?'Required':'Optional'}</strong> → <strong>{change.to?'Required':'Optional'}</strong>.</>
         : <>Create variant on <strong>{targetName(change.event_id)}</strong>: {change.conditions.map(x=>`${targetName(x.property_id)} ${x.operator==='equals'?'=':'in'} ${x.values.join(' / ')}`).join(' AND ')}{change.description&&<p>{change.description}</p>}</>}</li>)}</ol>
       <p className="text-sm">These changes are saved together with the documentation. If any change fails validation, none is applied.</p>
     </section>}
     {applied&&<section className="border rounded p-3 space-y-2" aria-label="Execution receipt">
       <h3 className="font-semibold">Execution receipt</h3><p>{applied.created_at} · {applied.actor}</p>
-      <ul className="list-disc pl-5">{results.map((result,i)=><li key={i}>{result.entity_name}: {result.op==='use_case_status'?`${result.before??'Unset'} → ${result.after??'Unset'}`:result.op==='event_property_required'?`${result.before?'Required':'Optional'} → ${result.after?'Required':'Optional'}`:result.action==='created'?'Created':'Already present'} <span className="text-xs text-gray-500">({result.entity_id})</span></li>)}</ul>
+      <ul className="list-disc pl-5">{results.map((result,i)=><li key={i}>{result.entity_name}: {result.op==='property_schema'?<SchemaDiff name={result.entity_name} before={result.before} after={result.after} affected={affectedEvents(result.entity_id)}/>:result.op==='use_case_status'?`${result.before??'Unset'} → ${result.after??'Unset'}`:result.op==='event_property_required'?`${result.before?'Required':'Optional'} → ${result.after?'Required':'Optional'}`:result.action==='created'?'Created':'Already present'} <span className="text-xs text-gray-500">({result.entity_id})</span></li>)}</ul>
       <p className="text-sm">Saved in E3. This receipt does not claim successful tracking or campaign delivery.</p>
     </section>}
     <details><summary className="cursor-pointer font-medium">Review evidence, exact changes and next steps</summary>
@@ -159,14 +204,17 @@ export function DecisionItem({card:c,busy,act,expanded=false}:{card:DecisionCard
     </details>
     {editing&&<div className="border rounded p-3 space-y-3"><p>Saving creates an unapproved revision. Previous wording and decisions stay in history.</p>
       <FieldLabel hint="Decision recommendation" className="block">One-sentence recommendation<input className="block border rounded p-2 w-full" value={draft.summary} onChange={e=>setDraft({...draft,summary:e.target.value})}/></FieldLabel>
+      {draft.questions?.map((question,i)=><FieldLabel hint="Decision input answer" className="block" key={question.id}>{question.label}<textarea aria-label={`Answer ${question.id}`} rows={3} className="block border rounded p-2 w-full" value={question.answer??''} onChange={e=>setDraft({...draft,questions:draft.questions!.map((item,j)=>i===j?{...item,answer:e.target.value||null}:item)})}/></FieldLabel>)}
       {draft.patches.map((p,i)=><FieldLabel hint="Decision notes" className="block" key={p.use_case_id}>Proposed use-case notes ({c.documents.find(d=>d.use_case_id===p.use_case_id)?.code})<textarea rows={8} className="block border rounded p-2 w-full" value={p.append_notes} onChange={e=>setDraft({...draft,patches:draft.patches.map((x,j)=>j===i?{...x,append_notes:e.target.value}:x)})}/></FieldLabel>)}
-      {draft.native_changes?.map((change,i)=><fieldset key={i} className="border rounded p-3 space-y-2"><legend className="font-semibold">E3 change {i+1}: {change.op==='use_case_status'?targetName(change.use_case_id):targetName(change.event_id)}</legend>
+      {draft.native_changes?.map((change,i)=><fieldset key={i} className="border rounded p-3 space-y-2"><legend className="font-semibold">E3 change {i+1}: {change.op==='use_case_status'?targetName(change.use_case_id):change.op==='property_schema'?targetName(change.property_id):targetName(change.event_id)}</legend>
         {change.op==='use_case_status'?<div className="flex flex-wrap gap-3">{(['from','to'] as const).map(field=><FieldLabel hint="Decision status transition" key={field}>{field==='from'?'Current status expected':'New status'}<select aria-label={`${field==='from'?'Expected current':'New'} status for change ${i+1}`} className="block border rounded p-2" value={change[field]??''} onChange={e=>setDraft({...draft,native_changes:draft.native_changes!.map((x,j)=>j===i?{...change,[field]:e.target.value||null}:x)})}><option value="">Unset</option>{USE_CASE_STATUSES.map(status=><option key={status} value={status}>{status}</option>)}</select></FieldLabel>)}</div>
+          :change.op==='property_schema'?<div className="space-y-3"><p>This changes the shared property for every linked event.</p>{(['from','to'] as const).map(field=><div key={field} className="border rounded p-3 space-y-2"><h4>{field==='from'?'Expected current schema':'Proposed schema'}</h4><FieldLabel hint="Decision property schema" className="block">Data type<select aria-label={`${field} data type for change ${i+1}`} className="block border rounded p-2" value={change[field].data_type} onChange={e=>setDraft({...draft,native_changes:draft.native_changes!.map((x,j)=>j===i?{...change,[field]:{...change[field],data_type:e.target.value}} as typeof change:x)})}>{PROPERTY_DATA_TYPES.map(type=><option key={type} value={type}>{type}</option>)}</select></FieldLabel>{(['item_schema_json',...(Object.hasOwn(change[field],'derivation_json')?['derivation_json']:[])] as ('item_schema_json'|'derivation_json')[]).map(key=><FieldLabel hint="Decision property schema" className="block" key={key}>{key==='item_schema_json'?'Item schema JSON':'Payload derivation JSON'}<textarea aria-label={`${field} ${key} for change ${i+1}`} rows={5} className="block border rounded p-2 w-full" value={schemaText[`${i}:${field}:${key}`]??(change[field][key]==null?'':JSON.stringify(change[field][key],null,2))} onChange={e=>{const value=e.target.value,id=`${i}:${field}:${key}`;setSchemaText({...schemaText,[id]:value});try{const parsed=value.trim()?JSON.parse(value):null;setSchemaErrors({...schemaErrors,[id]:''});setDraft({...draft,native_changes:draft.native_changes!.map((x,j)=>j===i?{...change,[field]:{...change[field],[key]:parsed}}:x)});}catch{setSchemaErrors({...schemaErrors,[id]:'Enter valid JSON before saving.'});}}}/></FieldLabel>)}</div>)}</div>
           :change.op==='event_property_required'?<div className="flex flex-wrap gap-3"><p>{targetName(change.event_id)}.{targetName(change.property_id)}</p>{(['from','to'] as const).map(field=><FieldLabel hint="Decision required-field transition" key={field}>{field==='from'?'Current requirement expected':'New requirement'}<select aria-label={`${field==='from'?'Expected current':'New'} requirement for change ${i+1}`} className="block border rounded p-2" value={String(change[field])} onChange={e=>setDraft({...draft,native_changes:draft.native_changes!.map((x,j)=>j===i?{...change,[field]:e.target.value==='true'}:x)})}><option value="false">Optional</option><option value="true">Required</option></select></FieldLabel>)}</div>
           :<>{change.conditions.map((condition,k)=><div key={k} className="space-y-2"><p>{targetName(condition.property_id)}</p><FieldLabel hint="Decision variant condition">Match<select aria-label={`Operator for change ${i+1} condition ${k+1}`} className="block border rounded p-2" value={condition.operator} onChange={e=>setDraft({...draft,native_changes:draft.native_changes!.map((x,j)=>j===i?{...change,conditions:change.conditions.map((c,n)=>n===k?{...c,operator:e.target.value as typeof c.operator}:c)}:x)})}>{VARIANT_OPERATORS.map(op=><option key={op} value={op}>{op==='equals'?'Equals':'Any of'}</option>)}</select></FieldLabel><FieldLabel hint="Decision variant condition">Allowed values, one per line<textarea aria-label={`Values for change ${i+1} condition ${k+1}`} className="block border rounded p-2 w-full" rows={2} value={condition.values.join('\n')} onChange={e=>setDraft({...draft,native_changes:draft.native_changes!.map((x,j)=>j===i?{...change,conditions:change.conditions.map((c,n)=>n===k?{...c,values:e.target.value.split('\n')}:c)}:x)})}/></FieldLabel></div>)}</>}
-        <Button variant="secondary" disabled={busy} onClick={()=>setDraft({...draft,native_changes:draft.native_changes!.length===1?undefined:draft.native_changes!.filter((_,j)=>j!==i)})}>Remove this change</Button>
+        <Button variant="secondary" disabled={busy} onClick={()=>{setSchemaText({});setSchemaErrors({});setDraft({...draft,native_changes:draft.native_changes!.length===1?undefined:draft.native_changes!.filter((_,j)=>j!==i)});}}>Remove this change</Button>
       </fieldset>)}
-      <Button disabled={busy||!confirmed||!note.trim()} onClick={()=>act(c,'amend',note,confirmed,draft)}>Save new revision</Button> <Button variant="secondary" onClick={()=>setEditing(false)}>Cancel amendment</Button>
+      {Object.values(schemaErrors).some(Boolean)&&<p role="alert">Enter valid schema and derivation JSON before saving.</p>}
+      <Button disabled={busy||!confirmed||!note.trim()||Object.values(schemaErrors).some(Boolean)} onClick={()=>act(c,'amend',note,confirmed,draft)}>Save new revision</Button> <Button variant="secondary" onClick={()=>setEditing(false)}>Cancel amendment</Button>
     </div>}
     {(open||(c.state==='documented'&&!requested&&!applied))&&!c.restored&&<div className="space-y-2 border-t pt-3">
       <FieldLabel hint="Decision review reason" className="block text-sm">Review note <input className="border rounded p-2 w-full mt-1" value={note} onChange={e=>setNote(e.target.value)} placeholder="Required for amend, defer or reject"/></FieldLabel>
@@ -176,7 +224,7 @@ export function DecisionItem({card:c,busy,act,expanded=false}:{card:DecisionCard
           <Button variant="secondary" disabled={busy} onClick={()=>setEditing(true)}>Amend</Button>
           <Button variant="secondary" disabled={busy||!confirmed||!note.trim()} onClick={()=>act(c,'defer',note,confirmed)}>Defer</Button>
           <Button variant="secondary" disabled={busy||!confirmed||!note.trim()} onClick={()=>act(c,'reject',note,confirmed)}>Reject</Button></>}
-        {c.state==='documented'&&!requested&&!applied&&<Button disabled={busy||!confirmed||!!isBlocked(c)} onClick={()=>act(c,'request_execution_plan',note,confirmed)}>{requested?'Execution plan requested':'Request execution plan'}</Button>}
+        {c.state==='documented'&&!requested&&!applied&&<Button disabled={busy||!confirmed||c.stale||c.source_review?.requires_review} onClick={()=>act(c,'request_execution_plan',note,confirmed)}>{requested?'Execution plan requested':'Request execution plan'}</Button>}
       </div>
     </div>}
     <p className="text-xs text-gray-500">External implementation and tracking QA remain separate from these E3 changes.</p>

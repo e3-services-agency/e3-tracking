@@ -16,7 +16,7 @@
  * `(event, property, detail)`, anchored on the first offending observation, same convention as the
  * other per-property checks. Pure.
  */
-import type { ComparisonId } from '../enums';
+import type { ComparisonId, DerivationForm } from '../enums';
 import type { DefinitionSnapshot, EngineFinding, EngineObservation } from '../comparison/definitionVsObservations';
 import { parseDerivation, isListDerivation } from '../codegen/derivation';
 
@@ -25,7 +25,7 @@ const COMPARISON: ComparisonId = 'definition_vs_observations';
 export interface StateListRef {
   property_id: string;
   payload_key: string;
-  form: 'ids' | 'id_quantity';
+  form: DerivationForm;
   id_field: string;
   quantity_field: string;
 }

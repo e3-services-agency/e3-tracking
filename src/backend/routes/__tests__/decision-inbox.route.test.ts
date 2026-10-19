@@ -37,3 +37,14 @@ it('approves and applies one native status change and five variants through HTTP
  const receipt=result.history.at(-1);expect(receipt.actor).not.toBe('Forged approver');expect(receipt.detail.native_results).toHaveLength(6);expect(receipt.detail.execution_status).toBe('applied');
  const replay=await post(`/${card.id}/actions`,body);expect(replay.status).toBe(200);expect((await replay.json()).history).toEqual(result.history);expect(listVariants(project,eventId)).toHaveLength(5);
 });
+it('previews and saves a revised unapproved business choice through protected reconciliation routes',async()=>{
+ const target=createUseCase(project,{name:'Business question',notes:'Original policy'}).id;
+ const proposal={key:'ROUTE-RECON-01',audiences:['project_manager'],review_role:'project_manager',summary:'Confirm timing',confidence:'medium',rationale:'Timing choice',impact:'Notes after an explicit answer',alternatives:'Defer',execution_plan:'Runtime verification separately',evidence:[{label:'Source',url:'https://example.com/timing',claim:'Timing pending',captured_at:'2026-10-19T00:00:00Z',source_hash:'a'.repeat(64)}],patches:[{use_case_id:target,append_notes:'Timing policy',add_requirements:[]}],questions:[{id:'timing',label:'Agreed timing?',answer:null}]};
+ const preview=await (await post('/preview',{proposal})).json();const card=await (await post('/import',{proposal,content_hash:preview.content_hash})).json();
+ expect(card.reconciliation.status).toBe('input_required');
+ const answered={...proposal,questions:[{id:'timing',label:'Agreed timing?',answer:'30 days'}]};
+ const rp=await post(`/${card.id}/reconcile/preview`,{content_hash:card.content_hash,proposal:answered});expect(rp.status).toBe(200);const plan=await rp.json();
+ const apply=await post(`/${card.id}/reconcile/apply`,{content_hash:card.content_hash,preview_hash:plan.content_hash,proposal:answered,actor:'Forged actor'});expect(apply.status).toBe(200);const next=await apply.json();
+ expect(next.state).toBe('proposed');expect(next.reconciliation.status).toBe('ready');expect(next.history[0].actor).not.toBe('Forged actor');expect(next.history[0].detail.approval).toBe(false);expect(getUseCaseOrThrow(project,target).notes).toBe('Original policy');
+ const repeat=await post(`/${card.id}/reconcile/apply`,{content_hash:card.content_hash,preview_hash:plan.content_hash,proposal:answered});expect(repeat.status).toBe(200);expect((await repeat.json()).id).toBe(next.id);
+});

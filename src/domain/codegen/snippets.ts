@@ -19,6 +19,8 @@ export interface CodegenProperty {
   role?: string;
   /** Sample value for this property (from `jsonSampleValueForProperty`). */
   sample: unknown;
+  /** Typed samples for explicit object_fields projections only. */
+  field_samples?: Record<string,unknown>;
 }
 
 export interface DataLayerModel {
@@ -72,6 +74,9 @@ export function buildDataLayerModel(all: CodegenProperty[]): DataLayerModel {
   for (const p of sorted) if (p.kind !== 'item' && !isComputed(p)) itemSampleByName.set(p.name, p.sample);
   for (const p of item) itemSampleByName.set(p.name, p.sample);
 
+  for (const p of computed) if (p.derivation && 'form' in p.derivation && p.derivation.form === 'object_fields') {
+    for (const field of p.derivation.fields || []) if (p.field_samples && Object.prototype.hasOwnProperty.call(p.field_samples,field)) itemSampleByName.set(field,p.field_samples[field]);
+  }
   const fieldNames: string[] = [];
   const add = (n: string) => {
     if (!fieldNames.includes(n)) fieldNames.push(n);
@@ -83,6 +88,7 @@ export function buildDataLayerModel(all: CodegenProperty[]): DataLayerModel {
     for (const id of ['product_id', 'variant_id']) if (itemSampleByName.has(id)) add(id);
     for (const p of item) if (VARIANT_ATTRIBUTE.test(p.name)) add(p.name);
   }
+  for (const r of rules) if ('form' in r && r.form === 'object_fields') for (const f of r.fields || []) add(f);
   for (const r of rules) if ('form' in r && r.form === 'id_quantity') add(r.quantity_field || 'quantity');
   for (const r of rules) if ('sum' in r) for (const f of sumFields(r.sum)) add(f);
   const quantityFields = new Set<string>(['quantity']);

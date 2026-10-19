@@ -75,16 +75,16 @@ it('keeps the reviewed follow-up dependent on later changes to the same cited ev
 it('preserves source invalidation through a wording amendment instead of clearing it',()=>{
   apply();const first=apply(changed());const follow=listDecisions(project).find(c=>c.id===first.followup_id)!;
   const newer=changed();newer.package_hash='f'.repeat(64);newer.records[0].text='Synthetic later evidence changes again';apply(newer);
-  const {project_id:_,revision:__,baselines:___,...seed}=follow.payload;seed.summary='Amended wording with the same cited evidence';
+  const {project_id:_,revision:__,baselines:___,payload_version:_v,dependency_snapshot:_d,...seed}=follow.payload;seed.summary='Amended wording with the same cited evidence';
   const amendment=actOnDecision(project,follow.id,follow.content_hash,'amend','Reviewer','Wording clarification',true,seed);
   expect(amendment.source_review.tracked).toBe(true);expect(amendment.source_review.requires_review).toBe(true);expect(amendment.stale).toBe(true);
   expect(()=>actOnDecision(project,amendment.id,amendment.content_hash,'approve_documentation','Reviewer','',true)).toThrow('cited evidence changed');
 });
 it('requires a sourced follow-up to replace tracked citation references',()=>{
-  apply();const current=card();const {project_id:_,revision:__,baselines:___,...seed}=current.payload;
+  apply();const current=card();const {project_id:_,revision:__,baselines:___,payload_version:_v,dependency_snapshot:_d,...seed}=current.payload;
   // A documented decision is closed already. Use a pending, tracked source follow-up.
   const update=apply(changed());const follow=listDecisions(project).find(c=>c.id===update.followup_id)!;
-  const {project_id:_p,revision:_r,baselines:_b,...amendment}=follow.payload;
+  const {project_id:_p,revision:_r,baselines:_b,payload_version:_v2,dependency_snapshot:_d2,...amendment}=follow.payload;
   amendment.evidence=amendment.evidence.map(e=>({...e,source_hash:'e'.repeat(64)}));
   expect(()=>actOnDecision(project,follow.id,follow.content_hash,'amend','Reviewer','Replace citations',true,amendment)).toThrow('sourced follow-up');
   expect(seed.key).toBe('SYNTHETIC-01');

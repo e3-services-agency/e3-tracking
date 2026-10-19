@@ -40,7 +40,7 @@ it('preview/import retain no native writes; one approval changes status and crea
 });
 it('replays approval without duplicate records, including after an unrelated later edit',()=>{
   const c=insert(),first=apply(c),before=counts();expect(apply(c).history).toEqual(first.history);expect(counts()).toEqual(before);
-  updateUseCase(project,uc,{owner:'Later owner'});const next=counts();const replay=apply(c);expect(counts()).toEqual(next);expect(replay.stale).toBe(true);expect(replay.history).toEqual(first.history);
+  updateUseCase(project,uc,{owner:'Later owner'});const next=counts();const replay=apply(c);expect(counts()).toEqual(next);expect(replay.stale).toBe(false);expect(replay.history).toEqual(first.history);
   expect(insert().id).toBe(c.id);
 });
 it('refuses missing confirmation, mismatched hash, documentation-only approval and arbitrary native operations',()=>{
@@ -54,8 +54,8 @@ it.each(['status','enum','role','sibling','named definition'])('refuses approval
   if(kind==='status')updateUseCase(project,uc,{status:'in_progress'});
   if(kind==='enum')updateProperty(project,actionId,{allowed_values_json:['a','b','c','d','e','f','g'].map(value=>({value,label:value}))});
   if(kind==='role')updateEventProperty(project,eventId,actionId,{role:'normal'});
-  if(kind==='sibling')createVariant(project,eventId,{conditions:[{property_id:actionId,operator:'equals',values:['f']}]});
-  if(kind==='named definition')updateDefinition(project,actionId,getDefaultDefinitionId(project,actionId)!,{description:'Newer contract'});
+  if(kind==='sibling')createVariant(project,eventId,{conditions:[{property_id:actionId,operator:'in',values:['e','f']}]});
+  if(kind==='named definition')updateDefinition(project,actionId,getDefaultDefinitionId(project,actionId)!,{allowed_values_json:[{value:'a'}]});
   const before=counts();expect(listDecisions(project)[0].stale).toBe(true);expect(()=>apply(c)).toThrow('changed');expect(counts()).toEqual(before);
 });
 it('rolls back all native writes, notes, change history and approval when the fifth variant fails',()=>{
@@ -143,11 +143,15 @@ it('rejects a soft-deleted linked property instead of editing its retained link'
   getDb().prepare('UPDATE properties SET deleted_at=? WHERE id=?').run('2026-10-19T00:00:00Z',actionId);
   const before=counts();expect(()=>previewDecision(project,requiredSeed())).toThrow('existing property link');expect(counts()).toEqual(before);
 });
-it.each(['flag','definition'])('invalidates required-field approval after changed %s baseline',kind=>{
+it('invalidates required-field approval after changed definition constraints',()=>{
   const c=insert(requiredSeed());
-  if(kind==='flag')updateEventProperty(project,eventId,actionId,{required:true});
-  else updateDefinition(project,actionId,getDefaultDefinitionId(project,actionId)!,{description:'Changed after review'});
+  updateDefinition(project,actionId,getDefaultDefinitionId(project,actionId)!,{allowed_values_json:[{value:'a'}]});
   const before=counts();expect(()=>apply(c)).toThrow('changed');expect(counts()).toEqual(before);
+});
+it('skips an already satisfied required flag and records it without a second link update',()=>{
+  const c=insert(requiredSeed());updateEventProperty(project,eventId,actionId,{required:true});
+  expect(listDecisions(project)[0].reconciliation?.status).toBe('partially_satisfied');
+  const a=apply(c);expect(a.history.at(-1)?.detail.native_results).toMatchObject([{action:'already_present',before:true,after:true}]);
 });
 it('rolls back mixed required/status/variant execution and audit if the later notes write fails',()=>{
   const c=insert(requiredSeed([required(),...seed().native_changes!])),before=counts();

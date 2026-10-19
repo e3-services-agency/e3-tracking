@@ -6802,7 +6802,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -6814,7 +6814,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('Opt_in_proof', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -7351,7 +7351,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -7363,7 +7363,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('back_in_stock_list', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -8050,7 +8050,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -8062,7 +8062,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('booking_b', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -10494,7 +10494,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -10509,7 +10509,7 @@ var BR_RULES = [
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('cart_update', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -11244,7 +11244,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -11258,7 +11258,7 @@ var BR_RULES = [
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('checkout', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -11757,7 +11757,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -11769,7 +11769,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('double_opt_in_study_interest', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -13826,7 +13826,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -13838,7 +13838,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('flyer', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -14353,7 +14353,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -14365,7 +14365,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('inbound_call', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -14663,7 +14663,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -14675,7 +14675,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('initialize_event', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -15008,7 +15008,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -15020,7 +15020,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('installation', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -15466,7 +15466,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -15478,7 +15478,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('loyalty_update', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -15784,7 +15784,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -15796,7 +15796,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('monitoring', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -16182,7 +16182,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -16194,7 +16194,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('newsletter_signup', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -16601,7 +16601,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -16613,7 +16613,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('optilyz_campaign', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -17074,7 +17074,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -17086,7 +17086,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('outbound_call', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -17376,7 +17376,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -17388,7 +17388,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('paper_catalogue', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -17665,7 +17665,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -17679,7 +17679,7 @@ var BR_RULES = [
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('parcel_insert', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -21312,7 +21312,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -21324,7 +21324,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('qbr_metrics', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -22766,7 +22766,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -22778,7 +22778,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('received_referee_reward', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -24213,7 +24213,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -24225,7 +24225,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('received_referrer_reward', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -25616,7 +25616,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -25628,7 +25628,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('received_reward_next_order', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -25907,7 +25907,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -25919,7 +25919,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('registered_as_referee', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -27028,7 +27028,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -27040,7 +27040,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('registered_as_referrer', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -28081,7 +28081,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -28093,7 +28093,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('registration', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -28619,7 +28619,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -28631,7 +28631,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('return', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -29023,7 +29023,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -29035,7 +29035,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('sample', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -29565,7 +29565,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -29577,7 +29577,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('shipment', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -30381,7 +30381,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -30393,7 +30393,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('store_visit', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -30650,7 +30650,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -30662,7 +30662,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('submitted_nps_score', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -30859,7 +30859,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -30871,7 +30871,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('survey_all', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -31331,7 +31331,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -31343,7 +31343,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('survey_all_test', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -31683,7 +31683,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -31695,7 +31695,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('survey_data', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -31914,7 +31914,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -31926,7 +31926,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('test', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -32205,7 +32205,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -32217,7 +32217,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('ticket_order', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -32716,7 +32716,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -32728,7 +32728,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('ticket_registration', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -33290,7 +33290,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -33302,7 +33302,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('trigger_push', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -33631,7 +33631,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -33643,7 +33643,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('user_active', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -34150,7 +34150,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -34162,7 +34162,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('view_category', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -34455,7 +34455,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -34467,7 +34467,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('view_item', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -35028,7 +35028,7 @@ window.dataLayer.push({
   },
 });
 
-// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 
@@ -35040,7 +35040,7 @@ var BR_RULES = [];
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
 //  3. The tag calls the Web SDK: brweb.track('voucher_notification', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
-        "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
+        "gtm_template": "// E3 shared transformation, version 2. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
 <BR_PAYLOAD_SOURCE>
 

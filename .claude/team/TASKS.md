@@ -4,6 +4,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 
 | ID | Phase | Title | Owner | Depends on | Status | Acceptance |
 |----|-------|-------|-------|------------|--------|------------|
+| T-5-59 | 5 | Dependency-aware decision reconciliation and ODO queue cleanup | codex | T-5-57/58 | DONE | D-94; published7352c1c9/bc736232,8freshunapprovedODOrevisions/17documentedpreserved; all51nondecisiontables unchanged; reports/RELEASE-DECISION-RECONCILIATION-2026-10-19.md |
 | T-5-58 | 5 | Edit agreed lifecycle in staff use-case overview | codex | T-5-56 | DONE | Published b31e6109/3f7b9789; direct status-only PATCH/history,9local assertions and live controls; reports/RELEASE-ACTIONABLE-INBOX-LIFECYCLE-2026-10-19.md |
 | T-5-57 | 5 | Actionable ODO Decision inbox and reconciliation | codex | T-5-56 | DONE | Published b31e6109/3f7b9789; separate queues/retry/receipts; real22-field proposal imported unapproved, previous24decisions preserved; release report |
 | T-5-56 | 5 | Apply approved native Decision inbox changes | codex | T-5-50 | DONE | D-92; deployed9b6ca2fe/be908540,105 focused assertions/four restores, unchanged53tables/config/access; reports/RELEASE-DECISION-NATIVE-APPLY-2026-10-19.md |

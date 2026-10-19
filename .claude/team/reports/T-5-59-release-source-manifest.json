@@ -1,0 +1,98 @@
+[
+  {
+    "path": "docs/guide/decision-inbox.md",
+    "sha256": "0b07829471bd6a01e1e0b74be94d2488e4216d66c740fbea7f55deb85d89703e"
+  },
+  {
+    "path": "src/backend/routes/__tests__/decision-inbox.route.test.ts",
+    "sha256": "2fb8723835b018b52e40c10d1e2379c490f466537c43387b71bbfce04efc2e81"
+  },
+  {
+    "path": "src/backend/routes/decision-inbox.ts",
+    "sha256": "50a9bc4d1dc6d4e8bbdb706baa09ec4eb15d1e715a6e75b4dfc3ea6610b51cb9"
+  },
+  {
+    "path": "src/backend/services/__snapshots__/document.service.snapshot.test.ts.snap",
+    "sha256": "a07a66461d50cca47c50798aa4adc4afd303a9353cfe0b568a7de4e5414b84c3"
+  },
+  {
+    "path": "src/backend/services/codegen.service.ts",
+    "sha256": "490b44561b97c0a30c151be63a16fa78a75af286d86712ce172b6d565dbea453"
+  },
+  {
+    "path": "src/backend/services/decisionInbox.service.ts",
+    "sha256": "ee06ebcaf908d4724d3837ebb29fad435719cc51b959993b84a7e75e07aa39c1"
+  },
+  {
+    "path": "src/backend/services/decisionNativeChanges.service.ts",
+    "sha256": "dec62bfbef870c9bdaf53ddcdb7bff449a95739300aadccfeed13a9d3f0dd51c"
+  },
+  {
+    "path": "src/backend/services/decisionNativeChanges.test.ts",
+    "sha256": "570eb7663b85f75533f56e06e18050b6e09a6ff6d413f52c85dafee37d0114ba"
+  },
+  {
+    "path": "src/backend/services/decisionReconciliation.service.ts",
+    "sha256": "f4d4e590bcfd398b75cc22b4daafc26e7c0cc7573a179fcb3690bb28a2b18ae2"
+  },
+  {
+    "path": "src/backend/services/decisionReconciliation.test.ts",
+    "sha256": "5784d6d0ec993cf66fca4d0b3da8fe3877c0728abcd467d37774e8f9bf6d9d5e"
+  },
+  {
+    "path": "src/backend/services/decisionSources.service.ts",
+    "sha256": "0a27a4761556c044090f7136b90a1c1abcb956d2ac2f16ede4725497cb3ab1b0"
+  },
+  {
+    "path": "src/backend/services/decisionSources.test.ts",
+    "sha256": "38cabad83e09793cbab362c3e6efb35e0ea2a65f01aea3738b21e6feae49302f"
+  },
+  {
+    "path": "src/backend/services/projectPromotion.test.ts",
+    "sha256": "74231f345402460b21536b477fe6521e4440ae3ee85914702d918173e6663fd9"
+  },
+  {
+    "path": "src/domain/codegen/brPayload.ts",
+    "sha256": "549860d04413b84408660271476ef613c4c9e3a213a7bbdd7c78448d657fc001"
+  },
+  {
+    "path": "src/domain/codegen/derivation.ts",
+    "sha256": "9d30305340cc87ef4fc0039fab81f9af5e531227345ccbb117d2b3d46b65320c"
+  },
+  {
+    "path": "src/domain/codegen/objectFields.test.ts",
+    "sha256": "e9bb5f6ffb91566fef7ac7c570461fc3d068520b7a650048d248697da4a74024"
+  },
+  {
+    "path": "src/domain/codegen/snippets.ts",
+    "sha256": "4f37088072b12a14bdca176e94c52ef92c1536eb68bfc070121219d5ffb08f13"
+  },
+  {
+    "path": "src/domain/decisionInbox.ts",
+    "sha256": "c765941a6b8b29e480456ce944cd7eb84adfb95bc00a6fb1360e465c737904e1"
+  },
+  {
+    "path": "src/domain/enums.ts",
+    "sha256": "5d441d0107fba48dedacb4be01387668df53e19ff1f40a51979e90a6099438eb"
+  },
+  {
+    "path": "src/domain/fieldHints.ts",
+    "sha256": "77ee9ee9f8614feb87ac78e78ff7be1d5bdc6fe2178ccc2843859dd42954bb82"
+  },
+  {
+    "path": "src/domain/rules/stateLists.ts",
+    "sha256": "e7b1a7d51ce997c35b0588d4acadb80f77d3176d376813167c61c5285012a8cb"
+  },
+  {
+    "path": "src/features/properties/components/DerivationEditor.tsx",
+    "sha256": "f50f57bdf93a0dfc5547ef0995e779dc77bfbf6650a8b4ba555f5fd9ea2bd855"
+  },
+  {
+    "path": "src/pages/DecisionInbox.test.tsx",
+    "sha256": "2c892ebaf031a722ff2ae843d819db5700930f2debeca15309deb40ccdf66802"
+  },
+  {
+    "path": "src/pages/DecisionInbox.tsx",
+    "sha256": "b3774b710f37c95f3ef4216e8bd08a6e4ae63aed4b9b84f1c44d3bc892c6cf7c"
+  }
+]

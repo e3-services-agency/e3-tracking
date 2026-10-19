@@ -1,0 +1,14 @@
+{
+  "schema": "0050_historical_file_validation.sql",
+  "integrity": "ok",
+  "foreign_keys": 0,
+  "tables_checked": 53,
+  "changed_tables": [],
+  "access_policy_identical": true,
+  "destination_identity_identical": true,
+  "configuration_and_edge": {
+    "oauth2-proxy": true,
+    "CONFIG_STABLE_SHA": true,
+    "caddy": true
+  }
+}

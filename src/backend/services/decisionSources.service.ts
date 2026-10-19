@@ -91,7 +91,7 @@ export function applyDecisionSources(project:string,id:string,raw:unknown,expect
     let followupId:string|null=null;
     if(p.changes.length){
       const diff=p.changes.map(c=>`Source: ${c.url}\nPreviously captured: ${c.before.text.slice(0,1600)}\nNewly captured: ${c.after.text.slice(0,1600)}`).join('\n\n').slice(0,14000);
-      const {project_id:_,revision:__,baselines:___,...seed}=p.payload;
+      const {project_id:_,revision:__,baselines:___,native_baselines:____,native_changes:_____,...seed}=p.payload;
       followupId=makeDraft({...seed,key:`${p.payload.key.slice(0,40)}-SRC-${p.contentHash.slice(0,8)}-${p.captureHash.slice(0,8)}`,
         summary:`Review changed evidence for ${p.payload.key}: ${p.payload.summary}`.slice(0,20000),
         rationale:`Exact cited content changed. The previous approval remains historical; this draft does not interpret the change as a verified fix.\n\n${diff}`,

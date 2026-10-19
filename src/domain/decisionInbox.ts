@@ -1,5 +1,23 @@
 import { z } from 'zod';
+import { USE_CASE_STATUSES, VARIANT_OPERATORS } from './enums';
 const text = z.string().trim().min(1).max(20000);
+export const nativeDecisionChangeSchema = z.discriminatedUnion('op', [
+  z.object({op:z.literal('use_case_status'),use_case_id:z.string().min(1),
+    from:z.enum(USE_CASE_STATUSES).nullable(),to:z.enum(USE_CASE_STATUSES).nullable(),
+  }).strict(),
+  z.object({op:z.literal('create_variant'),event_id:z.string().min(1),
+    conditions:z.array(z.object({property_id:z.string().min(1),operator:z.enum(VARIANT_OPERATORS),
+      values:z.array(z.string().min(1)).min(1).max(200),
+    }).strict()).min(1).max(2),description:text.nullable().optional(),
+  }).strict(),
+]);
+export type NativeDecisionChange = z.infer<typeof nativeDecisionChangeSchema>;
+export interface NativeDecisionResult {
+  op:NativeDecisionChange['op']; action:'updated'|'created'|'already_present';
+  entity_id:string; entity_name:string; event_id?:string;
+  before?:string|null; after?:string|null;
+}
+export interface NativeDecisionTarget {id:string;name:string}
 const requirement = z.object({
   target_kind: z.enum(['event','event_property','customer_property']),
   event_id: z.string().min(1).optional(), property_id: z.string().min(1).optional(),
@@ -18,9 +36,10 @@ export const decisionSeedSchema = z.object({
   patches: z.array(z.object({use_case_id:z.string().min(1), append_notes:text,
     add_requirements:z.array(requirement).max(20),
   }).strict()).min(1).max(10),
+  native_changes:z.array(nativeDecisionChangeSchema).min(1).max(50).optional(),
 }).strict();
 export type DecisionSeed = z.infer<typeof decisionSeedSchema>;
-export type DecisionPayload = DecisionSeed & {project_id:string; revision:number; baselines:Record<string,string>};
+export type DecisionPayload = DecisionSeed & {project_id:string; revision:number; baselines:Record<string,string>; native_baselines?:Record<string,string>};
 export type DecisionState = 'proposed'|'deferred'|'rejected'|'superseded'|'documented';
 export const decisionSourceInputSchema = z.object({
   source_key:z.string().regex(/^[a-z0-9_-]{1,80}$/),
@@ -37,4 +56,5 @@ export interface DecisionCard {
   id:string; key:string; revision:number; content_hash:string; state:DecisionState;
   restored:boolean; stale:boolean; source_review:DecisionSourceStatus; payload:DecisionPayload; history:DecisionEvent[];
   documents:{use_case_id:string; code:string|null; name:string; current_notes:string|null; current_requirements:unknown[]}[];
+  native_targets?:NativeDecisionTarget[];
 }

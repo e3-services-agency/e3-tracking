@@ -8,6 +8,8 @@ import { listRequirements, insertResolvedRequirement } from '../dal/requirement.
 import { getProjectOrThrow } from '../dal/project.dal';
 import {promotionBaselineProject} from './projectPromotion.service';
 import {decisionSourceStatus,applyDecisionSources,inheritDecisionSourceBindings} from './decisionSources.service';
+import { applyNativeDecisionChanges, nativeDecisionBaselines, nativeDecisionTargets } from './decisionNativeChanges.service';
+import { runWithActor } from '../context/actor';
 export {previewDecisionSources} from './decisionSources.service';
 
 type Row = {id:string; project_id:string; decision_key:string; revision:number; content_hash:string; payload_json:string; state:DecisionState; restored:number};
@@ -56,6 +58,7 @@ function validateTargets(project:string,seed:DecisionSeed) {
         insertResolvedRequirement(project,p.use_case_id,existing.length+i,{...r,status:'open'});
       });
     }
+    applyNativeDecisionChanges(project,seed.native_changes??[]);
     throw rollback;
   })(); } catch(e) { if(e!==rollback) throw e; }
 }
@@ -64,13 +67,14 @@ function prepare(project:string,raw:unknown,amending=false):DecisionPayload {
   const seed=parseSeed(raw),old=latest(project,seed.key);
   if(old && !amending) {
     const previous=JSON.parse(old.payload_json) as DecisionPayload;
-    const {project_id:_,revision:__,baselines:___,...oldSeed}=previous;
+    const {project_id:_,revision:__,baselines:___,native_baselines:____,...oldSeed}=previous;
     if(hash(oldSeed)===hash(seed)) return previous;
     throw new ConflictError('This key already exists. Amend its current revision instead of overwriting it.');
   }
   validateTargets(project,seed);
   const baselines=Object.fromEntries(seed.patches.map(p=>[p.use_case_id,baseline(project,p.use_case_id)]));
-  return {...seed,project_id:project,revision:old ? old.revision+1 : 1,baselines};
+  return {...seed,project_id:project,revision:old ? old.revision+1 : 1,baselines,
+    ...(seed.native_changes?{native_baselines:nativeDecisionBaselines(project,seed.native_changes)}:{})};
 }
 export function previewDecision(project:string,raw:unknown) {
   const payload=prepare(project,raw);
@@ -94,12 +98,17 @@ function isStale(r:Row,p:DecisionPayload):boolean {
   if(r.restored) return true;
   if(decisionSourceStatus(r.project_id,r.id).requires_review) return true;
   if(r.state==='documented') {
-    const approval=getDb().prepare("SELECT detail_json FROM decision_events WHERE project_id=? AND decision_id=? AND action='approve_documentation' ORDER BY rowid DESC LIMIT 1").get(r.project_id,r.id) as {detail_json:string}|undefined;
+    const approval=getDb().prepare("SELECT detail_json FROM decision_events WHERE project_id=? AND decision_id=? AND action IN ('approve_documentation','approve_and_apply') ORDER BY rowid DESC LIMIT 1").get(r.project_id,r.id) as {detail_json:string}|undefined;
     const applied=approval ? JSON.parse(approval.detail_json).resulting_baselines as Record<string,string> : null;
     if(!applied) return true;
-    try {return p.patches.some(x=>baseline(r.project_id,x.use_case_id,r.id)!==applied[x.use_case_id]);}catch{return true;}
+    try {
+      const detail=JSON.parse(approval!.detail_json);
+      return p.patches.some(x=>baseline(r.project_id,x.use_case_id,r.id)!==applied[x.use_case_id]) ||
+        !!p.native_changes&&hash(nativeDecisionBaselines(r.project_id,p.native_changes))!==hash(detail.resulting_native_baselines??null);
+    }catch{return true;}
   }
-  try { return p.patches.some(x=>baseline(r.project_id,x.use_case_id,r.id)!==p.baselines[x.use_case_id]); } catch { return true; }
+  try { return p.patches.some(x=>baseline(r.project_id,x.use_case_id,r.id)!==p.baselines[x.use_case_id]) ||
+    !!p.native_changes&&hash(nativeDecisionBaselines(r.project_id,p.native_changes))!==hash(p.native_baselines??null); } catch { return true; }
 }
 function card(r:Row):DecisionCard {
   const payload=JSON.parse(r.payload_json) as DecisionPayload;
@@ -108,6 +117,7 @@ function card(r:Row):DecisionCard {
     stale:isStale(r,payload),source_review:decisionSourceStatus(r.project_id,r.id),payload,
     history:history.map(({detail_json,...h})=>({...h,detail:JSON.parse(detail_json)})),
     documents:r.restored?[]:payload.patches.flatMap(p=>{try {const uc=getUseCaseOrThrow(r.project_id,p.use_case_id);return [{use_case_id:uc.id,code:uc.code,name:uc.name,current_notes:uc.notes,current_requirements:listRequirements(r.project_id,uc.id)}];} catch{return [];}}),
+    native_targets:r.restored?[]:(()=>{try{return nativeDecisionTargets(r.project_id,payload.native_changes??[]);}catch{return [];}})(),
   };
 }
 export function reviewDecisionSources(project:string,id:string,raw:unknown,expected:string,actor:string) {
@@ -119,13 +129,20 @@ export function listDecisions(project:string):DecisionCard[] {
 }
 export function actOnDecision(project:string,id:string,expected:string,action:string,actor:string,note:string,confirmed:boolean,amendment?:unknown):DecisionCard {
   if(!confirmed || !actor.trim()) throw new BadRequestError('Explicit human confirmation is required.');
-  if(!['approve_documentation','request_execution_plan','amend','defer','reject'].includes(action)) throw new BadRequestError('Unknown decision action.');
+  if(!['approve_documentation','approve_and_apply','request_execution_plan','amend','defer','reject'].includes(action)) throw new BadRequestError('Unknown decision action.');
   if(!note.trim() && ['amend','defer','reject'].includes(action)) throw new BadRequestError('Add a reason for this decision.');
   return getDb().transaction(()=>{
     const r=row(project,id),p=JSON.parse(r.payload_json) as DecisionPayload;
     if(r.restored) throw new ConflictError('Restored history is read-only. Create a fresh proposal for this project.');
     if(hash(p)!==r.content_hash || expected!==r.content_hash) throw new ConflictError('Revision mismatch. Refresh and review the current proposal.');
     if(latest(project,r.decision_key)?.id!==r.id) throw new ConflictError('This revision has been superseded.');
+    const hasNative=!!p.native_changes?.length;
+    if(action==='approve_documentation'&&hasNative)throw new BadRequestError('This proposal includes native changes. Review and use Approve and apply.');
+    if(action==='approve_and_apply'&&!hasNative)throw new BadRequestError('This revision contains documentation only. Native changes require a new reviewed proposal.');
+    if(action==='approve_and_apply'&&r.state==='documented') {
+      if(!card(r).history.some(e=>e.action===action))throw new ConflictError('A documentation approval cannot authorize native changes retroactively.');
+      return card(r);
+    }
     if(action==='request_execution_plan') {
       if(r.state!=='documented') throw new ConflictError('Approve the documentation before requesting an execution plan.');
       if(isStale(r,p)) throw new ConflictError('Approved documentation or cited evidence changed. Review a follow-up proposal before planning execution.');
@@ -146,8 +163,10 @@ export function actOnDecision(project:string,id:string,expected:string,action:st
       event(r,'superseded',actor,{note,next_id:nextId,content_hash:expected});
       const n=row(project,nextId); event(n,'amended',actor,{note,previous_id:id,approval:false}); inheritDecisionSourceBindings(project,id,nextId,actor); return card(n);
     }
-    if(action==='approve_documentation') {
+    if(action==='approve_documentation'||action==='approve_and_apply') {
       if(isStale(r,p)) throw new ConflictError('Affected documentation or cited evidence changed. Amend and review a new revision.');
+      const nativeResults=action==='approve_and_apply'
+        ? runWithActor({actor,source:'decision:'+r.id,batch_id:r.id},()=>applyNativeDecisionChanges(project,p.native_changes!)) : [];
       for(const patch of p.patches) {
         const uc=getUseCaseOrThrow(project,patch.use_case_id),existing=listRequirements(project,patch.use_case_id);
         updateUseCase(project,uc.id,{notes:[uc.notes,`Decision ${p.key} / revision ${p.revision} — documentation approved`,patch.append_notes].filter(Boolean).join('\n\n')});
@@ -155,8 +174,9 @@ export function actOnDecision(project:string,id:string,expected:string,action:st
       }
       getDb().prepare("UPDATE decision_revisions SET state='documented' WHERE id=?").run(id);
       event(r,action,actor,{note,content_hash:expected,baselines:p.baselines,
-        resulting_baselines:Object.fromEntries(p.patches.map(x=>[x.use_case_id,baseline(project,x.use_case_id,id)])),
-        execution_authorized:false,verification:'not performed'});
+        resulting_baselines:Object.fromEntries(p.patches.map(x=>[x.use_case_id,baseline(project,x.use_case_id,r.id)])),
+        execution_authorized:action==='approve_and_apply',verification:'not performed',
+        ...(hasNative?{native_results:nativeResults,resulting_native_baselines:nativeDecisionBaselines(project,p.native_changes!),execution_status:'applied'}:{})});
     } else {
       getDb().prepare('UPDATE decision_revisions SET state=? WHERE id=?').run(action==='defer'?'deferred':'rejected',id);
       event(r,action,actor,{note,content_hash:expected});

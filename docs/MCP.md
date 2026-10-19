@@ -1,5 +1,7 @@
 # MCP server (`src/mcp/`)
 
+Production release: [compact reads and shared agent conventions, 2026-10-19](RELEASE-MCP-COMPACT-2026-10-19.md).
+
 An agent-facing sibling process (D-11, D-19, D-33): the same SQLite file and services as the Express
 API, exposed over the [Model Context Protocol](https://modelcontextprotocol.io) instead of HTTP, so a
 coding agent (Claude Code, or any other MCP client) can read a project's tracking plan and record a

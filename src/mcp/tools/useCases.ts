@@ -1,5 +1,5 @@
 import { durableStep } from '../idempotency';
-import {pointers,publicPointer} from '../../backend/dal/use-case-asset-pointer.dal';
+import {publicUseCaseAssets} from '../useCaseAssets';
 import {projectImplementation} from '../../backend/services/assetLinks.service';
 /**
  * `list_use_cases`, `get_use_case` (T-2-10, plan MCP table). `get_use_case` resolves every
@@ -115,8 +115,7 @@ export function publicUseCase(projectId:string,useCase:UseCaseDAL.UseCaseRow):Re
     status: r.status,
     note: r.note,
   }));
-  const reviewed=projectImplementation(projectId).use_cases.find(r=>r.use_case_id===useCase.id)?.assets??[];
-  return {id:useCase.id,...sanitizeUseCase(useCase),priority:useCase.priority,owner:useCase.owner,owner_business:useCase.owner_business,owner_technical:useCase.owner_technical,status_note:useCase.status_note,status_changed_by:useCase.status_changed_by,status_changed_at:useCase.status_changed_at,created_at:useCase.created_at,requirements,references:referencesFor(projectId,'use_case',useCase.id),assets:[...reviewed.map(a=>({...a,validation:'reviewed_mapping_configuration_only'})),...pointers(projectId,useCase.id).map(publicPointer)]};
+  return {id:useCase.id,...sanitizeUseCase(useCase),priority:useCase.priority,owner:useCase.owner,owner_business:useCase.owner_business,owner_technical:useCase.owner_technical,status_note:useCase.status_note,status_changed_by:useCase.status_changed_by,status_changed_at:useCase.status_changed_at,created_at:useCase.created_at,requirements,references:referencesFor(projectId,'use_case',useCase.id),...publicUseCaseAssets(projectId,useCase.id)};
 }
 
 export interface ListUseCaseTemplatesRow {

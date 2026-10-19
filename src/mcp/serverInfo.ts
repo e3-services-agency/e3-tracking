@@ -25,6 +25,6 @@ export async function getServerInfo() {
     grant_expires_at: verified ? new Date(verified.grant.expires_at * 1000).toISOString() : null,
     limits: { list_findings: { default: 10, max: 1000 }, get_history: { default: 10, max: 1000 }, list_events: { default: 100, max: 1000 }, list_use_cases: { default: 100, max: 1000 }, get_historical_validation: { default: 100, max: 100 } },
     hash_semantics: 'public_representation_including_state',
-    conventions_url: 'https://github.com/e3-services-agency/e3-tracking/blob/tracking-mcp-0.5.1/docs/AGENT-CONVENTIONS.md',
+    conventions_url: 'https://github.com/e3-services-agency/e3-tracking/blob/tracking-mcp-0.5.2/docs/AGENT-CONVENTIONS.md',
   };
 }

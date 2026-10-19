@@ -126,7 +126,7 @@ const findingsFilterShape = {
 
 export function registerTools(server: McpServer): void {
   register(server, 'get_server_info', 'Read current server/contract version, registered and visible tool counts, granted projects/scopes, paging limits and expiry timestamps. Every authenticated grant; no secrets.', {}, getServerInfo);
-  register(server, 'add_reference', 'Attach a scoped pinned Cortex pointer to a finding/use case. Dry run by default; deduplicated, unverified pointers only. Never changes status, priority, certification or external authority.', { ...projectKeyShape, ...referenceShape }, addReference);
+  register(server, 'add_reference', 'Attach a scoped pinned Cortex pointer to a finding/use case. Dry run by default. Optional verify:true checks exact revision/content_hash through a separately authorized Cortex reader; unavailable verification fails without writing. Default verify:false returns an unverified pointer warning. Never changes status, priority, certification or external authority.', { ...projectKeyShape, ...referenceShape }, addReference);
   register(server, 'list_projects', 'Projects grouped by client.', {}, listProjects);
   register(server, 'preview_historical_validation', 'Read-only preview of staged historical CSV sources against a frozen native definition/rule revision. Takes opaque project-scoped source IDs, never raw CSV or fetched URLs. Returns exact confirmation hash and limitations; creates no observations.',
     { ...projectKeyShape, manifest: historicalManifestSchema }, previewHistoricalFileValidation);

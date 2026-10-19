@@ -9,6 +9,8 @@ import {callTool} from './tools/writeTestUtil';
 import {getUseCase} from './tools/useCases';
 import {buildBackup} from '../backend/services/backup.service';
 import {previewRestore,applyRestore} from '../backend/services/backupRestore.service';
+import {createQaRun,updateQaRun} from '../backend/dal/qa-run.dal';
+import {previewAssetLinks,applyAssetLinks} from '../backend/services/assetLinks.service';
 const verify=vi.hoisted(()=>vi.fn());vi.mock('./cortexVerification',()=>({verifyCortexReference:verify}));
 let project:string,clientId:string,uc:string,context:HttpMcpContext,foreign:string;
 const key='wp-uc';
@@ -54,4 +56,37 @@ it('warns for unverified references, never stores failed verifications, and stor
  verify.mockRejectedValue(Object.assign(new Error('wrong hash'),{code:'REFERENCE_HASH_MISMATCH'}));expect((await call('add_reference',{...args,verify:true,dry_run:false})).text).toMatch(/^REFERENCE_HASH_MISMATCH:/);expect(getDb().prepare('SELECT COUNT(*) n FROM external_references').get()).toEqual({n:0});
  verify.mockResolvedValue('2026-10-19T00:00:00Z');expect((await call('add_reference',{...args,verify:true})).data.reference.verified_at).toBe('2026-10-19T00:00:00Z');expect(getDb().prepare('SELECT COUNT(*) n FROM external_references').get()).toEqual({n:0});
  const applied=await call('add_reference',{...args,verify:true,dry_run:false});expect(applied.data.warnings).toEqual([]);expect(((await getUseCase({project_key:key,use_case:uc})) as any).references).toEqual([expect.objectContaining({verified_at:'2026-10-19T00:00:00Z'})]);
+});
+it('returns the existing pointer unchanged even with different optional metadata, without history or hash changes',async()=>{
+ const args={use_case:uc,system:'bloomreach',asset_type:'scenario',asset_id:'fictional',environment:'staging',dry_run:false};
+ const added=await call('link_use_case_asset',args),before=await getUseCase({project_key:key,use_case:uc}),count=logs().length;
+ const id=added.data.after.assets[0].id;
+ for(const dry_run of [true,false]){
+  const result=await call('link_use_case_asset',{...args,label:'Attempted replacement',role:'qa',dry_run});
+  expect(result.error).toBe(false);expect(result.data.action).toBe('unchanged');expect(result.data.differences).toEqual([]);
+  expect(result.data.after.assets).toEqual([expect.objectContaining({id,link_id:id,label:null,role:'primary',environment:'staging'})]);
+  expect(result.data.warnings).toContainEqual(expect.stringContaining('ASSET_POINTER_METADATA_IGNORED: Existing link '+id));
+ }
+ expect(logs()).toHaveLength(count);expect((await getUseCase({project_key:key,use_case:uc})).hash).toBe(before.hash);
+});
+it('normalizes reviewed assets and warns on cross-environment pointers on reads and previews without changing either',async()=>{
+ const source='11111111-1111-4111-8111-111111111111',sha='a'.repeat(64),assetId='fictional-same-id';
+ const run=createQaRun(project,{kind:'manual',source:'extension',actor:'Synthetic fixture',manifest_json:{format:'e3-captured-evidence-v1',kind:'project_snapshot',source_sha256:sha,source_project_id:source,filename:'synthetic.zip',facts:{observed_at:'2026-10-16T00:00:00Z',coverage:[{asset_type:'scenarios',listed:1,collected:1}]},assets:[{id:assetId,type:'scenarios',name:'Fictional',status:{status:'draft'},source_url:'https://synthetic.bloomreach.co/p/fictional-production/campaigns/'+assetId}],rows:[],checks:[]}});
+ updateQaRun(project,run.id,{archived:true});
+ const pkg={format:'e3-reviewed-asset-links-v1',source_project_id:source,review:{record_id:'synthetic-review',revision:1,content_hash:sha},links:[{use_case_id:uc,use_case_code:'UC-ID-02',use_case_name:'Fictional EFT',asset_type:'scenarios',asset_id:assetId,relation:'implements',evidence_source_sha256:sha,mapping_basis:'Synthetic exact review',coverage:'unverified'}]};
+ applyAssetLinks(project,pkg,previewAssetLinks(project,pkg).payload_hash,'Synthetic reviewer',true);
+ const reviewed=getDb().prepare('SELECT * FROM use_case_asset_links').all();
+ const args={use_case:uc,system:'bloomreach',asset_type:'scenario',asset_id:assetId,environment:'staging'};
+ const preview=await call('link_use_case_asset',args);expect(preview.data.warnings).toContainEqual(expect.stringContaining('ASSET_ENVIRONMENT_CONFLICT'));
+ expect((await getUseCase({project_key:key,use_case:uc}) as any).assets).toHaveLength(1);
+ await call('link_use_case_asset',{...args,dry_run:false});
+ const pointers=getDb().prepare('SELECT * FROM use_case_asset_pointers').all(),count=logs().length;
+ const read=await getUseCase({project_key:key,use_case:uc}) as any;
+ expect(read.assets.map((a:any)=>a.asset_type)).toEqual(['scenario','scenario']);
+ expect(read.assets[0]).toMatchObject({environment:'production',environment_source:'source_url_project_name',source_asset_type:'scenarios',validation:'reviewed_mapping_configuration_only'});
+ expect(read.assets[1]).toMatchObject({environment:'staging',environment_source:'declared',validation:'pointer_only_not_verified'});
+ expect(read.warnings).toEqual([expect.objectContaining({code:'ASSET_ENVIRONMENT_CONFLICT',asset_id:assetId,links:[expect.objectContaining({environment:'production'}),expect.objectContaining({environment:'staging'})]})]);
+ const duplicate=await call('link_use_case_asset',{...args,label:'Different label'});expect(duplicate.data.action).toBe('unchanged');expect(duplicate.data.warnings).toContainEqual(expect.stringContaining('ASSET_ENVIRONMENT_CONFLICT'));
+ expect((await getUseCase({project_key:key,use_case:uc,if_hash:read.hash})).unchanged).toBe(true);
+ expect(getDb().prepare('SELECT * FROM use_case_asset_links').all()).toEqual(reviewed);expect(getDb().prepare('SELECT * FROM use_case_asset_pointers').all()).toEqual(pointers);expect(logs()).toHaveLength(count);
 });

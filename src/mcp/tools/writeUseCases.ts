@@ -5,6 +5,8 @@ import {getActor} from '../../backend/context/actor';
 import {resolveUseCase} from '../resolve';
 import {publicHash} from '../readOptions';
 import {publicUseCase} from './useCases';
+import {publicUseCaseAssets} from '../useCaseAssets';
+import {assetEnvironmentWarnings,type PublicAssetIdentity} from '../../domain/publicUseCaseAssets';
 import {McpToolError} from '../errors';
 import {USE_CASE_STATUSES,PRIORITIES} from '../../domain/enums';
 import {pick,type WriteTool} from './writeCore';
@@ -24,5 +26,24 @@ export const updateUseCaseTool:WriteTool={name:'update_use_case',description:'Up
  return {entityType:'use_case',label:uc.code??uc.name,before,run(){if(Object.entries(patch).some(([k,v])=>(uc as any)[k]!==v))UC.updateUseCase(projectId,uc.id,patch);return {row:view(projectId,uc.id,!!args.include),entityId:uc.id};}};
 }};
 const asset={...common,system:z.literal('bloomreach'),asset_type:z.enum(['scenario','email_template','email_campaign','segmentation','catalog','other']),asset_id:z.string().trim().min(1).max(200),environment:z.enum(['staging','production']),label:text,role:z.enum(['primary','variant','qa']).optional()};
-function pointerTool(remove:boolean):WriteTool{return {name:remove?'unlink_use_case_asset':'link_use_case_asset',description:(remove?'Remove an agent-maintained asset pointer. Existing evidence-backed reviewed mappings cannot be removed by this tool.':'Attach a deduplicated Bloomreach asset pointer; existence, deployment and operation are not verified.')+' Dry run by default; if_hash guards the use case.',shape:asset,prepare(projectId,args){const uc=resolve(projectId,args);return {entityType:'use_case',label:uc.code??uc.name,before:{id:uc.id,assets:Assets.pointers(projectId,uc.id).map(Assets.publicPointer)},run(){const rows=Assets.changePointer(projectId,uc.id,pick(args,['system','asset_type','asset_id','environment','label','role']) as Assets.PointerInput,remove);return {row:{id:uc.id,assets:rows.map(Assets.publicPointer)},entityId:uc.id};},warnings:()=>['pointer_only_not_verified: Asset pointers do not establish configuration, QA, sends, delivery or certification.']};}};}
+function pointerTool(remove:boolean):WriteTool{return {
+ name:remove?'unlink_use_case_asset':'link_use_case_asset',
+ description:(remove?'Remove an agent-maintained asset pointer. Existing evidence-backed reviewed mappings cannot be removed by this tool.':'Attach a deduplicated Bloomreach asset pointer; duplicates return unchanged with the existing link and preserve its metadata. Existence, deployment and operation are not verified.')+' Dry run by default; if_hash guards the use case. Environment conflicts are warnings, never automatic corrections.',
+ shape:asset,
+ prepare(projectId,args){
+  const uc=resolve(projectId,args);
+  const input=pick(args,['system','asset_type','asset_id','environment','label','role']) as Assets.PointerInput;
+  const existing=Assets.pointers(projectId,uc.id).find(r=>r.system===input.system&&r.asset_type===input.asset_type&&r.asset_id===input.asset_id&&r.environment===input.environment);
+  const metadataIgnored=!remove&&existing&&((input.label!==undefined&&input.label!==existing.label)||(input.role!==undefined&&input.role!==existing.role));
+  return {
+   entityType:'use_case',label:uc.code??uc.name,before:{id:uc.id,assets:publicUseCaseAssets(projectId,uc.id).assets},
+   run(){Assets.changePointer(projectId,uc.id,input,remove);return {row:{id:uc.id,assets:publicUseCaseAssets(projectId,uc.id).assets},entityId:uc.id};},
+   warnings:row=>[
+    'pointer_only_not_verified: Asset pointers do not establish configuration, QA, sends, delivery or certification.',
+    ...(metadataIgnored?[`ASSET_POINTER_METADATA_IGNORED: Existing link ${existing.id} retained its label and role. Review an explicit unlink/relink to change them.`]:[]),
+    ...assetEnvironmentWarnings((row?.assets??[]) as PublicAssetIdentity[]).map(w=>`${w.code}: ${w.asset_type} ${w.asset_id}; ${w.links.map(l=>`${l.link_id}=${l.environment} (${l.environment_source})`).join('; ')}. Resolve the evidence before relying on this mapping; no environment was changed.`),
+   ],
+  };
+ },
+};}
 export const linkUseCaseAssetTool=pointerTool(false),unlinkUseCaseAssetTool=pointerTool(true);

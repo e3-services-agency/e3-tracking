@@ -34,6 +34,23 @@ needs Ján's selection. Tool source of truth: [registration](../src/mcp/register
 
 ## Action inventory
 
+Operator selection summary (the complete route-by-route evidence follows):
+
+| Area | MCP-covered | Missing | UI-only boundary to retain |
+| --- | --- | --- | --- |
+| Events / properties | Create/edit definitions; event-property links | Variants, rules, property-definition maintenance | — |
+| Identifiers / identity | Event identifier selection; identity-rule creation | Registry maintenance; rule edit/order/carried-by/delete | — |
+| Catalogs | Add fields | Catalog lifecycle; field edit/order/delete | — |
+| Use cases | Instantiate template; status/priority/owners/note; asset pointers | Create/narrative/requirements editing | Reviewed evidence mappings require human confirmation |
+| Findings / QA | Read/summarize findings; observations; finish/delete QA runs; comparisons | Resolve/reopen findings; QA metadata/import manifests | No new finding statuses inferred |
+| Decisions | Read through existing project documents | Proposal creation and reconciliation tools | Decision approval and native apply remain human actions |
+| Other plan data | Existing reads | Sources, consents, bundles, mappings and import maintenance | — |
+| Collaboration / administration | Project history | Comments, reactions, attachments | Sharing/access, restores, promotion, global template governance and destructive administration |
+
+“UI-only boundary to retain” is a recommendation for scope selection, not a claim that every
+administrative API is inaccessible through every transport. Existing specialized tools keep their
+documented authority. This patch adds no parity write tools.
+
 The table inventories literal mutation routes backing current editing surfaces. Dynamic captured
 evidence preview/apply modes are expanded. Endpoint paths are relative to the file's mounted resource.
 Some routes share one UI submit operation; every route remains listed for completeness. Binary uploads, comment attachments and shared comment actions are included. OAuth protocol internals

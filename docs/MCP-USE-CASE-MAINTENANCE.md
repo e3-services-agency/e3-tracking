@@ -41,8 +41,10 @@ including status/note before/after. Compact history includes actor, agent, batch
 Asset tools accept `system:"bloomreach"`, `asset_type` (`scenario`, `email_template`, `email_campaign`,
 `segmentation`, `catalog`, `other`), `asset_id`, `environment` (`staging`, `production`), optional
 `label`, and role (`primary`, `variant`, `qa`; default `primary`). They deduplicate on use case,
-system, type, asset ID and environment. Reusing the same key with conflicting label/role requires an
-explicit unlink/relink. Unlink affects only maintained pointers, never reviewed evidence mappings.
+system, type, asset ID and environment. Reusing the same key returns `action:"unchanged"` and the
+existing link, even with different optional label/role: metadata is preserved and
+`ASSET_POINTER_METADATA_IGNORED` names the link ID. Review an explicit unlink/relink to change it.
+Unlink affects only maintained pointers, never reviewed evidence mappings.
 
 Existing captured-source mappings and their human review receipts remain intact. New pointers use
 `use_case_asset_pointers`, following the external-reference pointer pattern, so an unverified string
@@ -52,9 +54,19 @@ implementation UI displays pointers explicitly as unverified. They never contrib
 configuration state, coverage, findings, certification, sends or completion. Pointer rows survive
 portable backup/restore, with local target IDs remapped and external asset IDs unchanged.
 
+Release **0.5.2** normalizes the public assets to singular types and explicit environments.
+Reviewed mappings preserve their raw `source_asset_type` and source URL. Production/staging suffixes
+in Bloomreach project URLs are labelled inferences (`environment_source:"source_url_project_name"`);
+unknown environments are `null`. Pointers use `environment_source:"declared"`. Reads expose
+structured `ASSET_ENVIRONMENT_CONFLICT` warnings with both link IDs/environments; link previews and
+receipts expose the same warning as text. Warnings never edit either record. See the
+[agent conventions](AGENT-CONVENTIONS.md) for lifecycle meanings and the public compatibility change.
+Read a fresh hash after the projection upgrade.
+
 ## Optional Cortex verification
 
-`add_reference(verify:true)` performs an exact Cortex `read_cortex_record` before the atomic write,
+`add_reference` supports optional `verify` (default false). Without it, a syntactically valid hash
+is accepted only as an unverified pointer. `add_reference(verify:true)` performs an exact Cortex `read_cortex_record` before the atomic write,
 checking scope, ID, revision and **content_hash** (not the public representation hash). Successful
 apply stores `verified_at`. Dry run resolves but writes nothing. Verification confirms the pointer
 at that moment; it does not validate business approval or ongoing source freshness. Unresolved
@@ -84,7 +96,7 @@ values and reviewed mappings are preserved. `get_finding(if_hash)` keeps `{uncha
 the state field is required by the approved shared contract. Null-event finding buckets now have
 `event_name:"(not in plan)"`.
 
-The conventions URL is pinned to the release tag `tracking-mcp-0.5.1`. Refresh MCP tool discovery to
+The conventions URL is pinned to the release tag `tracking-mcp-0.5.2`. Refresh MCP tool discovery to
 load the new schemas. The [WP6 parity audit](MCP-UI-PARITY-WP-UC-2026-10-19.md) lists current UI write
 surfaces and gaps. Ján selects any WP6 implementation separately. The reviewed bulk status table and
 first load of external asset links remain operator actions after their own diff and confirmation.

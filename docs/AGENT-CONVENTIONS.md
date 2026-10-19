@@ -53,6 +53,46 @@ client/project, record type/ID, revision and content hash. Pointers are deduplic
 unverified; following one requires separate Cortex authorization. References appear in detail reads
 and survive portable restore with local target IDs remapped. They do not change business state.
 
+Tracking accepts optional `verify:true` to resolve the exact Cortex scope, ID, revision and
+`content_hash` through a separately authorized reader before preview/apply. Default `verify:false`
+accepts a syntactically valid hash as an **unverified** pointer with `REFERENCE_NOT_VERIFIED`.
+A missing eligible reader fails with `REFERENCE_VERIFICATION_UNAVAILABLE`; a resolved wrong hash
+fails with `REFERENCE_HASH_MISMATCH`. Neither failure stores a reference. Refresh client tool
+discovery if `verify` is absent from a cached schema. Resolution never proves business approval.
+
+**Tracking use-case lifecycle (WP-UC).** The supported vocabulary is final for this work package;
+it matches the UI and does not add business states. Unset (`null`) means no lifecycle declaration.
+
+| Status | Meaning |
+| --- | --- |
+| `proposed` | Candidate use case, not yet agreed for implementation. |
+| `approved` | Recorded agreement to implement. Client sign-off is established only when explicitly evidenced in the status note/source; the enum alone does not prove it. |
+| `in_progress` | Implementation or testing is underway; describe the current stage in `status_note`. |
+| `live` | Owner-declared live use case; the declaration does not verify deployment, sends, delivery or QA. |
+| `dropped` | The use case is no longer being pursued; retain its reason and history. |
+
+`in_qa` and `on_hold` are unsupported. Record QA stage, blockers or a hold in `status_note` while
+retaining the appropriate existing lifecycle; do not invent a substitute transition. `approved`
+does not approve Decision inbox proposals or certify events. `approved`/`live` transitions require
+an explicit note and agent label. These definitions clarify the enum, without reinterpreting rows.
+Acceptance writes belong in dedicated fictional use cases; do not put test notes in client records.
+
+**Tracking asset pointers (0.5.2).** `get_use_case.assets` and link receipts use singular asset types
+(`scenario`, `email_template`, `email_campaign`, `segmentation`, `catalog`, `other`), `link_id`, and
+an explicit `environment`. Reviewed mappings retain their original `source_asset_type` and evidence;
+`environment_source:"source_url_project_name"` identifies a production/staging suffix inferred from
+the Bloomreach URL's project name. Unknown environments are `null`, never assumed production.
+Pointers retain their declared environment with `environment_source:"declared"`. Neither inference
+nor a pointer verifies current external state. This projection changes public hashes; read afresh
+before submitting an `if_hash` write after upgrading.
+
+Same system/type/ID with different known environments yields `ASSET_ENVIRONMENT_CONFLICT` with
+link IDs and evidence provenance on reads and link previews/receipts. It never edits or resolves
+either link. Pause relying on that mapping until the operator reconciles its environment evidence.
+An existing pointer's identical identity tuple returns `action:"unchanged"` and the existing link;
+different requested label/role is ignored with `ASSET_POINTER_METADATA_IGNORED`. Review an explicit
+unlink/relink to change metadata. Reviewed mappings cannot be removed by pointer tools.
+
 **Errors.** Application tool errors use `CODE: message`; transport/schema failures retain standard
 MCP handling. Shared retry/access codes and existing server aliases are listed in
 [Agent error codes](AGENT-ERRORS.md). Safe messages exclude credentials, private paths and upstream

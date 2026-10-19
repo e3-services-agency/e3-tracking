@@ -15,8 +15,10 @@ compatible with this observation. Removing a client-side filter would still leav
 grant/scope checks in force, but this diagnostic did not change the filter, grant or permissions.
 
 The local Cortex source registers `get_cortex_capabilities` and inventories advertised tools at
-runtime. Its source documentation records a separate 16-tool OAuth verification; this chat did not
-independently invoke that tool because its current allowlist excludes it.
+runtime. Its source documentation records a separate 16-tool OAuth verification. During deployment,
+a host-side HTTPS check using an existing company reader binding advertised 12 tools and confirmed
+`get_cortex_capabilities` and the new response contract. That reader inventory is grant-specific.
+The three-tool Codex client filter remains unchanged.
 
 [Official configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
 defines `mcp_servers.<id>.enabled_tools` as an allowlist and `disabled_tools` as a subsequent denylist.

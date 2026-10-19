@@ -5133,3 +5133,6 @@ Hosted delivery complete: clean source dd6f823, exact running ef47f612 digest, h
 
 ### 2026-10-19 11:02 | findings_qa -> codex-supervisor | INFO | T-5-55
 Cleanup verified: stopped only owned PID36960 after command-line/metadata ownership check; port3032 closed. Private evidence and four restore backups retained. User containers and older unrelated QA resources untouched. Final release gates complete.
+
+### 2026-10-19 15:32 | codex -> ALL | PASS | T-5-56
+Native Decision inbox execution released to the existing VM from clean9b6ca2fe at immutable imagebe908540. Independent final review/QA PASS:105focused assertions, four fresh offsite restores,3exactimage container assertions/zero skips; earlier Vitest timing/RPC limits retained in report. Full0050 recovery snapshot132505Z and extracted configuration verified. All53pre/post table counts+hashes, access policies, protected ODO identity, stable config and both edge container IDs identical. Actual hosted native header/counts visible, no browser warnings/errors. App/backup/one-offMCP imageIDs match. No real business approval executed. See reports/RELEASE-DECISION-NATIVE-APPLY-2026-10-19.md.

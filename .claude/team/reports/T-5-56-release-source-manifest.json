@@ -1,0 +1,42 @@
+[
+  {
+    "path": "src/domain/decisionInbox.ts",
+    "sha256": "ce27fc6f99a008d7a6ff9bcae36c3ceee4aa7ed72ea8b8912bbca26f41f55332"
+  },
+  {
+    "path": "src/backend/services/decisionInbox.service.ts",
+    "sha256": "f74bacdbd499db9f9893deda9d6e236127307ff154d59138ed267fb0e115a959"
+  },
+  {
+    "path": "src/backend/services/decisionSources.service.ts",
+    "sha256": "0d07a724e2992a77ea309ad56a96651a206a7d8cf79b9f2fd85c0fac5b736d14"
+  },
+  {
+    "path": "src/backend/services/decisionNativeChanges.service.ts",
+    "sha256": "d3ed8cf949fa7ec060fe813d267fdf5544e85ee8356354e0539cd6a0ca2a66f2"
+  },
+  {
+    "path": "src/backend/services/decisionNativeChanges.test.ts",
+    "sha256": "86ce93f12b055fbaabda6d7bf03d3e3585d113648c2217ff767e3c05417ef921"
+  },
+  {
+    "path": "src/backend/routes/__tests__/decision-inbox.route.test.ts",
+    "sha256": "c4b3671d2672e0a9cf9fd6b7bf478846ebb9d979b8044f4a3764cf8cfd016890"
+  },
+  {
+    "path": "src/pages/DecisionInbox.tsx",
+    "sha256": "53c367c8e606c1055be0c1290de8bab46f56bd6bb97fb4c0cfe524ae47fae2a2"
+  },
+  {
+    "path": "src/pages/DecisionInbox.test.tsx",
+    "sha256": "68d3ee5f2517ff5513ce0818168279fbc5e53b1dab11c7b95d9d54430d636801"
+  },
+  {
+    "path": "docs/guide/decision-inbox.md",
+    "sha256": "8b0300fcd9d17328b658bd80c840aa5d70ada688c0d7479bcc3d266702fb34ce"
+  },
+  {
+    "path": "src/domain/fieldHints.ts",
+    "sha256": "e2e508037db0da6c4e0a76a991a5afe632879761c2d6af54c893122bbca88de4"
+  }
+]

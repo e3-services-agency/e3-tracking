@@ -1,0 +1,10 @@
+# T-5-55 Internal Findings pagination and overview
+
+Accepted scope: the human request in Review One Day Only statuses asks for actual Findings pagination, matching Events/Properties structure, and the missing brief overview familiar from the public portal. Existing accepted scoped commit/integration/release authorization continues. Supervisor owns records/release; separate implementer, reviewer and QA own their independent gates.
+
+- Reuse ViewToolbar, ViewFrame, shared density and compact row actions. Add search and programmatic filter labels while preserving server filters and backend priority order.
+- Actual bounded numbered pagination, default 50 rows with 25/50/100 choices, first/previous/next/last controls, current page and range/full filtered total. Reset on scope/filter/search/sort/page size changes and clamp after data shrinks.
+- Always-visible project overview uses canonical computeFindingsSummary semantics. Open severity totals and acknowledged/resolved meaning remain explicit. Optional collapsed detail follows public terminology. Overview covers full project scope, independently of filters/page; filtered total is labelled separately. No historical CSV counts mixed into runtime findings.
+- Preserve QA report navigation and full filtered currentFindingIds, comments/deep links (including targets outside page1), event navigation, Resolve/Reopen and stale-load/project isolation/error/loading/empty states.
+- Targeted meaningful tests plus required full suite/build/types/lint; independent source review and QA. Desktop/narrow real browser proof before release. Synthetic/private isolated fixtures only; no production business mutations.
+- Release clean scoped commit on task branch, fast-forward agent-setup only, dry run scripts first. Fresh off-site backup and extracted schema0050 full data/config snapshot, exact image digest and preservation audit before/after. Preserve dirty primary checkout, user3020/3021/Cortex8766, all projects/access policies and frozen historical report/source data. No schema/new infra/grant changes.

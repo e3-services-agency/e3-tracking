@@ -32,6 +32,13 @@ export const FIELD_HINTS: Record<string, string> = {
   'Proposed action': 'The next verification or correction step. It is not applied automatically.',
 
   // Immutable comparison reports
+  'Findings.Rows per page': 'Maximum findings shown on one page. Search and filters still cover the full list.',
+  'Findings.Kind of problem': 'Groups open findings into the same problem families used by the shared portal.',
+  'Findings.Open': 'Current unresolved findings. Acknowledged and automatically resolved findings are counted separately.',
+  'Findings.Next step': 'Suggested action for this family of open findings; resolving a discussion does not fix the data.',
+  'Findings.Error': 'Open error findings in this comparison, across the whole project.',
+  'Findings.Warning': 'Open warning findings in this comparison, across the whole project.',
+  'Findings.Info': 'Open informational findings in this comparison, across the whole project.',
   'QaReports.Report': 'Permanent project report number. Open immutable comparison evidence or explicitly labeled historical-file checks.',
   'QaReports.Completed': 'When this comparison or historical-file check was captured. Original event time is separate and may be unavailable.',
   'QaReports.Scope': 'Whole-project comparison or historical source-file validation. Historical file checks do not certify live events.',

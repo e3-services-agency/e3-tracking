@@ -66,12 +66,14 @@ interface Report {
         current_acknowledged: boolean;
     }[];
 }
-export function QaReports({ api, rows, onChanged, revision = 0, currentFindingIds = [] }: {
+const EMPTY_FINDING_IDS: string[] = [];
+export function QaReports({ api, rows, onChanged, revision = 0, currentFindingIds = EMPTY_FINDING_IDS, currentFindingsLoading = false }: {
     api: CommentsPanelApi;
     rows: CommentPanelRow[];
     onChanged: () => void | Promise<void>;
     revision?: number;
     currentFindingIds?: string[];
+    currentFindingsLoading?: boolean;
 }) {
     const commentLink = useCommentLink();
     const [reports, setReports] = useState<Report[]>([]), [selected, setSelected] = useState<Report | null>(null), [error, setError] = useState('');
@@ -122,7 +124,7 @@ export function QaReports({ api, rows, onChanged, revision = 0, currentFindingId
         if (target.entityType === 'qa_report' && reports.some(r => r.id === target.entityId)) {
             void open(target.entityId);
         }
-        else if (target.entityType === 'finding' && !currentFindingIds.includes(target.entityId)) {
+        else if (target.entityType === 'finding' && !currentFindingsLoading && !currentFindingIds.includes(target.entityId)) {
             void request(`${base}/findings/${target.entityId}/history`).then(async (res) => {
                 if (!res.ok)
                     return;
@@ -131,7 +133,7 @@ export function QaReports({ api, rows, onChanged, revision = 0, currentFindingId
                     void open(data.appearances[0].report_id);
             });
         }
-    }, [commentLink, reports, base, request]);
+    }, [commentLink, reports, base, request, currentFindingsLoading, currentFindingIds]);
     return <section id="qa-reports" aria-label="QA reports" className="space-y-3 min-w-0"><h2 className="text-lg font-semibold">QA reports</h2><p className="text-sm text-gray-500">Completed comparisons and historical file checks capture immutable results. Historical file reports remain separate from observed-event QA. Report discussion and finding discussion are separate. Completing a discussion does not fix a finding or certify an event.</p>{error && <p role="alert">{error}</p>}
  <div className="overflow-x-auto"><table className="w-full text-sm text-left"><thead><tr><HintTh hintScope="QaReports">Report</HintTh><HintTh hintScope="QaReports">Completed</HintTh><HintTh hintScope="QaReports">Scope</HintTh><HintTh hintScope="QaReports">Recorded results</HintTh><HintTh hintScope="QaReports">Actions</HintTh></tr></thead><tbody>{reports.map(r => <tr key={r.id} className="border-t"><td><button type="button" onClick={() => void open(r.id)}>Report #{String(r.report_sequence).padStart(3, '0')}</button></td><td>{new Date(r.completed_at).toLocaleString()}</td><td>{r.scope.type === 'historical_file_validation' ? 'Historical source files' : 'Whole project'}</td><td>{r.scope.type === 'historical_file_validation' ? <>{r.summary.checked ?? 0} checked / {r.summary.failed ?? 0} failed / {r.summary.skipped ?? 0} skipped (check instances)</> : <>{r.summary.recorded_counts.items} unique items / {r.summary.recorded_counts.produced} produced / {r.summary.recorded_counts.newly_resolved} newly resolved</>}</td><td>{r.scope.type === 'historical_file_validation' && api.mode === 'internal' && <a href={`${base}/historical-files/reports/${r.id}/view`}>Open historical report</a>}<TargetCollaboration api={api} entityType="qa_report" entityId={r.id} label={`Report #${String(r.report_sequence).padStart(3, '0')}`} rows={rows} onChanged={onChanged} forceOpen={commentLink.kind === 'target' && commentLink.target.entityId === r.id}/></td></tr>)}</tbody></table></div>{!reports.length && !error && <p>No completed reports yet. History starts with the next real comparison or confirmed historical file validation.</p>}
  {selected && selected.scope.type !== 'historical_file_validation' && <article className="rounded border p-3 space-y-3 [overflow-wrap:anywhere]"><div className="flex justify-between"><h3>Recorded in Report #{String(selected.report_sequence).padStart(3, '0')}</h3><button type="button" onClick={() => setSelected(null)}>Close report</button></div><p>Whole-project comparison / {new Date(selected.completed_at).toLocaleString()}</p><p>Comparisons: {selected.scope.comparison_ids?.join(', ')}</p><p>Participating QA runs: {selected.scope.participating_runs?.length ?? 0}</p>{selected.scope.participating_runs?.filter(r => r.sample).map(r => <p key={r.id} className="text-sm">Extension sample: {qaSampleSummaryLine(r.sample as QaSampleFacts)}{r.sample?.build ? ` / ${r.sample.build}` : ''}{r.sample?.redacted ? ` / ${r.sample.redaction_note ?? 'values masked'}` : ''}</p>)}{selected.scope.participating_runs?.filter(r => r.samples?.length).map(r => <QaSamplesTable key={`s-${r.id}`} samples={r.samples} />)}

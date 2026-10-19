@@ -2,8 +2,7 @@ import {useCommentLink} from '@/src/features/comments/useCommentLink';
 import {QaReports} from '@/src/features/findings/QaReports';
 import {TargetCollaboration,useProjectComments} from '@/src/features/comments/TargetCollaboration';
 import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
-import { EnumSelect } from '@/src/components/ui/EnumSelect';
-import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
+import { HintTh } from '@/src/components/ui/FieldHint';
 import { FindingPriorityBadge, SeverityBadge, StatusBadge } from '@/src/components/ui/badges';
 /**
  * Findings page (T-1-09, D-07 simplified UI; T-2-04 adds comparison 4, `data_manager`): a table of
@@ -27,8 +26,13 @@ import { API_BASE } from '@/src/config/env';
 import { COMPARISON_IDS, FINDING_KINDS, FINDING_PRIORITIES, FINDING_SEVERITIES, FINDING_STATUSES } from '@/src/domain/enums';
 import { showEmptyState, showLoadingPlaceholder } from '@/src/domain/loadingState';
 import { EmptyState } from '@/src/components/ui/EmptyState';
+import { CELL, HEAD_TEXT, ViewFrame, ViewRow, ViewToolbar, useDensity } from '@/src/features/views/ViewParts';
+import { FindingsOverview } from '@/src/features/findings/FindingsOverview';
+import { FindingsPagination } from '@/src/features/findings/FindingsPagination';
+import { enumLabel } from '@/src/domain/enumLabels';
+import { searchFindings } from '@/src/features/findings/internalFindingsModel';
 
-interface FindingRow {
+export interface FindingRow {
   id: string;
   finding_sequence:number;
   comparison: string;
@@ -41,6 +45,7 @@ interface FindingRow {
   expected_json?: unknown;
   message: string | null;
   status: string;
+  resolved_by?: string | null;
   last_seen_at: string;
   /** D-89 (T-5-47): derived by the backend at read time. */
   priority?: string;
@@ -70,11 +75,26 @@ async function parseJson(res: Response): Promise<any> {
 
 export function Findings() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
+  if (!hasValidProjectContext || !activeProjectId) return <div className="p-8 text-sm text-gray-500">Select a project first.</div>;
+  // A project switch discards its filters, pages, comments and in-flight result state together.
+  return <ProjectFindings key={activeProjectId} activeProjectId={activeProjectId} />;
+}
+
+function ProjectFindings({ activeProjectId }: { activeProjectId: string }) {
   const findingCommentLink=useCommentLink();
   const discussions=useProjectComments(activeProjectId??'');
   const [reportRevision,setReportRevision]=useState(0);
   const [findings, setFindings] = useState<FindingRow[]>([]);
   const [events, setEvents] = useState<EventOption[]>([]);
+  const [projectFindings, setProjectFindings] = useState<FindingRow[] | null>(null);
+  const [overviewError, setOverviewError] = useState(false);
+  const [search, setSearch] = useState('');
+  const [density, setDensity] = useDensity();
+  const cell = `${CELL[density]} align-top`;
+  const head = `${CELL[density]} ${HEAD_TEXT}`;
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [loadedScope, setLoadedScope] = useState<string | null>(null);
   const [comparison, setComparison] = useState('');
   const [kind, setKind] = useState('');
   const [severity, setSeverity] = useState('');
@@ -91,6 +111,9 @@ export function Findings() {
   const pendingFindingsRunId = useStore((s) => s.pendingFindingsRunId);
   const setPendingFindingsRunId = useStore((s) => s.setPendingFindingsRunId);
   const [runIdFilter, setRunIdFilter] = useState<string | null>(null);
+  const scope = JSON.stringify([comparison, kind, severity, priority, eventId, status, runIdFilter]);
+  const live = useRef(true);
+  useEffect(() => { live.current = true; return () => { live.current = false; }; }, []);
   const setRequestedTab = useStore((s) => s.setRequestedTab);
   const setEventCardEventId = useStore((s) => s.setEventCardEventId);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
@@ -112,7 +135,8 @@ export function Findings() {
   }, [pendingFindingsRunId, setPendingFindingsRunId]);
 
   const eventNameById = useMemo(() => new Map(events.map((e) => [e.id, e.name])), [events]);
-  const { sorted: sortedFindings, sort } = useSortableTable(findings, {
+  const visibleFindings = useMemo(() => searchFindings(loadedScope === scope ? findings : [], search, eventNameById), [findings, loadedScope, scope, search, eventNameById]);
+  const { sorted: sortedFindings, sort } = useSortableTable(visibleFindings, {
     priority: (f) => f.priority_rank ?? null,
     severity: (f) => ({ error: 1, warning: 2, info: 3 } as Record<string, number>)[f.severity] ?? 9,
     kind: (f) => f.kind,
@@ -130,13 +154,10 @@ export function Findings() {
   const loadTokenRef = useRef(0);
 
   const load = useCallback(async () => {
-    if (!hasValidProjectContext || !activeProjectId) {
-      setLoading(false);
-      return;
-    }
     const token = ++loadTokenRef.current;
     setLoading(true);
     setError(null);
+    setLoadedScope(null);
     try {
       const params = new URLSearchParams();
       if (comparison) params.set('comparison', comparison);
@@ -148,9 +169,7 @@ export function Findings() {
       if (runIdFilter) params.set('qa_run_id', runIdFilter);
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/findings?${params.toString()}`);
       const data = await parseJson(res);
-      const eventsRes = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/events`);
-      const eventsData = await parseJson(eventsRes);
-      if (token !== loadTokenRef.current) return; // a newer load() has since started; discard this one
+      if (!live.current || token !== loadTokenRef.current) return; // a newer load() has since started; discard this one
       if (!res.ok) {
         setError(typeof data?.error === 'string' ? data.error : 'Failed to load findings.');
         setFindings([]);
@@ -165,25 +184,64 @@ export function Findings() {
         return;
       }
       setFindings(data);
-      if (eventsRes.ok) {
-        if (Array.isArray(eventsData)) {
-          setEvents(eventsData.map((e: { id: string; name: string }) => ({ id: e.id, name: e.name })));
-        } else {
-          console.error('Unexpected events response shape', eventsData);
-        }
-      }
+      setLoadedScope(scope);
+
     } catch {
-      if (token !== loadTokenRef.current) return;
+      if (!live.current || token !== loadTokenRef.current) return;
       setError('Failed to load findings.');
       setFindings([]);
     } finally {
-      if (token === loadTokenRef.current) setLoading(false);
+      if (live.current && token === loadTokenRef.current) setLoading(false);
     }
-  }, [hasValidProjectContext, activeProjectId, comparison, kind, severity, priority, eventId, status, runIdFilter]);
+  }, [activeProjectId, comparison, kind, severity, priority, eventId, status, runIdFilter, scope]);
 
   useEffect(() => {
-    load();
+    void load();
+    return () => { loadTokenRef.current++; };
   }, [load]);
+
+  // This independent snapshot is deliberately unfiltered: paging/search/status must never
+  // turn project totals into page totals. Refresh it only after comparison or resolve/reopen.
+  useEffect(() => {
+    let active = true;
+    setProjectFindings(null); setOverviewError(false);
+    void Promise.all([
+      fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/findings`),
+      fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/events`),
+    ]).then(async ([rowsRes, eventsRes]) => {
+      const [rows, eventRows] = await Promise.all([parseJson(rowsRes), parseJson(eventsRes)]);
+      if (!active) return;
+      if (!rowsRes.ok || !eventsRes.ok || !Array.isArray(rows) || !Array.isArray(eventRows)) throw new Error('overview');
+      setProjectFindings(rows);
+      setEvents(eventRows.map((e: EventOption) => ({ id: e.id, name: e.name })));
+    }).catch(() => { if (active) setOverviewError(true); });
+    return () => { active = false; };
+  }, [activeProjectId, reportRevision]);
+
+  const currentFindingIds = useMemo(() => visibleFindings.map(f => f.id), [visibleFindings]);
+  const pageCount = Math.max(1, Math.ceil(sortedFindings.length / pageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pageFindings = sortedFindings.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  useEffect(() => { setPage(1); }, [scope, search, sort.key, sort.dir, pageSize]);
+  useEffect(() => { setPage(p => Math.min(p, pageCount)); }, [pageCount]);
+  const linkedId = findingCommentLink.kind === 'target' && findingCommentLink.target.entityType === 'finding' ? findingCommentLink.target.entityId : null;
+  const linkKey = findingCommentLink.kind === 'target' ? JSON.stringify(findingCommentLink.target) : null;
+  const [revealedLink, setRevealedLink] = useState<string | null>(null);
+  const tableLoading = loading || (!error && loadedScope !== scope);
+  useEffect(() => {
+    if (!linkedId) { setRevealedLink(null); return; }
+    if (revealedLink === linkKey) return;
+    const index = sortedFindings.findIndex(f => f.id === linkedId);
+    if (index >= 0) {
+      setPage(Math.floor(index / pageSize) + 1);
+      setRevealedLink(linkKey);
+    } else if (loadedScope === scope && projectFindings?.some(f => f.id === linkedId)) {
+      setComparison(''); setKind(''); setSeverity(''); setPriority(''); setEventId(''); setStatus(''); setRunIdFilter(null); setSearch('');
+    }
+  }, [linkedId, linkKey, revealedLink, projectFindings, sortedFindings, pageSize, loadedScope, scope]);
+
+  const latestLoad = useRef(load);
+  latestLoad.current = load;
 
   const runComparison = async () => {
     if (!activeProjectId) return;
@@ -191,17 +249,21 @@ export function Findings() {
     setError(null);
     try {
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/comparison/run`, { method: 'POST' });
+      if (!live.current) return;
       if (!res.ok) {
         const data = await parseJson(res);
+        if (!live.current) return;
         setError(typeof data?.error === 'string' ? data.error : 'Comparison run failed.');
         return;
       }
-      await load();
+      if (!live.current) return;
+      await latestLoad.current();
+      if (!live.current) return;
       setReportRevision(v=>v+1);
     } catch {
-      setError('Comparison run failed.');
+      if (live.current) setError('Comparison run failed.');
     } finally {
-      setRunning(false);
+      if (live.current) setRunning(false);
     }
   };
 
@@ -218,27 +280,27 @@ export function Findings() {
         method: 'PATCH',
         body: JSON.stringify({ status: nextStatus }),
       });
+      if (!live.current) return;
       if (!res.ok) {
         const data = await parseJson(res);
+        if (!live.current) return;
         setError(typeof data?.error === 'string' ? data.error : 'Failed to update this finding.');
         return;
       }
-      await load();
+      if (!live.current) return;
+      await latestLoad.current();
+      if (!live.current) return;
       setReportRevision(v=>v+1);
     } catch {
-      setError('Failed to update this finding.');
+      if (live.current) setError('Failed to update this finding.');
     } finally {
-      setResolvingId(null);
+      if (live.current) setResolvingId(null);
     }
   };
 
-  if (!hasValidProjectContext || !activeProjectId) {
-    return <div className="p-8 text-sm text-gray-500">Select a project first.</div>;
-  }
-
   return (
     <div className="flex-1 flex flex-col">
-      <PageHeader className="flex items-center justify-between">
+      <PageHeader className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Findings</h1>
           <p className="text-sm text-gray-500 mt-1">Definition vs mapping (1), mapping vs observations (2), definition vs observations (3) and definition vs Data Manager (4). A finding resolved by hand while it still reproduces is <GlossaryTerm glossaryKey="acknowledged">acknowledged</GlossaryTerm>.</p>
@@ -251,81 +313,52 @@ export function Findings() {
 
       <PageBody className="space-y-4">
         {error && (
-          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
+          <div role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
         )}
-        <div className="bg-white rounded-lg border shadow-sm p-4 flex flex-wrap items-end gap-3">
-          <div className="space-y-1">
-            <FieldLabel className="text-xs font-medium text-gray-500" hint="Comparison" hintScope="Findings">Comparison</FieldLabel>
-            <select value={comparison} onChange={(e) => setComparison(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
-              <option value="">All</option>
-              {COMPARISON_IDS.map((c) => <option key={c} value={c}>{comparisonLabel(c)}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <FieldLabel className="text-xs font-medium text-gray-500" hint="Kind" hintScope="Findings">Kind</FieldLabel>
-            <select value={kind} onChange={(e) => setKind(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
-              <option value="">All</option>
-              {FINDING_KINDS.map((k) => <option key={k} value={k}>{kindLabel(k)}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <FieldLabel className="text-xs font-medium text-gray-500" hint="Priority" hintScope="Findings">Priority</FieldLabel>
-            <select value={priority} onChange={(e) => setPriority(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
-              <option value="">All</option>
-              {FINDING_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <FieldLabel className="text-xs font-medium text-gray-500" hint="Severity" hintScope="Findings">Severity</FieldLabel>
-            <EnumSelect kind="severity" values={FINDING_SEVERITIES} emptyLabel="All" value={severity} onChange={(e) => setSeverity(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm" />
-          </div>
-          <div className="space-y-1">
-            <FieldLabel className="text-xs font-medium text-gray-500" hint="Event" hintScope="Findings">Event</FieldLabel>
-            <select value={eventId} onChange={(e) => setEventId(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
-              <option value="">All</option>
-              {events.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <FieldLabel className="text-xs font-medium text-gray-500" hint="Status" hintScope="Findings">Status</FieldLabel>
-            <EnumSelect kind="status" values={FINDING_STATUSES} emptyLabel="All" value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm" />
-          </div>
-          {runIdFilter && (
-            <Button type="button" variant="outline" onClick={() => setRunIdFilter(null)}>
-              Clear run filter
-            </Button>
-          )}
+        <FindingsOverview findings={projectFindings} events={events} failed={overviewError} />
+        <div className="min-w-0 [&_input]:max-w-full [&_select]:min-w-0 [&_select]:max-w-full">
+        <ViewToolbar search={search} onSearch={setSearch} searchLabel="Search findings" placeholder="Search number, message, event or kind" density={density} onDensity={setDensity}
+          filters={[
+            { label: 'Filter by comparison', value: comparison, onChange: setComparison, allLabel: 'All comparisons', options: COMPARISON_IDS.map(value => ({ value, label: comparisonLabel(value) })) },
+            { label: 'Filter by kind', value: kind, onChange: setKind, allLabel: 'All kinds', options: FINDING_KINDS.map(value => ({ value, label: kindLabel(value) })) },
+            { label: 'Filter by priority', value: priority, onChange: setPriority, allLabel: 'All priorities', options: FINDING_PRIORITIES.map(value => ({ value, label: value })) },
+            { label: 'Filter by severity', value: severity, onChange: setSeverity, allLabel: 'All severities', options: FINDING_SEVERITIES.map(value => ({ value, label: enumLabel('severity', value) })) },
+            { label: 'Filter by event', value: eventId, onChange: setEventId, allLabel: 'All events', options: events.map(e => ({ value: e.id, label: e.name })) },
+            { label: 'Filter by status', value: status, onChange: setStatus, allLabel: 'All statuses', options: FINDING_STATUSES.map(value => ({ value, label: enumLabel('status', value) })) },
+          ]}>
+          {runIdFilter && <Button type="button" size="sm" variant="outline" onClick={() => setRunIdFilter(null)}>Clear run filter</Button>}
+        </ViewToolbar>
         </div>
-
-        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
-          <table className="w-full text-left text-sm">
+        <p className="text-xs text-gray-500">Current runtime findings. QA reports below keep their recorded results; historical file checks are separate.</p>
+        <FindingsPagination total={sortedFindings.length} page={currentPage} pageSize={pageSize} onPage={setPage} onPageSize={setPageSize} loading={tableLoading} />
+        <ViewFrame label="Findings">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <SortableTh sort={sort} column="priority" className="px-6 py-3 font-medium text-gray-500" hint="Priority" hintScope="Findings"><GlossaryTerm glossaryKey="finding_priority">Priority</GlossaryTerm></SortableTh>
-                <SortableTh sort={sort} column="severity" className="px-6 py-3 font-medium text-gray-500" hint="Severity" hintScope="Findings">Severity</SortableTh>
-                <SortableTh sort={sort} column="kind" className="px-6 py-3 font-medium text-gray-500" hint="Kind" hintScope="Findings">Kind</SortableTh>
-                <SortableTh sort={sort} column="rule" className="px-6 py-3 font-medium text-gray-500" hint="Rule" hintScope="Findings">Rule</SortableTh>
-                <SortableTh sort={sort} column="comparison" className="px-6 py-3 font-medium text-gray-500" hint="Comparison" hintScope="Findings">Comparison</SortableTh>
-                <SortableTh sort={sort} column="event" className="px-6 py-3 font-medium text-gray-500" hint="Event" hintScope="Findings">Event</SortableTh>
-                <SortableTh sort={sort} column="message" className="px-6 py-3 font-medium text-gray-500" hint="Message" hintScope="Findings">Message</SortableTh>
-                <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" hint="Status" hintScope="Findings">Status</SortableTh>
-                <SortableTh sort={sort} column="last_seen" className="px-6 py-3 font-medium text-gray-500" hint="Last seen" hintScope="Findings">Last seen</SortableTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Actions" hintScope="Findings">Actions</HintTh>
+                <SortableTh sort={sort} column="priority" className={head} hint="Priority" hintScope="Findings"><GlossaryTerm glossaryKey="finding_priority">Priority</GlossaryTerm></SortableTh>
+                <SortableTh sort={sort} column="severity" className={head} hint="Severity" hintScope="Findings">Severity</SortableTh>
+                <SortableTh sort={sort} column="kind" className={head} hint="Kind" hintScope="Findings">Kind</SortableTh>
+                <SortableTh sort={sort} column="rule" className={head} hint="Rule" hintScope="Findings">Rule</SortableTh>
+                <SortableTh sort={sort} column="comparison" className={head} hint="Comparison" hintScope="Findings">Comparison</SortableTh>
+                <SortableTh sort={sort} column="event" className={head} hint="Event" hintScope="Findings">Event</SortableTh>
+                <SortableTh sort={sort} column="message" className={head} hint="Message" hintScope="Findings">Message</SortableTh>
+                <SortableTh sort={sort} column="status" className={head} hint="Status" hintScope="Findings">Status</SortableTh>
+                <SortableTh sort={sort} column="last_seen" className={head} hint="Last seen" hintScope="Findings">Last seen</SortableTh>
+                <HintTh className={head} hint="Actions" hintScope="Findings">Actions</HintTh>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {sortedFindings.map((f) => (
-                <tr key={f.id}>
-                  <td className="px-6 py-4">
+              {pageFindings.map((f) => (
+                <ViewRow key={f.id} rowId={f.id} highlighted={linkedId === f.id}>
+                  <td className={cell}>
                     <FindingPriorityBadge priority={f.priority} reasons={f.priority_reasons} />
                   </td>
-                  <td className="px-6 py-4">
+                  <td className={cell}>
                     <SeverityBadge severity={f.severity} />
                   </td>
-                  <td className="px-6 py-4 text-xs text-gray-700"><span>Finding #{String(f.finding_sequence).padStart(3,'0')}</span> <FindingTerm kind={f.kind} /></td>
-                  <td className="px-6 py-4 text-gray-700 text-xs">{ruleNameOf(f) ?? '—'}</td>
-                  <td className="px-6 py-4 text-gray-500 text-xs"><FindingTerm comparison={f.comparison} /></td>
-                  <td className="px-6 py-4 text-gray-900">
+                  <td className={`${cell} text-xs text-gray-700`}><span>Finding #{String(f.finding_sequence).padStart(3,'0')}</span> <FindingTerm kind={f.kind} /></td>
+                  <td className={`${cell} text-gray-700 text-xs`}>{ruleNameOf(f) ?? '—'}</td>
+                  <td className={`${cell} text-gray-500 text-xs`}><FindingTerm comparison={f.comparison} /></td>
+                  <td className={`${cell} text-gray-900`}>
                     {f.event_id ? (
                       <button
                         type="button"
@@ -338,10 +371,10 @@ export function Findings() {
                       '—'
                     )}
                   </td>
-                  <td className="px-6 py-4 text-gray-500">{f.message ?? '—'}</td>
-                  <td className="px-6 py-4 text-gray-500"><StatusBadge status={f.status} /></td>
-                  <td className="px-6 py-4 text-gray-500">{new Date(f.last_seen_at).toLocaleString()}</td>
-                  <td className="px-6 py-4">
+                  <td className={`${cell} text-gray-500`}>{f.message ?? '—'}</td>
+                  <td className={`${cell} text-gray-500`}><StatusBadge status={f.status} /></td>
+                  <td className={`${cell} text-gray-500`}>{new Date(f.last_seen_at).toLocaleString()}</td>
+                  <td className={cell}>
                     <TargetCollaboration api={{mode:'internal',projectId:activeProjectId!}} entityType="finding" entityId={f.id} label={`Finding #${String(f.finding_sequence).padStart(3,'0')}`} rows={discussions.rows} onChanged={discussions.reload} forceOpen={findingCommentLink.kind==='target'&&findingCommentLink.target.entityId===f.id}/>
                     <Button
                       type="button"
@@ -353,17 +386,17 @@ export function Findings() {
                       {f.status === 'resolved' ? 'Reopen' : 'Resolve'}
                     </Button>
                   </td>
-                </tr>
+                </ViewRow>
               ))}
-              {showEmptyState(loading, findings.length) && (
+              {!error && showEmptyState(tableLoading, sortedFindings.length) && (
                 <EmptyState
                   colSpan={10}
-                  message="No findings match these filters. Run a comparison to check the current definition, mapping and observations."
+                  message="No findings match these filters or search. Run a comparison to check the current definition, mapping and observations."
                   actionLabel="Run comparison"
                   onAction={() => void runComparison()}
                 />
               )}
-              {showLoadingPlaceholder(loading, findings.length) && (
+              {showLoadingPlaceholder(tableLoading, sortedFindings.length) && (
                 <tr>
                   <td colSpan={10} className="px-6 py-8 text-center text-gray-400">
                     Loading…
@@ -371,9 +404,8 @@ export function Findings() {
                 </tr>
               )}
             </tbody>
-          </table>
-        </div>
-        {activeProjectId&&<QaReports api={{mode:'internal',projectId:activeProjectId}} rows={discussions.rows} onChanged={discussions.reload} revision={reportRevision} currentFindingIds={findings.map(f=>f.id)}/>}
+        </ViewFrame>
+        {activeProjectId&&<QaReports api={{mode:'internal',projectId:activeProjectId}} rows={discussions.rows} onChanged={discussions.reload} revision={reportRevision} currentFindingIds={currentFindingIds} currentFindingsLoading={tableLoading || (!projectFindings && !overviewError) || (!!linkedId && revealedLink !== linkKey && !!projectFindings?.some(f => f.id === linkedId))}/>}
       </PageBody>
     </div>
   );

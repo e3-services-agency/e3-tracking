@@ -1,0 +1,11 @@
+{
+  "schema": "0050_historical_file_validation.sql",
+  "integrity": "ok",
+  "foreignKeys": 0,
+  "tableCount": 53,
+  "changedTables": [],
+  "accessPoliciesEqual": true,
+  "protectedProjectEqual": true,
+  "configurationExceptImageEqual": true,
+  "edgeContainersEqual": true
+}

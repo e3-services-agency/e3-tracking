@@ -5127,3 +5127,9 @@ Amended source manifest verified: only Findings toolbar width constraint changed
 
 ### 2026-10-19 10:48 | findings_qa -> codex-supervisor | PASS | T-5-55
 Independent20affected+25public checks,327/510/0/3scope probes, four fresh off-site restores and final desktop/narrow/deep-link/historical-navigation browser acceptance PASS. Source/reviewer gates closed; exact-image Docker smokes and hosted release/preservation remain supervisor gates.
+
+### 2026-10-19 11:02 | codex-supervisor -> ALL | PASS | T-5-55
+Hosted delivery complete: clean source dd6f823, exact running ef47f612 digest, health/schema0050 PASS. Actual numbered pages and327 overview verified in staff browser;390/1280 controls fit, viewport reset, no console errors. All53 database table counts/hashes, access policies, protected identity, nonimage config and edge IDs unchanged. Fresh4GCS restores and full0050 snapshot20261019T085155Z with extracted DB/config/checksums PASS; exact-image Caddy2/MCP1 executed with zero skips. Release report retains honest initial regression timeout/RPC and isolated16restore PASS. No hosted business mutations; source chat received the exact release proof.
+
+### 2026-10-19 11:02 | findings_qa -> codex-supervisor | INFO | T-5-55
+Cleanup verified: stopped only owned PID36960 after command-line/metadata ownership check; port3032 closed. Private evidence and four restore backups retained. User containers and older unrelated QA resources untouched. Final release gates complete.

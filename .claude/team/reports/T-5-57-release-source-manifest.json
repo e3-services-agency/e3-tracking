@@ -1,0 +1,42 @@
+[
+  {
+    "path": "src/domain/decisionInbox.ts",
+    "sha256": "e8f4829c8845afd23cc3d50e688b281a71df1865121925d1d0a93b58b6a0ef6f"
+  },
+  {
+    "path": "src/backend/services/decisionNativeChanges.service.ts",
+    "sha256": "f4901cb1d5097a5d3fdd1c76dcb0ae5912c18f3890211f045f7013a4a02cce93"
+  },
+  {
+    "path": "src/backend/services/decisionNativeChanges.test.ts",
+    "sha256": "c819ba9f77c19aeeb1eff84c973be2eea8c96bd4f4fcc40dc1c4f00fe2a55474"
+  },
+  {
+    "path": "src/domain/fieldHints.ts",
+    "sha256": "d378ca85bf1c6ced6020431f751c309227f3e189c17124588d65324750561d05"
+  },
+  {
+    "path": "src/features/views/UseCasesTable.tsx",
+    "sha256": "65dc0cfc0447a34c921bf61ddb84693fdf902f60f0e95e6c4d097093c4ce2a09"
+  },
+  {
+    "path": "src/pages/UseCases.tsx",
+    "sha256": "e356b1480243b46c23170497e06bf0eb3ffdd48b3a686c16a90cc4074003f637"
+  },
+  {
+    "path": "src/pages/UseCases.test.tsx",
+    "sha256": "093611c449acc37973ae96bf60dc2cc84315d0dcbc16cadc51616c26dbdbc2d8"
+  },
+  {
+    "path": "src/pages/DecisionInbox.tsx",
+    "sha256": "d167836e1df5ad84c0c33fec925e846dbe1b65aa7712c61468542d93f49033b9"
+  },
+  {
+    "path": "src/pages/DecisionInbox.test.tsx",
+    "sha256": "be7356951dce8880572f93b8e0788956d43e42c96bba25b7b405e3fb8b2b05b0"
+  },
+  {
+    "path": "docs/guide/decision-inbox.md",
+    "sha256": "7a2b7b56633b97d5193b7df55affce5017498dcad35c79866bccc4d967123749"
+  }
+]

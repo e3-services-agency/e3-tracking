@@ -1,0 +1,45 @@
+# Actionable ODO inbox and inline use-case lifecycle
+
+T-5-57/T-5-58 continue the authorized VM resolution after T-5-56. The user requested useful executable decisions and direct lifecycle changes from the overview. The reported missing events were a connection issue; hosted ODO already contained17events/32variants. Synthetic localhost project data is separate and is never synchronized into ODO.
+
+## Delivered behavior
+
+The default E3 changes queue shows current unapproved executable proposals. Business choices, completed/closed records and all revisions have distinct views, counts, search and exact-record links. Compact cards expand for evidence, exact operations and receipts. Refresh/Retry retains cached cards, distinguishes a saved write from an unknown outcome and locks repeated actions until readback succeeds. A saved-result link reveals a decision after it leaves the actionable queue. Completed historical documentation retains its original authority.
+
+Staff can select Agreed lifecycle directly in each Use cases overview row. The existing status-only PATCH/history path persists the change, with per-row saving, success and failure feedback. Project-generation guards prevent stale cross-project responses, including A-to-B-to-A navigation; only saved lifecycle is merged. The shared view remains read-only. Captured configuration, observations and QA are independent of agreed lifecycle.
+
+The native executor now accepts event_property_required with exact event/property IDs and strict boolean from/to, updating only an existing nondeleted project-scoped link through the normal DAL. Duplicate, unchanged, stale, missing, deleted and foreign transitions reject. Full event/link/definition/variant baselines, preview rollback, atomic approval, replay receipts, source-follow-up stripping and restored-history restrictions remain. No schema/auth/dependency expansion or external Bloomreach writes.
+
+## Source and verification
+
+Exact ten-file application commit b31e6109453779523ac40c4a65879de373cf2261, branch codex/T-5-57-actionable-odo-inbox, checked fast-forward into agent-setup. Separate implementation, independent source/proposal review and QA passed under D-73. The dirty primary checkout and main were preserved. Scoped release-source manifest and private receipts remain ignored under data/T-5-57.
+
+Clean production build and type/color lint passed. The bounded full suite ran once:271files/2683assertions passed,1file/1assertion failed, zero skips; an onTaskUpdate RPC timeout also occurred. The sole failed assertion was the existing default-image MCP startup, which never reached the server because the fixed local subnet overlapped another stack. This is not represented as a green full suite. Native executor27/27, inbox17/17, lifecycle9/9 and field-hint coverage6/6 passed in that run. Final exact-candidate Docker tests passed3assertions across2files, zero skips, including strict32-tool MCP and both Caddy checks, using an invocation-only isolated-network override. Production network/configuration were unchanged.
+
+Actual synthetic browser checks passed inline lifecycle save, native required-field approval, queue movement, saved receipt and independent API readback; browser warnings/errors were empty. No real ODO lifecycle or approval was changed for QA. Private screenshots are retained in the task artifact directory.
+
+## Backup and recovery
+
+Four fresh backups were written/uploaded with zero failures at2026-10-19T13-54-49-159Z.json. Automatic approval review rejected downloading sensitive client payloads to this PC; that transfer was not retried. The safe reviewed replacement restored the corresponding on-VM files in isolated networkless containers using the exact candidate image, with no live database/files mount. Operator-read GCS size/MD5 metadata matched every restored file. No backup payload or credential was transferred. The VM service account remains upload-only; IAM was unchanged.
+
+All four restores passed with zero warnings, schema0050, integrityOK and FK0. ODO retained17events/32variants/188properties/33use cases/24decision revisions/2historical sources/3reports. This proves restoration of VM bytes matching uploaded-object metadata, not a downloaded cloud-payload rehearsal. Private metadata-only evidence: data/T-5-57/vm-restore-gate-metadata.log.
+
+Fresh quiescent whole-data/config recovery point: /var/backups/e3-tracking/post-portal-0050-20261019T142014Z. Data/config/image checksums passed and extracted configuration matched the live pre-deploy configuration. Prior application digest be90854055c22343ef81ba2640c072addb1cc8245b8bd1bf3e0863d2f3ea6a6a is recorded there. After a candidate/config/data change, recovery restores the complete verified snapshot, not only the old image; restored OAuth grants/shared sessions are revoked by the reviewed helper. Never leave writers stopped at an unfinished gate.
+
+## Exact release and real proposal
+
+Candidate image: europe-west1-docker.pkg.dev/e3-tracking/e3-tracking/e3-tracking@sha256:3f7b9789bf4da067bf05bf999c6cc40894f5452473221d98f7f0f7e4096feb18 (tag b31e6109). Build/push, prefetch, deployment dry run and snapshot verification passed. Final hosted deployment and proposal-intake receipts are recorded below after readback.
+
+The reviewed fresh proposal ODO-EXEC-CONTRACT-01 contains22optional-to-required link transitions across10events. Its inputSHA256 is6af181edd0dcc1349f5e0b9903c3f0253d3725de3fdcb170224d987f217c1abb. It requires a fresh human decision: the prior documented ODO-CONTRACT-01 explicitly excluded native flags. Required presence applies to every payload/variant and consuming use case; empty-cart0/[] remain valid present values. Collection types/item schema, arithmetic, identity and contextual properties remain separate. Existing32variants are reused. Eight unresolved business choices and16historical documentation records are retained. The reviewed intake exposes preview/import only and verifies no native field/lifecycle changes or prior-history changes.
+
+## Final hosted readback
+
+Deployment completed successfully. Expected and running image digests match3f7b9789; app/backup/owned one-off MCP image IDs match the exact candidate. The MCP probe imported no application code and opened no database. Compose/Caddy checksums passed, app is healthy at schema0050 with writable DB and successful backup upload. Edge container IDs, protected ODO identity and access/configuration are unchanged. Before proposal intake, all53table counts and full-row hashes were exactly identical (data/T-5-57/deploy-preservation.json).
+
+Native preview/import passed exact content hash9342a8f66db6ee680dbf62577caa39afdf1d51d9b4774158b5019eee6ed1aec3. Saved decision d5de13b5-27a4-4f66-9105-30bbe25c6e91 is revision1/proposed/nonstale, with22operations and zero native writes. All24previous decision states/content hashes/histories, all22current field flags and all33use-case rows remained identical. No approval was submitted.
+
+The final whole-host audit recorded exactly one added decision revision/import history row, plus a concurrent OAuth runtime refresh. The original strict post-intake gate flagged those two additional tables; it was not silently ignored. A read-only comparison with the frozen on-VM snapshot verified all247prior OAuth audit rows unchanged and one new refreshed entry; two expired access tokens were pruned, two tokens issued and one refresh consumed. The grant and every policy remained unchanged. The first comparison could not open the frozen SQLite WAL on a read-only mount; the successful second check copied only frozen snapshot DB/WAL into disposable container tmpfs, with both original mounts read-only and network disabled. No payload left the VM. The reviewed final preservation receipt accounts for those exact runtime changes; the other49tables are identical, including all event/variant/property/requirement/use-case/observation/finding/report/change-log records. Evidence: postintake-preservation.json and oauth-runtime-check-2.log under ignored data/T-5-57.
+
+Authenticated hosted UI acceptance passed. Use cases shows33inline Agreed lifecycle selectors with the normal enum, without opening a record. Inbox shows1ready executable proposal,8business choices,16completed records and25total revisions; expanded exact actions list22required-field changes and no lifecycle/variant operations. No real status or approval was changed for browser QA. Browser warnings/errors were empty. Hosted use-case and inbox tabs are retained. Private proof images: odo-tracking-qa/lifecycle-inline-vm-live.png and actionable-inbox-vm-live.png under this chat's artifact directory. The owned3047synthetic QA server was stopped; the user's3046demo and unrelated services were preserved.
+
+T-5-57 and T-5-58 are complete. Application source is published to the VM; local synthetic project data remains separate. The user's next action is reviewing the real proposal or directly selecting an agreed lifecycle in the hosted overview, not redoing a general audit.

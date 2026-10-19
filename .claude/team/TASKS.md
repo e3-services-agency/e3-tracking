@@ -4,6 +4,8 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 
 | ID | Phase | Title | Owner | Depends on | Status | Acceptance |
 |----|-------|-------|-------|------------|--------|------------|
+| T-5-58 | 5 | Edit agreed lifecycle in staff use-case overview | codex | T-5-56 | DONE | Published b31e6109/3f7b9789; direct status-only PATCH/history,9local assertions and live controls; reports/RELEASE-ACTIONABLE-INBOX-LIFECYCLE-2026-10-19.md |
+| T-5-57 | 5 | Actionable ODO Decision inbox and reconciliation | codex | T-5-56 | DONE | Published b31e6109/3f7b9789; separate queues/retry/receipts; real22-field proposal imported unapproved, previous24decisions preserved; release report |
 | T-5-56 | 5 | Apply approved native Decision inbox changes | codex | T-5-50 | DONE | D-92; deployed9b6ca2fe/be908540,105 focused assertions/four restores, unchanged53tables/config/access; reports/RELEASE-DECISION-NATIVE-APPLY-2026-10-19.md |
 | T-5-55 | 5 | Internal Findings pagination and overview | findings_implementer | T-5-48/54 | DONE | D-91; reports/PLAN-INTERNAL-FINDINGS-2026-10-19.md |
 | T-5-53 | 5 | Hosted ODO integration and scoped promotion | codex_oauth_implementer | T-5-50/51/52 | DONE | D-90; preserve existing target identity and all native decisions/source/links; exact diff, transactional receipt and recovery gates |
